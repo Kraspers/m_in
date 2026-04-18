@@ -12,6 +12,7 @@
   .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
   .bubble-out:has(.msg-quote-out){min-width:200px;}
   .bubble-in:has(.msg-quote-out){min-width:200px;}
+  .bubble-in:has(.msg-quote-in){min-width:200px;}
   .msg-quote-name{color:rgba(255,255,255,0.95);font-size:12px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .msg-quote-text{color:rgba(255,255,255,0.72);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   /* ── Медиа превью (над полем ввода) ── */
@@ -189,6 +190,7 @@
   #profile-edit-slideable,#privacy-slideable,#pwd-slideable,#del-slideable{flex-shrink:0;}
   #profile-edit-wrap.open #profile-edit-slideable{transform:translateY(0);}
   #profile-edit-close-row{display:flex;align-items:center;padding:6px 16px 12px;}
+  #profile-edit-close-btn,#upv-close{border:none;background:rgba(0,0,0,0.28);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px;color:#fff;display:flex;align-items:center;gap:4px;padding:8px 12px;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer;z-index:2;}
   #profile-edit-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;}
   #profile-edit-sheet::-webkit-scrollbar{display:none;}
   .pe-field{background:#2C2C2E;border-radius:1rem;padding:14px 16px;border:none;outline:none;color:#fff;font-size:16px;font-family:inherit;width:100%;box-sizing:border-box;-webkit-user-select:text;user-select:text;}
@@ -278,7 +280,21 @@
   #chatlist-ctx-overlay.open #chatlist-ctx-menu{transform:scale(1);opacity:1;}
 #top-profile-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
 #top-profile-btn{padding:0;overflow:hidden;}
-#upv-close{position:absolute;top:14px;left:16px;border:none;background:rgba(0,0,0,0.28);border-radius:999px;color:#fff;display:flex;align-items:center;gap:4px;padding:8px 12px;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer;z-index:2;}
+#upv-close{position:absolute;top:14px;left:16px;}
+#user-profile-view{opacity:0;transition:opacity 0.22s ease;}
+#user-profile-view.open{opacity:1;}
+#upv-card{transform:translateY(18px) scale(0.98);opacity:0;transition:transform 0.28s cubic-bezier(0.22,1,0.36,1),opacity 0.2s ease;}
+#user-profile-view.open #upv-card{transform:translateY(0) scale(1);opacity:1;}
+.chat-row-skeleton{display:flex;align-items:center;gap:12px;background:rgba(44,44,46,0.82);border-radius:1.2rem;padding:10px 12px;min-height:68px;}
+.chat-row-skeleton-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(90deg,#2e2e31 0%,#3a3a3d 50%,#2e2e31 100%);background-size:200% 100%;animation:chat-skeleton-shimmer 1.2s linear infinite;}
+.chat-row-skeleton-lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;}
+.chat-row-skeleton-line{height:11px;border-radius:999px;background:linear-gradient(90deg,#2e2e31 0%,#3a3a3d 50%,#2e2e31 100%);background-size:220% 100%;animation:chat-skeleton-shimmer 1.2s linear infinite;}
+.chat-row-skeleton-line.w1{width:62%;}
+.chat-row-skeleton-line.w2{width:38%;}
+@keyframes chat-skeleton-shimmer{
+  0%{background-position:200% 0;}
+  100%{background-position:-200% 0;}
+}
 .upv-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;margin-top:16px;}
 .upv-action{background:#2C2C2E;border:none;border-radius:12px;min-height:66px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:inherit;cursor:pointer;}
 .upv-action span{font-size:21px;line-height:1;}

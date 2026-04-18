@@ -1486,7 +1486,13 @@
     if(copyToastTimer)clearTimeout(copyToastTimer);
     copyToastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
   }
-  function closeUserProfileView(){ document.getElementById('user-profile-view').style.display='none'; }
+  function closeUserProfileView(){
+    const view=document.getElementById('user-profile-view');
+    view.classList.remove('open');
+    setTimeout(()=>{
+      if(!view.classList.contains('open')) view.style.display='none';
+    },260);
+  }
   function openUserProfileView(p){
     window.__upvUserId=p.id||'';
     document.getElementById('upv-name').textContent=p.name||'Профиль';
@@ -1496,7 +1502,9 @@
     const av=document.getElementById('upv-avatar');
     if(p.avatarDataUrl) av.innerHTML=`<img src="${p.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     else av.textContent=(p.name||p.username||'U').charAt(0).toUpperCase();
-    document.getElementById('user-profile-view').style.display='flex';
+    const view=document.getElementById('user-profile-view');
+    view.style.display='flex';
+    requestAnimationFrame(()=>view.classList.add('open'));
   }
   /* ── Инициализация кнопки отправки ── */
   (function(){
@@ -1675,12 +1683,23 @@
     async function loadChats(query=''){
       const holder=document.getElementById('chat-list');
       if(!holder) return;
+      holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
+      const emptyPre=document.getElementById('chat-list-empty');
+      if(emptyPre) emptyPre.style.display='none';
+      const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
+        <div class="chat-row-skeleton-avatar"></div>
+        <div class="chat-row-skeleton-lines">
+          <div class="chat-row-skeleton-line w1"></div>
+          <div class="chat-row-skeleton-line w2"></div>
+        </div>
+      </div>`).join('');
+      holder.insertAdjacentHTML('beforeend',skel);
       try{
         const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
         const items=data.items||[];
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
-        holder.querySelectorAll('.chat-row-item').forEach(n=>n.remove());
+        holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
         items.forEach(c=>usersMap.set(c.id,c));
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
@@ -1701,7 +1720,9 @@
             if(u) openUserProfileView(u);
           });
         });
-      }catch(_){}
+      }catch(_){
+        holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
+      }
     }
     async function openChatWith(userId){
       currentChatUserId=userId;
@@ -1714,6 +1735,14 @@
       showScreen('screen-chat');
     }
     window.openChatWith=openChatWith;
+    function displayNameForMessageUser(uid){
+      if(me&&uid===me.id) return me.name||me.username||'Вы';
+      const u=usersMap.get(uid);
+      if(u) return u.name||u.username||'Пользователь';
+      const t=document.getElementById('chat-contact-name');
+      if(t&&t.textContent.trim()) return t.textContent.trim();
+      return 'Пользователь';
+    }
     function renderChatMessages(items){
       const wrap=document.getElementById('chat-messages');
       const bottom=document.getElementById('chat-bottom');
@@ -1725,7 +1754,7 @@
         const mine=me&&m.fromUserId===me.id;
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
-        const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(usersMap.get(reply.fromUserId)?.name||'Пользователь')}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
+        const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaHtml=(Array.isArray(m.media)?m.media:[]).map(src=>`<img src="${esc(src)}" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:6px;">`).join('');
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderMentions(m.text)}</p>`:'';
@@ -1735,6 +1764,19 @@
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
       wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
       wrap.querySelectorAll('.msg-quote-out,.msg-quote-in').forEach(bindQuoteTap);
+      items.forEach(m=>{
+        const bubble=wrap.querySelector(`.msg-bubble[data-mid="${m.id}"]`);
+        if(!bubble) return;
+        const reactionState={};
+        const source=m.reactions||{};
+        Object.entries(source).forEach(([emoji,userIds])=>{
+          const count=Array.isArray(userIds)?userIds.length:0;
+          if(!count) return;
+          reactionState[emoji]={count,active:!!(me&&Array.isArray(userIds)&&userIds.includes(me.id))};
+        });
+        reactionsData.set(bubble,reactionState);
+        renderReactions(bubble);
+      });
       wrap.querySelectorAll('.mention-link').forEach(el=>{
         el.addEventListener('click',async e=>{
           e.preventDefault();
