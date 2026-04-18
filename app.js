@@ -1540,12 +1540,18 @@
       if(topBtn){
         topBtn.textContent=initials(name);
         if(avatar){
-          topBtn.innerHTML=`<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+          topBtn.innerHTML=`<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">`;
           topBtn.style.overflow='hidden';
           topBtn.style.background='none';
         }else{
+          topBtn.innerHTML=initials(name);
           topBtn.style.background='linear-gradient(135deg,#0078FF,#005fcc)';
         }
+      }
+      const mainBanner=document.getElementById('profile-main-banner');
+      if(mainBanner){
+        mainBanner.style.backgroundImage=banner?`url('${banner}')`:'none';
+        mainBanner.style.backgroundColor=banner?'transparent':'#fff';
       }
       const bImg=document.getElementById('pe-banner-img');
       if(bImg){
@@ -1558,14 +1564,27 @@
     window.showMainPanel=function(){
       document.getElementById('login-main-panel').style.display='flex';
       document.getElementById('reg-panel').classList.remove('active');
+      document.getElementById('vpsc-panel').classList.remove('active');
       document.getElementById('login-error').textContent='';
       document.getElementById('reg-error').textContent='';
+      document.getElementById('vpsc-error').textContent='';
     };
     window.showRegPanel=function(){
       document.getElementById('login-main-panel').style.display='none';
+      document.getElementById('vpsc-panel').classList.remove('active');
       document.getElementById('reg-panel').classList.add('active');
       document.getElementById('login-error').textContent='';
       document.getElementById('reg-error').textContent='';
+      document.getElementById('vpsc-error').textContent='';
+    };
+    window.showVpscPanel=function(){
+      document.getElementById('login-main-panel').style.display='none';
+      document.getElementById('reg-panel').classList.remove('active');
+      document.getElementById('vpsc-panel').classList.add('active');
+      document.getElementById('login-error').textContent='';
+      document.getElementById('vpsc-error').textContent='';
+      updateVpscBoxes('');
+      setTimeout(()=>document.getElementById('vpsc-hidden-input').focus(),10);
     };
     function openAuth(tab='login'){
       showLoginScreen();
@@ -1587,6 +1606,7 @@
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
+        await loadChats();
       }catch(e){ document.getElementById('login-error').textContent=e.message; }
     };
     window.doRegister=async function(){
@@ -1605,8 +1625,50 @@
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
+        await loadChats();
       }catch(e){ document.getElementById('reg-error').textContent=e.message; }
     };
+    function updateVpscBoxes(code){
+      for(let i=0;i<6;i++){
+        const box=document.getElementById(`vpsc-b${i}`);
+        if(!box) continue;
+        box.textContent=code[i]||'';
+        box.classList.toggle('active-box',i===Math.min(code.length,5));
+      }
+    }
+    window.doVpscLogin=async function(){
+      const code=document.getElementById('vpsc-hidden-input').value.trim();
+      if(code.length!==6){ document.getElementById('vpsc-error').textContent='Введите 6 цифр'; return; }
+      try{
+        const res=await api('/vpsc/login',{method:'POST',body:JSON.stringify({code})});
+        authToken=res.token;
+        localStorage.setItem('auth_token',authToken);
+        closeAuth();
+        applyProfileUI(res.user);
+        startRealtime();
+        await loadChats();
+      }catch(e){ document.getElementById('vpsc-error').textContent=e.message; }
+    };
+    async function loadChats(query=''){
+      const holder=document.getElementById('chat-list');
+      if(!holder) return;
+      try{
+        const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
+        const items=data.items||[];
+        const empty=document.getElementById('chat-list-empty');
+        if(empty) empty.style.display=items.length?'none':'block';
+        holder.querySelectorAll('.chat-row-item').forEach(n=>n.remove());
+        const html=items.map(c=>`<button class="chat-row chat-row-item" data-chat-id="${esc(c.id||'')}">
+          <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;">${esc(c.avatar||'U')}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${c.time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(c.time)}</span>`:''}</div>
+            <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.preview||'')}</span>
+          </div>
+        </button>`).join('');
+        holder.insertAdjacentHTML('beforeend',html);
+        holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
+      }catch(_){}
+    }
     async function refreshMe(){
       const res=await api('/me');
       applyProfileUI(res.user);
@@ -1643,8 +1705,8 @@
           const data=await api(`/chats?q=${encodeURIComponent(q.trim())}`);
           const filtered=data.items||[];
           if(!filtered.length){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Ничего не найдено</div>';return;}
-          res.innerHTML=filtered.map(c=>`<button class="chat-row" onclick="showScreen('screen-chat')" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
-            <div class="tg-avatar" style="width:48px;height:48px;background:${c.color};font-size:20px;flex-shrink:0;">${c.avatar}</div>
+          res.innerHTML=filtered.map(c=>`<button class="chat-row chat-row-item" onclick="showScreen('screen-chat')" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
+            <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;flex-shrink:0;">${esc(c.avatar||'U')}</div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name)}</span>${c.time?`<span style="color:#8E8E93;font-size:12px;">${c.time}</span>`:''}</div>
               <span style="color:#8E8E93;font-size:14px;">${esc(c.preview)}</span>
@@ -1698,13 +1760,20 @@
     window.openPrivacy=function(){
       const wrap=document.getElementById('privacy-wrap');
       wrap.classList.add('open');
-      if(isDesktop()) showScreen('screen-profile',true);
     };
     window.openProfileEdit=function(){
       profileJustOpened=true;
       document.getElementById('profile-edit-wrap').classList.add('open');
-      if(isDesktop()) showScreen('screen-profile',true);
       setTimeout(()=>{ profileJustOpened=false; },600);
+    };
+    window.logoutAccount=async function(){
+      try{ await api('/logout',{method:'POST'}); }catch(_){}
+      if(stream) stream.close();
+      stream=null;
+      authToken='';
+      localStorage.removeItem('auth_token');
+      openAuth('login');
+      loadChats();
     };
 
     document.getElementById('login-username').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('login-password').focus(); });
@@ -1713,6 +1782,12 @@
     document.getElementById('reg-username').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('reg-password').focus(); });
     document.getElementById('reg-password').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('reg-password2').focus(); });
     document.getElementById('reg-password2').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doRegister(); });
+    document.getElementById('vpsc-hidden-input').addEventListener('input',e=>{
+      e.target.value=e.target.value.replace(/\D/g,'').slice(0,6);
+      updateVpscBoxes(e.target.value);
+    });
+    document.getElementById('vpsc-hidden-input').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doVpscLogin(); });
+    document.getElementById('vpsc-boxes').addEventListener('click',()=>document.getElementById('vpsc-hidden-input').focus());
     (async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
@@ -1720,6 +1795,7 @@
       try{
         await refreshMe();
         startRealtime();
+        await loadChats();
       }catch(_){
         authToken='';
         localStorage.removeItem('auth_token');

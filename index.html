@@ -129,33 +129,8 @@
       <button id="top-profile-btn" onclick="showScreen('screen-profile')" style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0078FF,#005fcc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;font-family:inherit;">М</button>
     </div>
   </div>
-  <div class="scroll-area" style="padding:16px 12px;display:flex;flex-direction:column;gap:8px;">
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:20px;">П</div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">ВПизде</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">12:29</span></div>
-        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
-          <svg width="14" height="9" viewBox="0 0 16 10" fill="none" style="flex-shrink:0;"><polyline points="1,5 4,8 9,2" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Когда Вп выйдет все пользовате...</span>
-        </div>
-      </div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#555,#333);font-size:20px;">У</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="color:#fff;font-size:16px;font-weight:600;">sosocasino_bot</span></div><span style="color:#8E8E93;font-size:14px;">Вы успешно депнули своего друга!</span></div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#e53935,#b71c1c);font-size:20px;">Ч</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="color:#fff;font-size:16px;font-weight:600;">MAX</span></div><span style="color:#8E8E93;font-size:14px;">Мы удаляем МАХ. Мы не справим...</span></div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#1976D2,#0D47A1);font-size:20px;">М</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">Избраное</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">вчера</span></div><span style="color:#8E8E93;font-size:14px;">Звонок</span></div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#388E3C,#1B5E20);font-size:20px;">Д</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">Анастасися</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">пн</span></div><span style="color:#8E8E93;font-size:14px;">ДА ТЫ ШУИШЬ</span></div>
-    </button>
+  <div class="scroll-area" id="chat-list" style="padding:16px 12px;display:flex;flex-direction:column;gap:8px;">
+    <div id="chat-list-empty" style="color:#8E8E93;font-size:14px;text-align:center;padding:28px 8px;">Чатов пока нет</div>
   </div>
 </div>
 
@@ -163,7 +138,7 @@
 
 <div id="screen-profile" class="screen" style="background:#111;">
   <div style="flex-shrink:0;position:relative;">
-    <div style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;"></div>
+    <div id="profile-main-banner" style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;background-size:cover;background-position:center;"></div>
     <div style="position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);">
       <div id="profile-main-avatar" class="tg-avatar" style="width:96px;height:96px;background:linear-gradient(135deg,#0078FF,#005fcc);border:5px solid #111;font-size:38px;">М</div>
     </div>
@@ -214,6 +189,10 @@
         <div class="settings-icon" style="background:#0078FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polygon points="12,2 14.5,4 17.5,3 19,5.5 22,7 21,10 23,12.5 21,15 22,18 19,19.5 17.5,22 14.5,21 12,23 9.5,21 6.5,22 5,19.5 2,18 3,15 1,12.5 3,10 2,7 5,5.5 6.5,3 9.5,4" fill="white"/><polyline points="8,12.5 11,15.5 16,9.5" stroke="#0078FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Верификация</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row" onclick="logoutAccount()">
+        <div class="settings-icon" style="background:#FF3B30;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+        <span style="color:#FF8A80;font-size:16px;flex:1;text-align:left;">Выйти</span>
       </button>
     </div>
   </div>
@@ -579,7 +558,28 @@
     <input class="login-input" id="login-password" type="password" placeholder="Пароль" autocomplete="current-password">
     <div class="login-error" id="login-error"></div>
     <button class="login-btn-white" onclick="doLogin()">Войти</button>
+    <button class="login-btn-blue" onclick="showVpscPanel()">
+      <img src="vpsc_btn.png" alt="VPSC" style="height:58%;width:auto;object-fit:contain;display:block;" onerror="this.style.display='none'">
+    </button>
     <button class="login-reg-link" onclick="showRegPanel()">Регистрация</button>
+  </div>
+
+  <div class="vpsc-panel" id="vpsc-panel">
+    <img src="vpsc.png" alt="VPSC" style="width:160px;height:160px;object-fit:contain;margin-bottom:20px;" onerror="this.style.display='none'">
+    <div class="vpsc-title">Вход по VPSC</div>
+    <div class="vpsc-subtitle">Введите ваш 6-значный код</div>
+    <div class="vpsc-boxes" id="vpsc-boxes">
+      <div class="vpsc-box" id="vpsc-b0"></div>
+      <div class="vpsc-box" id="vpsc-b1"></div>
+      <div class="vpsc-box" id="vpsc-b2"></div>
+      <div class="vpsc-box" id="vpsc-b3"></div>
+      <div class="vpsc-box" id="vpsc-b4"></div>
+      <div class="vpsc-box" id="vpsc-b5"></div>
+    </div>
+    <input class="vpsc-input-hidden" id="vpsc-hidden-input" maxlength="6" autocomplete="off" autocorrect="off" autocapitalize="off">
+    <div class="login-error" id="vpsc-error"></div>
+    <button class="login-btn-white" style="margin-top:0;" onclick="doVpscLogin()">Войти</button>
+    <button class="login-reg-link" onclick="showMainPanel()">Назад</button>
   </div>
 
   <div class="reg-panel" id="reg-panel">

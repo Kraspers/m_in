@@ -31,13 +31,7 @@ function ensureDb() {
   if (!fs.existsSync(DB_FILE)) {
     const defaultDb = {
       users: [],
-      chats: [
-        { name: 'чат с поддержкой', preview: 'Ограничения не связаны с работой оборуд…', time: '12:29', avatar: 'П', color: 'linear-gradient(135deg,#0078FF,#005fcc)' },
-        { name: 'уведомления', preview: 'с заботой, ваш MIN', time: '', avatar: 'У', color: 'linear-gradient(135deg,#555,#333)' },
-        { name: 'что нового', preview: 'для вас уникальные предложения', time: '', avatar: 'Ч', color: 'linear-gradient(135deg,#e53935,#b71c1c)' },
-        { name: 'Михаил', preview: 'Как дела? Давно не виделись', time: 'вчера', avatar: 'М', color: 'linear-gradient(135deg,#1976D2,#0D47A1)' },
-        { name: 'Диана', preview: 'Скинь файл потом', time: 'пн', avatar: 'Д', color: 'linear-gradient(135deg,#388E3C,#1B5E20)' }
-      ]
+      chats: []
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
   }
@@ -103,6 +97,19 @@ function publicUser(user) {
   };
 }
 
+function colorForId(id) {
+  const palette = [
+    'linear-gradient(135deg,#0078FF,#005fcc)',
+    'linear-gradient(135deg,#5e5ce6,#3a32d8)',
+    'linear-gradient(135deg,#34c759,#1e8f44)',
+    'linear-gradient(135deg,#ff9500,#d66d00)',
+    'linear-gradient(135deg,#ff2d55,#c21d3f)'
+  ];
+  let hash = 0;
+  for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
+}
+
 function broadcastProfile(user) {
   const uid = user.id;
   const set = sseClients.get(uid);
@@ -133,6 +140,7 @@ function handleApi(req, res, urlObj) {
           name: name || username,
           username,
           passwordHash: hashPassword(password),
+          vpscCode: String(Math.floor(100000 + Math.random() * 900000)),
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
@@ -153,6 +161,10 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        if (!user.vpscCode) {
+          user.vpscCode = String(Math.floor(100000 + Math.random() * 900000));
+          writeDb(db);
+        }
         const token = makeToken();
         sessions.set(token, user.id);
         sendJson(res, 200, { token, user: publicUser(user) });
@@ -183,6 +195,27 @@ function handleApi(req, res, urlObj) {
       if (!set.size) sseClients.delete(uid);
     });
     return;
+  }
+
+  if (pathname === '/api/logout' && method === 'POST') {
+    const token = req.headers['x-session-token'];
+    if (token) sessions.delete(token);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (pathname === '/api/vpsc/login' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const code = String(body.code || '').trim();
+        if (!/^\d{6}$/.test(code)) return sendJson(res, 400, { error: 'Некорректный код' });
+        const db = readDb();
+        const user = db.users.find(u => u.vpscCode === code);
+        if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        const token = makeToken();
+        sessions.set(token, user.id);
+        sendJson(res, 200, { token, user: publicUser(user) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
   if (pathname === '/api/me' && method === 'GET') {
@@ -249,7 +282,21 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
-    const items = db.chats.filter(c => c.name.toLowerCase().includes(q));
+    const items = db.users
+      .filter(u => u.id !== user.id)
+      .filter(u => {
+        const n = String(u.name || '').toLowerCase();
+        const un = String(u.username || '').toLowerCase();
+        return !q || n.includes(q) || un.includes(q);
+      })
+      .map(u => ({
+        id: u.id,
+        name: u.name || u.username,
+        preview: `@${u.username}`,
+        time: '',
+        avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
+        color: colorForId(u.id)
+      }));
     return sendJson(res, 200, { items });
   }
 
