@@ -1553,24 +1553,33 @@
         else{ bImg.removeAttribute('src'); bImg.style.display='none'; }
       }
     }
+    function showLoginScreen(){ document.getElementById('login-screen').classList.remove('hidden'); }
+    function hideLoginScreen(){ document.getElementById('login-screen').classList.add('hidden'); }
+    window.showMainPanel=function(){
+      document.getElementById('login-main-panel').style.display='flex';
+      document.getElementById('reg-panel').classList.remove('active');
+      document.getElementById('login-error').textContent='';
+      document.getElementById('reg-error').textContent='';
+    };
+    window.showRegPanel=function(){
+      document.getElementById('login-main-panel').style.display='none';
+      document.getElementById('reg-panel').classList.add('active');
+      document.getElementById('login-error').textContent='';
+      document.getElementById('reg-error').textContent='';
+    };
     function openAuth(tab='login'){
-      document.getElementById('auth-wrap').classList.add('open');
-      switchAuthTab(tab);
+      showLoginScreen();
+      if(tab==='register') window.showRegPanel();
+      else window.showMainPanel();
     }
     function closeAuth(){
-      document.getElementById('auth-wrap').classList.remove('open');
-      document.getElementById('auth-error').textContent='';
+      hideLoginScreen();
+      document.getElementById('login-error').textContent='';
+      document.getElementById('reg-error').textContent='';
     }
-    window.switchAuthTab=function(tab){
-      const isLogin=tab==='login';
-      document.getElementById('auth-login-form').style.display=isLogin?'block':'none';
-      document.getElementById('auth-register-form').style.display=isLogin?'none':'block';
-      document.getElementById('auth-tab-login').classList.toggle('active',isLogin);
-      document.getElementById('auth-tab-register').classList.toggle('active',!isLogin);
-    };
-    window.submitLogin=async function(){
-      const username=document.getElementById('auth-login-username').value.trim();
-      const password=document.getElementById('auth-login-password').value;
+    window.doLogin=async function(){
+      const username=document.getElementById('login-username').value.trim();
+      const password=document.getElementById('login-password').value;
       try{
         const res=await api('/login',{method:'POST',body:JSON.stringify({username,password})});
         authToken=res.token;
@@ -1578,12 +1587,17 @@
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
-      }catch(e){ document.getElementById('auth-error').textContent=e.message; }
+      }catch(e){ document.getElementById('login-error').textContent=e.message; }
     };
-    window.submitRegister=async function(){
-      const name=document.getElementById('auth-register-name').value.trim();
-      const username=document.getElementById('auth-register-username').value.trim();
-      const password=document.getElementById('auth-register-password').value;
+    window.doRegister=async function(){
+      const name=document.getElementById('reg-displayname').value.trim();
+      const username=document.getElementById('reg-username').value.trim();
+      const password=document.getElementById('reg-password').value;
+      const password2=document.getElementById('reg-password2').value;
+      if(password!==password2){
+        document.getElementById('reg-error').textContent='Пароли не совпадают';
+        return;
+      }
       try{
         const res=await api('/register',{method:'POST',body:JSON.stringify({name,username,password})});
         authToken=res.token;
@@ -1591,7 +1605,7 @@
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
-      }catch(e){ document.getElementById('auth-error').textContent=e.message; }
+      }catch(e){ document.getElementById('reg-error').textContent=e.message; }
     };
     async function refreshMe(){
       const res=await api('/me');
@@ -1693,7 +1707,12 @@
       setTimeout(()=>{ profileJustOpened=false; },600);
     };
 
-    document.getElementById('auth-bg').addEventListener('click',()=>{ if(authToken) closeAuth(); });
+    document.getElementById('login-username').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('login-password').focus(); });
+    document.getElementById('login-password').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doLogin(); });
+    document.getElementById('reg-displayname').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('reg-username').focus(); });
+    document.getElementById('reg-username').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('reg-password').focus(); });
+    document.getElementById('reg-password').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('reg-password2').focus(); });
+    document.getElementById('reg-password2').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doRegister(); });
     (async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');

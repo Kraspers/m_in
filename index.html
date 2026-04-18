@@ -570,28 +570,32 @@
   </button>
 </div>
 
-<div id="auth-wrap">
-  <div id="auth-bg"></div>
-  <div id="auth-sheet">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div style="color:#fff;font-size:22px;font-weight:700;">Minimum</div>
-      <div style="display:flex;gap:8px;">
-        <button id="auth-tab-login" onclick="switchAuthTab('login')" class="auth-tab-btn">Вход</button>
-        <button id="auth-tab-register" onclick="switchAuthTab('register')" class="auth-tab-btn">Регистрация</button>
-      </div>
+<div class="login-screen hidden" id="login-screen">
+  <div id="login-main-panel" style="width:100%;max-width:380px;display:flex;flex-direction:column;align-items:center;">
+    <div class="login-logo-wrap">
+      <img src="logo.png" alt="MIN" class="login-logo-img" onerror="this.style.display='none'">
     </div>
-    <div id="auth-error"></div>
-    <div id="auth-login-form">
-      <input id="auth-login-username" class="pe-field" type="text" placeholder="username" />
-      <input id="auth-login-password" class="pe-field" type="password" placeholder="пароль" style="margin-top:10px;" />
-      <button onclick="submitLogin()" style="margin-top:12px;width:100%;background:#0078FF;border:none;border-radius:999px;color:#fff;padding:14px 16px;font-size:16px;cursor:pointer;">Войти</button>
+    <input class="login-input" id="login-username" type="text" placeholder="Логин" autocomplete="username" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9]/g,'')">
+    <input class="login-input" id="login-password" type="password" placeholder="Пароль" autocomplete="current-password">
+    <div class="login-error" id="login-error"></div>
+    <button class="login-btn-white" onclick="doLogin()">Войти</button>
+    <button class="login-reg-link" onclick="showRegPanel()">Регистрация</button>
+  </div>
+
+  <div class="reg-panel" id="reg-panel">
+    <div class="reg-title">Регистрация</div>
+    <input class="login-input" id="reg-displayname" type="text" placeholder="Имя пользователя" autocorrect="off" autocapitalize="words" spellcheck="false">
+    <div style="position:relative;width:100%;max-width:380px;box-sizing:border-box;margin-bottom:14px;">
+      <span style="position:absolute;left:22px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.45);pointer-events:none;display:flex;align-items:center;z-index:1;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(150,150,160,0.85)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>
+      </span>
+      <input class="login-input" id="reg-username" type="text" placeholder="Логин" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_.-]/g,'')" style="padding-left:48px;margin-bottom:0;width:100%;box-sizing:border-box;">
     </div>
-    <div id="auth-register-form" style="display:none;">
-      <input id="auth-register-name" class="pe-field" type="text" placeholder="отображаемое имя" />
-      <input id="auth-register-username" class="pe-field" type="text" placeholder="username" style="margin-top:10px;" />
-      <input id="auth-register-password" class="pe-field" type="password" placeholder="пароль" style="margin-top:10px;" />
-      <button onclick="submitRegister()" style="margin-top:12px;width:100%;background:#34C759;border:none;border-radius:999px;color:#fff;padding:14px 16px;font-size:16px;cursor:pointer;">Создать аккаунт</button>
-    </div>
+    <input class="login-input" id="reg-password" type="password" placeholder="Пароль">
+    <input class="login-input" id="reg-password2" type="password" placeholder="Повторите пароль">
+    <div class="login-error" id="reg-error"></div>
+    <button class="login-btn-white" onclick="doRegister()">Зарегистрироваться</button>
+    <button class="login-reg-link" onclick="showMainPanel()">Вход</button>
   </div>
 </div>
 
