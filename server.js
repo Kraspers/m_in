@@ -133,6 +133,21 @@ function sendEventToUser(uid, event, payload) {
   for (const res of set) res.write(msg);
 }
 
+function normalizeMessage(msg) {
+  return {
+    id: msg.id,
+    fromUserId: msg.fromUserId,
+    toUserId: msg.toUserId,
+    text: msg.text || '',
+    media: Array.isArray(msg.media) ? msg.media : [],
+    replyToMessageId: msg.replyToMessageId || '',
+    forwardedFromName: msg.forwardedFromName || '',
+    reactions: msg.reactions || {},
+    pinnedBy: Array.isArray(msg.pinnedBy) ? msg.pinnedBy : [],
+    createdAt: msg.createdAt
+  };
+}
+
 function handleApi(req, res, urlObj) {
   const { pathname, searchParams } = urlObj;
   const method = req.method;
@@ -421,7 +436,10 @@ function handleApi(req, res, urlObj) {
       (m.fromUserId === user.id && m.toUserId === withUserId) ||
       (m.fromUserId === withUserId && m.toUserId === user.id)
     );
-    return sendJson(res, 200, { items, peer: { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' } });
+    return sendJson(res, 200, {
+      items: items.map(normalizeMessage),
+      peer: { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' }
+    });
   }
 
   if (pathname === '/api/messages' && method === 'POST') {
@@ -432,7 +450,8 @@ function handleApi(req, res, urlObj) {
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const toUserId = String(body.toUserId || '');
         const text = String(body.text || '').trim();
-        if (!text) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
         const msg = {
@@ -440,16 +459,76 @@ function handleApi(req, res, urlObj) {
           fromUserId: user.id,
           toUserId,
           text: text.slice(0, 4000),
+          media,
+          replyToMessageId: String(body.replyToMessageId || ''),
+          forwardedFromName: String(body.forwardedFromName || '').slice(0, 200),
+          reactions: {},
+          pinnedBy: [],
           createdAt: new Date().toISOString()
         };
         if (!Array.isArray(db.messages)) db.messages = [];
         db.messages.push(msg);
         writeDb(db);
-        sendEventToUser(user.id, 'message', msg);
-        sendEventToUser(toUserId, 'message', msg);
-        return sendJson(res, 201, { message: msg });
+        const n = normalizeMessage(msg);
+        sendEventToUser(user.id, 'message', n);
+        sendEventToUser(toUserId, 'message', n);
+        return sendJson(res, 201, { message: n });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  const msgMatch = pathname.match(/^\/api\/messages\/([^/]+)$/);
+  if (msgMatch && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const msgId = msgMatch[1];
+        const msg = (db.messages || []).find(m => m.id === msgId);
+        if (!msg) return sendJson(res, 404, { error: 'Сообщение не найдено' });
+        if (msg.fromUserId !== user.id && msg.toUserId !== user.id) return sendJson(res, 403, { error: 'Forbidden' });
+        const action = String(body.action || '');
+        if (action === 'react') {
+          const emoji = String(body.emoji || '').trim().slice(0, 8);
+          if (!emoji) return sendJson(res, 400, { error: 'emoji required' });
+          if (!msg.reactions || typeof msg.reactions !== 'object') msg.reactions = {};
+          if (!Array.isArray(msg.reactions[emoji])) msg.reactions[emoji] = [];
+          const idx = msg.reactions[emoji].indexOf(user.id);
+          if (idx >= 0) msg.reactions[emoji].splice(idx, 1);
+          else msg.reactions[emoji].push(user.id);
+          if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
+        } else if (action === 'pin') {
+          if (!Array.isArray(msg.pinnedBy)) msg.pinnedBy = [];
+          if (!msg.pinnedBy.includes(user.id)) msg.pinnedBy.push(user.id);
+        } else if (action === 'unpin') {
+          msg.pinnedBy = (msg.pinnedBy || []).filter(id => id !== user.id);
+        } else {
+          return sendJson(res, 400, { error: 'Unknown action' });
+        }
+        writeDb(db);
+        const n = normalizeMessage(msg);
+        sendEventToUser(msg.fromUserId, 'message_update', n);
+        sendEventToUser(msg.toUserId, 'message_update', n);
+        return sendJson(res, 200, { message: n });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  if (msgMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const msgId = msgMatch[1];
+    const msg = (db.messages || []).find(m => m.id === msgId);
+    if (!msg) return sendJson(res, 404, { error: 'Сообщение не найдено' });
+    if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно удалить только своё сообщение' });
+    db.messages = (db.messages || []).filter(m => m.id !== msgId);
+    writeDb(db);
+    const payload = { id: msgId, deleted: true, fromUserId: msg.fromUserId, toUserId: msg.toUserId };
+    sendEventToUser(msg.fromUserId, 'message_update', payload);
+    sendEventToUser(msg.toUserId, 'message_update', payload);
+    return sendJson(res, 200, { ok: true });
   }
 
   return sendJson(res, 404, { error: 'Not found' });

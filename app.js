@@ -424,6 +424,7 @@
   let replyToText='';
   let replyToMediaSrc='';
   let replyToMediaMid='';
+  let replyToMessageId='';
   let ctxMsgOriginalOffset=0;
   let scaleTimer=null;
   let editingBubble=null;
@@ -615,6 +616,7 @@
     replyToText=preview;
     replyToMediaSrc='';
     replyToMediaMid='';
+    replyToMessageId=currentBubble.dataset&&currentBubble.dataset.mid?currentBubble.dataset.mid:'';
     if(preview==='__media__'){
       const firstImg=currentBubble.querySelector('.msg-media-grid img');
       const firstVid=currentBubble.querySelector('.msg-media-grid video');
@@ -648,6 +650,7 @@
     replyToName='';
     replyToText='';
     replyToMediaSrc='';
+    replyToMessageId='';
   }
 
   function dismissFavReply(){
@@ -655,6 +658,7 @@
     replyToName='';
     replyToText='';
     replyToMediaSrc='';
+    replyToMessageId='';
   }
 
   /* ── Скопировать ── */
@@ -854,6 +858,10 @@
       if(wrap){
         const nameEl=wrap.querySelector('[style*="color:#8E8E93"]');
         if(nameEl) forwardingSenderName=nameEl.textContent.trim();
+      }
+      if(forwardingSenderName==='Вы'){
+        const contact=document.getElementById('chat-contact-name');
+        if(contact&&contact.textContent.trim()) forwardingSenderName=contact.textContent.trim();
       }
     }
     closeCtxClean();
@@ -1466,6 +1474,7 @@
   }
   function closeUserProfileView(){ document.getElementById('user-profile-view').style.display='none'; }
   function openUserProfileView(p){
+    window.__upvUserId=p.id||'';
     document.getElementById('upv-name').textContent=p.name||'Профиль';
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
     const banner=document.getElementById('upv-banner');
@@ -1494,6 +1503,7 @@
     let searchTimer=null;
     let currentChatUserId='';
     const usersMap=new Map();
+    const messageMap=new Map();
 
     function api(path,opts={}){
       const headers={ 'Content-Type':'application/json', ...(opts.headers||{}) };
@@ -1690,17 +1700,49 @@
     function renderChatMessages(items){
       const wrap=document.getElementById('chat-messages');
       const bottom=document.getElementById('chat-bottom');
+      messageMap.clear();
       wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
       const rows=items.map(m=>{
+        messageMap.set(m.id,m);
         const mine=me&&m.fromUserId===me.id;
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div class="${mine?'bubble-out':'bubble-in'} msg-bubble"><p class="${mine?'msg-text-out':'msg-text-in'}">${esc(m.text)}</p><div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
+        const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
+        const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}"><div class="msg-quote-name">${esc(usersMap.get(reply.fromUserId)?.name||'Пользователь')}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
+        const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
+        const mediaHtml=(Array.isArray(m.media)?m.media:[]).map(src=>`<img src="${esc(src)}" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:6px;">`).join('');
+        const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderMentions(m.text)}</p>`:'';
+        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${textHtml}${mediaHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
       wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
+      wrap.querySelectorAll('.mention-link').forEach(el=>{
+        el.addEventListener('click',async e=>{
+          e.preventDefault();
+          const username=el.dataset.username;
+          try{
+            const r=await api(`/users/search?q=${encodeURIComponent(username)}`);
+            const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
+            if(!user){ alert('Пользователь не найден'); return; }
+            usersMap.set(user.id,user);
+            openUserProfileView(user);
+          }catch(_){ alert('Пользователь не найден'); }
+        });
+      });
+      const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&me&&msg.pinnedBy.includes(me.id));
+      if(pinned){
+        const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
+        pinnedBubble=bubble||null;
+        document.getElementById('pinned-bar-preview').textContent=(pinned.text||'📷 Медиа').slice(0,60);
+        document.getElementById('pinned-bar').classList.add('show');
+      }else{
+        unpinMessage();
+      }
       bottom.scrollIntoView({behavior:'auto'});
+    }
+    function renderMentions(text){
+      return esc(text).replace(/(^|\\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
     }
     async function refreshMe(){
       const res=await api('/me');
@@ -1714,6 +1756,13 @@
         try{ applyProfileUI(JSON.parse(ev.data)); }catch(_){}
       });
       stream.addEventListener('message',ev=>{
+        try{
+          const msg=JSON.parse(ev.data);
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
+          loadChats();
+        }catch(_){}
+      });
+      stream.addEventListener('message_update',ev=>{
         try{
           const msg=JSON.parse(ev.data);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
@@ -1859,16 +1908,64 @@
     });
     document.getElementById('vpsc-hidden-input').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doVpscLogin(); });
     document.getElementById('vpsc-boxes').addEventListener('click',()=>document.getElementById('vpsc-hidden-input').focus());
+    async function blobUrlToDataUrl(url){
+      const res=await fetch(url);
+      const blob=await res.blob();
+      return await new Promise((resolve,reject)=>{
+        const fr=new FileReader();
+        fr.onload=()=>resolve(fr.result);
+        fr.onerror=reject;
+        fr.readAsDataURL(blob);
+      });
+    }
     window.sendMessage=async function(){
       if(!currentChatUserId) return;
       const input=document.getElementById('msg-input');
       const text=(input.value||'').trim();
-      if(!text) return;
-      await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text})});
+      const media=(attachedMedia||[]);
+      if(!text&&!media.length) return;
+      const mediaData=[];
+      for(const m of media){
+        if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
+      }
+      await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyToMessageId})});
       input.value='';
+      dismissReply();
+      clearMedia();
       await openChatWith(currentChatUserId);
       await loadChats();
     };
+    doDeleteMessage=async function(){
+      if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
+      const id=currentBubble.dataset.mid;
+      closeCtxClean();
+      await api(`/messages/${encodeURIComponent(id)}`,{method:'DELETE'});
+      await openChatWith(currentChatUserId);
+      await loadChats();
+    };
+    addReaction=async function(bubble,emoji){
+      if(!bubble||!bubble.dataset.mid) return;
+      try{
+        await api(`/messages/${encodeURIComponent(bubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify({action:'react',emoji})});
+      }catch(_){}
+    };
+    doPinMessage=async function(){
+      if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
+      const id=currentBubble.dataset.mid;
+      const isPinned=pinnedBubble===currentBubble;
+      closeCtxClean();
+      await api(`/messages/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
+      await openChatWith(currentChatUserId);
+    };
+    const upvChatBtn=document.getElementById('upv-chat-btn');
+    if(upvChatBtn){
+      upvChatBtn.addEventListener('click',async ()=>{
+        const uid=window.__upvUserId;
+        closeUserProfileView();
+        if(uid) await openChatWith(uid);
+      });
+    }
+    document.querySelectorAll('#profile-edit-sheet > div[style*="background:#1A1A1A"]').forEach(el=>{ el.style.flexShrink='0'; });
     (async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
