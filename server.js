@@ -144,6 +144,7 @@ function normalizeMessage(msg) {
     forwardedFromName: msg.forwardedFromName || '',
     reactions: msg.reactions || {},
     pinnedBy: Array.isArray(msg.pinnedBy) ? msg.pinnedBy : [],
+    editedAt: msg.editedAt || '',
     createdAt: msg.createdAt
   };
 }
@@ -385,12 +386,14 @@ function handleApi(req, res, urlObj) {
           (m.fromUserId === u.id && m.toUserId === user.id)
         );
         const last = thread[thread.length - 1];
-        const time = last ? new Date(last.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+        const preview = last
+          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length) ? '📷 Медиа' : ''))
+          : `@${u.username}`;
         return {
           id: u.id,
           name: u.name || u.username,
-          preview: last ? last.text : `@${u.username}`,
-          time,
+          preview,
+          lastCreatedAt: last ? last.createdAt : '',
           avatarDataUrl: u.avatarDataUrl || '',
           bannerDataUrl: u.bannerDataUrl || '',
           avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
@@ -499,10 +502,18 @@ function handleApi(req, res, urlObj) {
           else msg.reactions[emoji].push(user.id);
           if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
         } else if (action === 'pin') {
-          if (!Array.isArray(msg.pinnedBy)) msg.pinnedBy = [];
-          if (!msg.pinnedBy.includes(user.id)) msg.pinnedBy.push(user.id);
+          msg.pinnedBy = [msg.fromUserId, msg.toUserId];
         } else if (action === 'unpin') {
-          msg.pinnedBy = (msg.pinnedBy || []).filter(id => id !== user.id);
+          msg.pinnedBy = [];
+        } else if (action === 'edit') {
+          if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
+          const text = String(body.text || '').trim();
+          const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
+          const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
+          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          msg.text = text.slice(0, 4000);
+          if (Array.isArray(media)) msg.media = media;
+          msg.editedAt = new Date().toISOString();
         } else {
           return sendJson(res, 400, { error: 'Unknown action' });
         }

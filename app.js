@@ -1344,6 +1344,20 @@
       e.stopPropagation();
       const quotedText=quoteEl.querySelector('.msg-quote-text')?.textContent.trim();
       if(!quotedText)return;
+      const replyId=quoteEl.dataset.replyId;
+      if(replyId){
+        const byId=document.querySelector(`.msg-bubble[data-mid="${replyId}"]`);
+        if(byId){
+          byId.scrollIntoView({behavior:'smooth',block:'center'});
+          setTimeout(()=>{
+            byId.classList.remove('msg-flash');
+            void byId.offsetWidth;
+            byId.classList.add('msg-flash');
+            setTimeout(()=>byId.classList.remove('msg-flash'),1200);
+          },300);
+          return;
+        }
+      }
       const needle=quotedText.slice(0,40).toLowerCase();
       let target=null;
       if(needle==='медиа'){
@@ -1668,13 +1682,16 @@
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item').forEach(n=>n.remove());
         items.forEach(c=>usersMap.set(c.id,c));
-        const html=items.map(c=>`<button class="chat-row chat-row-item" data-chat-id="${esc(c.id||'')}">
+        const html=items.map(c=>{
+          const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
+          return `<button class="chat-row chat-row-item" data-chat-id="${esc(c.id||'')}">
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${c.time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(c.time)}</span>`:''}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.preview||'')}</span>
           </div>
-        </button>`).join('');
+        </button>`;
+        }).join('');
         holder.insertAdjacentHTML('beforeend',html);
         holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
         holder.querySelectorAll('.chat-open-avatar').forEach(el=>{
@@ -1708,7 +1725,7 @@
         const mine=me&&m.fromUserId===me.id;
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
-        const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}"><div class="msg-quote-name">${esc(usersMap.get(reply.fromUserId)?.name||'Пользователь')}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
+        const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(usersMap.get(reply.fromUserId)?.name||'Пользователь')}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaHtml=(Array.isArray(m.media)?m.media:[]).map(src=>`<img src="${esc(src)}" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:6px;">`).join('');
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderMentions(m.text)}</p>`:'';
@@ -1717,6 +1734,7 @@
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
       wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
+      wrap.querySelectorAll('.msg-quote-out,.msg-quote-in').forEach(bindQuoteTap);
       wrap.querySelectorAll('.mention-link').forEach(el=>{
         el.addEventListener('click',async e=>{
           e.preventDefault();
@@ -1730,7 +1748,7 @@
           }catch(_){ alert('Пользователь не найден'); }
         });
       });
-      const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&me&&msg.pinnedBy.includes(me.id));
+      const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
         pinnedBubble=bubble||null;
@@ -1923,6 +1941,26 @@
       const input=document.getElementById('msg-input');
       const text=(input.value||'').trim();
       const media=(attachedMedia||[]);
+      if(editingBubble&&editingBubble.dataset&&editingBubble.dataset.mid){
+        const payload={action:'edit',text};
+        if(media.length){
+          const mediaData=[];
+          for(const m of media){
+            if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
+          }
+          payload.media=mediaData;
+        }else if(editMediaRemoved){
+          payload.media=[];
+        }
+        await api(`/messages/${encodeURIComponent(editingBubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify(payload)});
+        input.value='';
+        dismissReply();
+        clearMedia();
+        dismissEdit();
+        await openChatWith(currentChatUserId);
+        await loadChats();
+        return;
+      }
       if(!text&&!media.length) return;
       const mediaData=[];
       for(const m of media){
