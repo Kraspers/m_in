@@ -1292,7 +1292,9 @@
     /* Десктоп: открытие по клику мышью */
     el.addEventListener('click',e=>{
       if(!isDesktop()) return;
-      showScreen('screen-chat');
+      const uid=el.dataset.chatId;
+      if(uid&&window.openChatWith) window.openChatWith(uid);
+      else showScreen('screen-chat');
     });
 
     /* Десктоп: правая кнопка мыши → контекстное меню */
@@ -1317,7 +1319,11 @@
     el.addEventListener('touchend',()=>{
       clearTimeout(crPressTimer);clearTimeout(crScaleTimer);
       el.style.transition='transform 0.18s ease';el.style.transform='';
-      if(!crLongPressed&&!crMoved) showScreen('screen-chat');
+      if(!crLongPressed&&!crMoved){
+        const uid=el.dataset.chatId;
+        if(uid&&window.openChatWith) window.openChatWith(uid);
+        else showScreen('screen-chat');
+      }
     });
   }
 
@@ -1388,29 +1394,6 @@
     }
   }
 
-  /* ── Поиск ── */
-  const chatData=[
-    {name:'чат с поддержкой',preview:'Ограничения не связаны с работой оборуд…',time:'12:29',avatar:'П',color:'linear-gradient(135deg,#0078FF,#005fcc)'},
-    {name:'уведомления',preview:'с заботой, ваш MIN',time:'',avatar:'У',color:'linear-gradient(135deg,#555,#333)'},
-    {name:'что нового',preview:'для вас уникальные предложения',time:'',avatar:'Ч',color:'linear-gradient(135deg,#e53935,#b71c1c)'},
-    {name:'Михаил',preview:'Как дела? Давно не виделись',time:'вчера',avatar:'М',color:'linear-gradient(135deg,#1976D2,#0D47A1)'},
-    {name:'Диана',preview:'Скинь файл потом',time:'пн',avatar:'Д',color:'linear-gradient(135deg,#388E3C,#1B5E20)'},
-  ];
-
-  function doSearch(q){
-    const res=document.getElementById('search-results');
-    if(!q.trim()){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Введите имя для поиска</div>';return;}
-    const filtered=chatData.filter(c=>c.name.toLowerCase().includes(q.toLowerCase().trim()));
-    if(!filtered.length){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Ничего не найдено</div>';return;}
-    res.innerHTML=filtered.map(c=>`<button class="chat-row" onclick="showScreen('screen-chat')" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
-      <div class="tg-avatar" style="width:48px;height:48px;background:${c.color};font-size:20px;flex-shrink:0;">${c.avatar}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name)}</span>${c.time?`<span style="color:#8E8E93;font-size:12px;">${c.time}</span>`:''}</div>
-        <span style="color:#8E8E93;font-size:14px;">${esc(c.preview)}</span>
-      </div>
-    </button>`).join('');
-  }
-
   /* ── Редактирование профиля ── */
   let profileJustOpened=false;
   function openProfileEdit(){
@@ -1447,6 +1430,9 @@
     input.value='';
   }
   function saveProfileEdit(){
+    const name=(document.getElementById('pe-name')?.value||'').trim();
+    const username=(document.getElementById('pe-username')?.value||'').trim();
+    if(!name||!username){ alert('Имя и username обязательны'); return; }
     closeProfileEdit();
   }
 
@@ -1478,6 +1464,17 @@
     if(copyToastTimer)clearTimeout(copyToastTimer);
     copyToastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
   }
+  function closeUserProfileView(){ document.getElementById('user-profile-view').style.display='none'; }
+  function openUserProfileView(p){
+    document.getElementById('upv-name').textContent=p.name||'Профиль';
+    document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
+    const banner=document.getElementById('upv-banner');
+    banner.style.backgroundImage=p.bannerDataUrl?`url('${p.bannerDataUrl}')`:'none';
+    const av=document.getElementById('upv-avatar');
+    if(p.avatarDataUrl) av.innerHTML=`<img src="${p.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+    else av.textContent=(p.name||p.username||'U').charAt(0).toUpperCase();
+    document.getElementById('user-profile-view').style.display='flex';
+  }
   /* ── Инициализация кнопки отправки ── */
   (function(){
     const btn=document.getElementById('send-btn');
@@ -1495,6 +1492,8 @@
     let me=null;
     let stream=null;
     let searchTimer=null;
+    let currentChatUserId='';
+    const usersMap=new Map();
 
     function api(path,opts={}){
       const headers={ 'Content-Type':'application/json', ...(opts.headers||{}) };
@@ -1538,6 +1537,7 @@
       setAvatarNode(document.getElementById('pe-avatar-circle'),avatar,name);
       const topBtn=document.getElementById('top-profile-btn');
       if(topBtn){
+        topBtn.onclick=()=>openUserProfileView(profile);
         topBtn.textContent=initials(name);
         if(avatar){
           topBtn.innerHTML=`<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">`;
@@ -1638,7 +1638,7 @@
     }
     window.doVpscLogin=async function(){
       const code=document.getElementById('vpsc-hidden-input').value.trim();
-      if(code.length!==6){ document.getElementById('vpsc-error').textContent='Введите 6 цифр'; return; }
+      if(code.length!==6){ document.getElementById('vpsc-error').textContent='Введите 6 символов'; return; }
       try{
         const res=await api('/vpsc/login',{method:'POST',body:JSON.stringify({code})});
         authToken=res.token;
@@ -1658,8 +1658,9 @@
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item').forEach(n=>n.remove());
+        items.forEach(c=>usersMap.set(c.id,c));
         const html=items.map(c=>`<button class="chat-row chat-row-item" data-chat-id="${esc(c.id||'')}">
-          <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;">${esc(c.avatar||'U')}</div>
+          <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${c.time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(c.time)}</span>`:''}</div>
             <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.preview||'')}</span>
@@ -1667,7 +1668,38 @@
         </button>`).join('');
         holder.insertAdjacentHTML('beforeend',html);
         holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
+        holder.querySelectorAll('.chat-open-avatar').forEach(el=>{
+          el.addEventListener('click',ev=>{
+            ev.stopPropagation();
+            const u=usersMap.get(el.dataset.chatId);
+            if(u) openUserProfileView(u);
+          });
+        });
       }catch(_){}
+    }
+    async function openChatWith(userId){
+      currentChatUserId=userId;
+      const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
+      const peer=data.peer||usersMap.get(userId)||{};
+      usersMap.set(userId,peer);
+      const title=document.getElementById('chat-contact-name');
+      if(title) title.textContent=peer.name||'Чат';
+      renderChatMessages(data.items||[]);
+      showScreen('screen-chat');
+    }
+    window.openChatWith=openChatWith;
+    function renderChatMessages(items){
+      const wrap=document.getElementById('chat-messages');
+      const bottom=document.getElementById('chat-bottom');
+      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
+      wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
+      const rows=items.map(m=>{
+        const mine=me&&m.fromUserId===me.id;
+        const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div class="${mine?'bubble-out':'bubble-in'} msg-bubble"><p class="${mine?'msg-text-out':'msg-text-in'}">${esc(m.text)}</p><div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
+      }).join('');
+      bottom.insertAdjacentHTML('beforebegin',rows);
+      bottom.scrollIntoView({behavior:'auto'});
     }
     async function refreshMe(){
       const res=await api('/me');
@@ -1679,6 +1711,13 @@
       stream=new EventSource(`${API_BASE}/stream?token=${encodeURIComponent(authToken)}`);
       stream.addEventListener('profile',ev=>{
         try{ applyProfileUI(JSON.parse(ev.data)); }catch(_){}
+      });
+      stream.addEventListener('message',ev=>{
+        try{
+          const msg=JSON.parse(ev.data);
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
+          loadChats();
+        }catch(_){}
       });
     }
 
@@ -1720,9 +1759,12 @@
 
     window.saveProfileEdit=async function(){
       try{
+        const name=document.getElementById('pe-name').value.trim();
+        const username=document.getElementById('pe-username').value.trim();
+        if(!name||!username){ alert('Имя и username обязательны'); return; }
         const payload={
-          name:document.getElementById('pe-name').value.trim(),
-          username:document.getElementById('pe-username').value.trim(),
+          name,
+          username,
           bio:document.getElementById('pe-bio').value.trim()
         };
         const res=await api('/me',{method:'PATCH',body:JSON.stringify(payload)});
@@ -1760,6 +1802,7 @@
     window.openPrivacy=function(){
       const wrap=document.getElementById('privacy-wrap');
       wrap.classList.add('open');
+      api('/me/vpsc').then(r=>{ const el=document.getElementById('privacy-code-text'); if(el) el.textContent=r.code; }).catch(()=>{});
     };
     window.openProfileEdit=function(){
       profileJustOpened=true;
@@ -1775,6 +1818,26 @@
       openAuth('login');
       loadChats();
     };
+    window.submitChangePassword=async function(){
+      const currentPassword=document.getElementById('pwd-current').value;
+      const newPassword=document.getElementById('pwd-new').value;
+      const newPassword2=document.getElementById('pwd-new2').value;
+      if(newPassword!==newPassword2){ alert('Пароли не совпадают'); return; }
+      await api('/me/password',{method:'PATCH',body:JSON.stringify({currentPassword,newPassword})});
+      document.getElementById('pwd-current').value='';
+      document.getElementById('pwd-new').value='';
+      document.getElementById('pwd-new2').value='';
+      closePwdSheet();
+    };
+    window.submitDeleteAccount=async function(){
+      const password=document.getElementById('del-password').value;
+      await api('/me',{method:'DELETE',body:JSON.stringify({password})});
+      authToken='';
+      localStorage.removeItem('auth_token');
+      if(stream) stream.close();
+      openAuth('login');
+      closeDelSheet();
+    };
 
     document.getElementById('login-username').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('login-password').focus(); });
     document.getElementById('login-password').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doLogin(); });
@@ -1783,11 +1846,21 @@
     document.getElementById('reg-password').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('reg-password2').focus(); });
     document.getElementById('reg-password2').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doRegister(); });
     document.getElementById('vpsc-hidden-input').addEventListener('input',e=>{
-      e.target.value=e.target.value.replace(/\D/g,'').slice(0,6);
+      e.target.value=e.target.value.slice(0,6);
       updateVpscBoxes(e.target.value);
     });
     document.getElementById('vpsc-hidden-input').addEventListener('keydown',e=>{ if(e.key==='Enter') window.doVpscLogin(); });
     document.getElementById('vpsc-boxes').addEventListener('click',()=>document.getElementById('vpsc-hidden-input').focus());
+    window.sendMessage=async function(){
+      if(!currentChatUserId) return;
+      const input=document.getElementById('msg-input');
+      const text=(input.value||'').trim();
+      if(!text) return;
+      await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text})});
+      input.value='';
+      await openChatWith(currentChatUserId);
+      await loadChats();
+    };
     (async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');

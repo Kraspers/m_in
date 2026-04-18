@@ -31,7 +31,8 @@ function ensureDb() {
   if (!fs.existsSync(DB_FILE)) {
     const defaultDb = {
       users: [],
-      chats: []
+      chats: [],
+      messages: []
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
   }
@@ -79,6 +80,13 @@ function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function makeVpscCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+  let out = '';
+  for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 function getUserByToken(req, db) {
   const token = req.headers['x-session-token'];
   if (!token || !sessions.has(token)) return null;
@@ -118,6 +126,13 @@ function broadcastProfile(user) {
   for (const res of set) res.write(msg);
 }
 
+function sendEventToUser(uid, event, payload) {
+  const set = sseClients.get(uid);
+  if (!set || !set.size) return;
+  const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const res of set) res.write(msg);
+}
+
 function handleApi(req, res, urlObj) {
   const { pathname, searchParams } = urlObj;
   const method = req.method;
@@ -140,7 +155,7 @@ function handleApi(req, res, urlObj) {
           name: name || username,
           username,
           passwordHash: hashPassword(password),
-          vpscCode: String(Math.floor(100000 + Math.random() * 900000)),
+          vpscCode: makeVpscCode(),
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
@@ -162,7 +177,7 @@ function handleApi(req, res, urlObj) {
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
         if (!user.vpscCode) {
-          user.vpscCode = String(Math.floor(100000 + Math.random() * 900000));
+          user.vpscCode = makeVpscCode();
           writeDb(db);
         }
         const token = makeToken();
@@ -207,7 +222,7 @@ function handleApi(req, res, urlObj) {
     return readBody(req)
       .then(body => {
         const code = String(body.code || '').trim();
-        if (!/^\d{6}$/.test(code)) return sendJson(res, 400, { error: 'Некорректный код' });
+        if (code.length !== 6) return sendJson(res, 400, { error: 'Некорректный код' });
         const db = readDb();
         const user = db.users.find(u => u.vpscCode === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
@@ -222,7 +237,7 @@ function handleApi(req, res, urlObj) {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
-    return sendJson(res, 200, { user: publicUser(user) });
+    return sendJson(res, 200, { user: publicUser(user), vpscCode: user.vpscCode || '' });
   }
 
   if (pathname === '/api/me' && method === 'PATCH') {
@@ -277,11 +292,66 @@ function handleApi(req, res, urlObj) {
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
+  if (pathname === '/api/me/vpsc' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (!user.vpscCode) {
+      user.vpscCode = makeVpscCode();
+      writeDb(db);
+    }
+    return sendJson(res, 200, { code: user.vpscCode });
+  }
+
+  if (pathname === '/api/me/vpsc' && method === 'POST') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    user.vpscCode = makeVpscCode();
+    writeDb(db);
+    return sendJson(res, 200, { code: user.vpscCode });
+  }
+
+  if (pathname === '/api/me/password' && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const currentPassword = String(body.currentPassword || '');
+        const newPassword = String(body.newPassword || '');
+        if (hashPassword(currentPassword) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный текущий пароль' });
+        if (newPassword.length < 6) return sendJson(res, 400, { error: 'Новый пароль слишком короткий' });
+        user.passwordHash = hashPassword(newPassword);
+        writeDb(db);
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  if (pathname === '/api/me' && method === 'DELETE') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const password = String(body.password || '');
+        if (hashPassword(password) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный пароль' });
+        db.users = db.users.filter(u => u.id !== user.id);
+        db.messages = (db.messages || []).filter(m => m.fromUserId !== user.id && m.toUserId !== user.id);
+        writeDb(db);
+        for (const [token, uid] of sessions.entries()) if (uid === user.id) sessions.delete(token);
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
   if (pathname === '/api/chats' && method === 'GET') {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
+    const messages = db.messages || [];
     const items = db.users
       .filter(u => u.id !== user.id)
       .filter(u => {
@@ -289,15 +359,67 @@ function handleApi(req, res, urlObj) {
         const un = String(u.username || '').toLowerCase();
         return !q || n.includes(q) || un.includes(q);
       })
-      .map(u => ({
-        id: u.id,
-        name: u.name || u.username,
-        preview: `@${u.username}`,
-        time: '',
-        avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
-        color: colorForId(u.id)
-      }));
+      .map(u => {
+        const thread = messages.filter(m =>
+          (m.fromUserId === user.id && m.toUserId === u.id) ||
+          (m.fromUserId === u.id && m.toUserId === user.id)
+        );
+        const last = thread[thread.length - 1];
+        const time = last ? new Date(last.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+        return {
+          id: u.id,
+          name: u.name || u.username,
+          preview: last ? last.text : `@${u.username}`,
+          time,
+          avatarDataUrl: u.avatarDataUrl || '',
+          bannerDataUrl: u.bannerDataUrl || '',
+          avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
+          color: colorForId(u.id)
+        };
+      });
     return sendJson(res, 200, { items });
+  }
+
+  if (pathname === '/api/messages' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const withUserId = String(searchParams.get('withUserId') || '');
+    const peer = db.users.find(u => u.id === withUserId);
+    if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
+    const items = (db.messages || []).filter(m =>
+      (m.fromUserId === user.id && m.toUserId === withUserId) ||
+      (m.fromUserId === withUserId && m.toUserId === user.id)
+    );
+    return sendJson(res, 200, { items, peer: { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' } });
+  }
+
+  if (pathname === '/api/messages' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const toUserId = String(body.toUserId || '');
+        const text = String(body.text || '').trim();
+        if (!text) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        const peer = db.users.find(u => u.id === toUserId);
+        if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        const msg = {
+          id: crypto.randomUUID(),
+          fromUserId: user.id,
+          toUserId,
+          text: text.slice(0, 4000),
+          createdAt: new Date().toISOString()
+        };
+        if (!Array.isArray(db.messages)) db.messages = [];
+        db.messages.push(msg);
+        writeDb(db);
+        sendEventToUser(user.id, 'message', msg);
+        sendEventToUser(toUserId, 'message', msg);
+        return sendJson(res, 201, { message: msg });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
   return sendJson(res, 404, { error: 'Not found' });
