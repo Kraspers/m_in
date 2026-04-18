@@ -1393,7 +1393,7 @@
     });
   }
 
-  document.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+  document.querySelectorAll('.msg-quote-out,.msg-quote-in').forEach(bindQuoteTap);
 
   /* ── Закрепить чат ── */
   function pinChat(){
@@ -1973,6 +1973,9 @@
       await openChatWith(currentChatUserId);
       await loadChats();
     };
+    const addReactionLocal=addReaction;
+    const doPinMessageLocal=doPinMessage;
+
     doDeleteMessage=async function(){
       if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
       const id=currentBubble.dataset.mid;
@@ -1982,12 +1985,23 @@
       await loadChats();
     };
     addReaction=async function(bubble,emoji){
-      if(!bubble||!bubble.dataset.mid) return;
+      if(!bubble) return;
+      if(!bubble.dataset||!bubble.dataset.mid){
+        addReactionLocal(bubble,emoji);
+        return;
+      }
+      addReactionLocal(bubble,emoji);
       try{
         await api(`/messages/${encodeURIComponent(bubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify({action:'react',emoji})});
+        if(currentChatUserId) await openChatWith(currentChatUserId);
+        await loadChats();
       }catch(_){}
     };
     doPinMessage=async function(){
+      if(currentBubble&&currentBubble.closest('#fav-messages')){
+        doPinMessageLocal();
+        return;
+      }
       if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
       const id=currentBubble.dataset.mid;
       const isPinned=pinnedBubble===currentBubble;

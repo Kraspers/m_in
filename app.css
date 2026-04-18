@@ -9,6 +9,7 @@
   .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;}
   /* ── Цитата внутри пузыря (исходящие) ── */
   .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
+  .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
   .bubble-out:has(.msg-quote-out){min-width:200px;}
   .bubble-in:has(.msg-quote-out){min-width:200px;}
   .msg-quote-name{color:rgba(255,255,255,0.95);font-size:12px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
