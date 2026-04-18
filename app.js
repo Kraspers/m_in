@@ -1537,7 +1537,6 @@
       setAvatarNode(document.getElementById('pe-avatar-circle'),avatar,name);
       const topBtn=document.getElementById('top-profile-btn');
       if(topBtn){
-        topBtn.onclick=()=>openUserProfileView(profile);
         topBtn.textContent=initials(name);
         if(avatar){
           topBtn.innerHTML=`<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">`;
