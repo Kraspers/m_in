@@ -1488,6 +1488,227 @@
     favBtn.style.pointerEvents='none';
   })();
 
+  /* ── Backend sync + auth + routes ── */
+  (function(){
+    const API_BASE='/api';
+    let authToken=localStorage.getItem('auth_token')||'';
+    let me=null;
+    let stream=null;
+    let searchTimer=null;
+
+    function api(path,opts={}){
+      const headers={ 'Content-Type':'application/json', ...(opts.headers||{}) };
+      if(authToken) headers['x-session-token']=authToken;
+      return fetch(`${API_BASE}${path}`,{...opts,headers}).then(async r=>{
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(data.error||'API error');
+        return data;
+      });
+    }
+    function initials(name){
+      const t=(name||'М').trim();
+      return t ? t.charAt(0).toUpperCase() : 'М';
+    }
+    function setAvatarNode(el,avatarUrl,fallback){
+      if(!el)return;
+      if(avatarUrl){
+        el.innerHTML=`<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+        el.style.background='none';
+      }else{
+        el.innerHTML=initials(fallback);
+      }
+    }
+    function applyProfileUI(profile){
+      me=profile;
+      const name=profile.name||profile.username||'Мой профиль';
+      const username=profile.username||'';
+      const bio=profile.bio||'';
+      const avatar=profile.avatarDataUrl||'';
+      const banner=profile.bannerDataUrl||'';
+      const mainName=document.getElementById('profile-main-name');
+      if(mainName) mainName.textContent=name;
+      const peName=document.getElementById('pe-name');
+      const peUsername=document.getElementById('pe-username');
+      const peBio=document.getElementById('pe-bio');
+      if(peName) peName.value=name;
+      if(peUsername) peUsername.value=username;
+      if(peBio) peBio.value=bio;
+      setAvatarNode(document.getElementById('profile-main-avatar'),avatar,name);
+      setAvatarNode(document.getElementById('profile-row-avatar'),avatar,name);
+      setAvatarNode(document.getElementById('pe-avatar-circle'),avatar,name);
+      const topBtn=document.getElementById('top-profile-btn');
+      if(topBtn){
+        topBtn.textContent=initials(name);
+        if(avatar){
+          topBtn.innerHTML=`<img src="${avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+          topBtn.style.overflow='hidden';
+          topBtn.style.background='none';
+        }else{
+          topBtn.style.background='linear-gradient(135deg,#0078FF,#005fcc)';
+        }
+      }
+      const bImg=document.getElementById('pe-banner-img');
+      if(bImg){
+        if(banner){ bImg.src=banner; bImg.style.display='block'; }
+        else{ bImg.removeAttribute('src'); bImg.style.display='none'; }
+      }
+    }
+    function openAuth(tab='login'){
+      document.getElementById('auth-wrap').classList.add('open');
+      switchAuthTab(tab);
+    }
+    function closeAuth(){
+      document.getElementById('auth-wrap').classList.remove('open');
+      document.getElementById('auth-error').textContent='';
+    }
+    window.switchAuthTab=function(tab){
+      const isLogin=tab==='login';
+      document.getElementById('auth-login-form').style.display=isLogin?'block':'none';
+      document.getElementById('auth-register-form').style.display=isLogin?'none':'block';
+      document.getElementById('auth-tab-login').classList.toggle('active',isLogin);
+      document.getElementById('auth-tab-register').classList.toggle('active',!isLogin);
+    };
+    window.submitLogin=async function(){
+      const username=document.getElementById('auth-login-username').value.trim();
+      const password=document.getElementById('auth-login-password').value;
+      try{
+        const res=await api('/login',{method:'POST',body:JSON.stringify({username,password})});
+        authToken=res.token;
+        localStorage.setItem('auth_token',authToken);
+        closeAuth();
+        applyProfileUI(res.user);
+        startRealtime();
+      }catch(e){ document.getElementById('auth-error').textContent=e.message; }
+    };
+    window.submitRegister=async function(){
+      const name=document.getElementById('auth-register-name').value.trim();
+      const username=document.getElementById('auth-register-username').value.trim();
+      const password=document.getElementById('auth-register-password').value;
+      try{
+        const res=await api('/register',{method:'POST',body:JSON.stringify({name,username,password})});
+        authToken=res.token;
+        localStorage.setItem('auth_token',authToken);
+        closeAuth();
+        applyProfileUI(res.user);
+        startRealtime();
+      }catch(e){ document.getElementById('auth-error').textContent=e.message; }
+    };
+    async function refreshMe(){
+      const res=await api('/me');
+      applyProfileUI(res.user);
+    }
+    function startRealtime(){
+      if(stream) stream.close();
+      if(!authToken) return;
+      stream=new EventSource(`${API_BASE}/stream?token=${encodeURIComponent(authToken)}`);
+      stream.addEventListener('profile',ev=>{
+        try{ applyProfileUI(JSON.parse(ev.data)); }catch(_){}
+      });
+    }
+
+    const _origShowScreen=showScreen;
+    window.showScreen=function(id,skipRoute){
+      _origShowScreen(id);
+      if(skipRoute) return;
+      const route=id.replace('screen-','');
+      history.replaceState(null,'',`#/${route}`);
+    };
+    function applyRoute(){
+      const h=(location.hash||'#/list').replace(/^#\//,'');
+      const target=`screen-${h}`;
+      if(document.getElementById(target)) window.showScreen(target,true);
+    }
+    window.addEventListener('hashchange',applyRoute);
+
+    window.doSearch=function(q){
+      const res=document.getElementById('search-results');
+      if(searchTimer) clearTimeout(searchTimer);
+      if(!q.trim()){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Введите имя для поиска</div>';return;}
+      searchTimer=setTimeout(async ()=>{
+        try{
+          const data=await api(`/chats?q=${encodeURIComponent(q.trim())}`);
+          const filtered=data.items||[];
+          if(!filtered.length){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Ничего не найдено</div>';return;}
+          res.innerHTML=filtered.map(c=>`<button class="chat-row" onclick="showScreen('screen-chat')" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
+            <div class="tg-avatar" style="width:48px;height:48px;background:${c.color};font-size:20px;flex-shrink:0;">${c.avatar}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name)}</span>${c.time?`<span style="color:#8E8E93;font-size:12px;">${c.time}</span>`:''}</div>
+              <span style="color:#8E8E93;font-size:14px;">${esc(c.preview)}</span>
+            </div>
+          </button>`).join('');
+        }catch(e){
+          res.innerHTML='<div style="color:#ff453a;font-size:15px;text-align:center;padding:32px 0;">Ошибка поиска</div>';
+        }
+      },200);
+    };
+
+    window.saveProfileEdit=async function(){
+      try{
+        const payload={
+          name:document.getElementById('pe-name').value.trim(),
+          username:document.getElementById('pe-username').value.trim(),
+          bio:document.getElementById('pe-bio').value.trim()
+        };
+        const res=await api('/me',{method:'PATCH',body:JSON.stringify(payload)});
+        applyProfileUI(res.user);
+        closeProfileEdit();
+      }catch(e){ alert(e.message); }
+    };
+    async function fileToDataUrl(file){
+      return new Promise((resolve,reject)=>{
+        const fr=new FileReader();
+        fr.onload=()=>resolve(fr.result);
+        fr.onerror=reject;
+        fr.readAsDataURL(file);
+      });
+    }
+    window.setPeAvatar=async function(input){
+      if(!input.files||!input.files[0])return;
+      try{
+        const dataUrl=await fileToDataUrl(input.files[0]);
+        const res=await api('/me/avatar',{method:'POST',body:JSON.stringify({dataUrl})});
+        applyProfileUI(res.user);
+      }catch(e){ alert(e.message); }
+      input.value='';
+    };
+    window.setPeBanner=async function(input){
+      if(!input.files||!input.files[0])return;
+      try{
+        const dataUrl=await fileToDataUrl(input.files[0]);
+        const res=await api('/me/banner',{method:'POST',body:JSON.stringify({dataUrl})});
+        applyProfileUI(res.user);
+      }catch(e){ alert(e.message); }
+      input.value='';
+    };
+
+    window.openPrivacy=function(){
+      const wrap=document.getElementById('privacy-wrap');
+      wrap.classList.add('open');
+      if(isDesktop()) showScreen('screen-profile',true);
+    };
+    window.openProfileEdit=function(){
+      profileJustOpened=true;
+      document.getElementById('profile-edit-wrap').classList.add('open');
+      if(isDesktop()) showScreen('screen-profile',true);
+      setTimeout(()=>{ profileJustOpened=false; },600);
+    };
+
+    document.getElementById('auth-bg').addEventListener('click',()=>{ if(authToken) closeAuth(); });
+    (async function initBackend(){
+      applyRoute();
+      if(!location.hash) history.replaceState(null,'','#/list');
+      if(!authToken){ openAuth('login'); return; }
+      try{
+        await refreshMe();
+        startRealtime();
+      }catch(_){
+        authToken='';
+        localStorage.removeItem('auth_token');
+        openAuth('login');
+      }
+    })();
+  })();
+
   /* Hover эффекты на баннер и аватар (только mouse, без touch — фикс бага рандомного выделения) */
   (function(){
     const banner=document.getElementById('pe-banner');
@@ -1541,4 +1762,3 @@
       if(files.length>0)renderMediaPreview();
     });
   })();
-
