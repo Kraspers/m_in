@@ -1698,6 +1698,8 @@
         return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div class="${mine?'bubble-out':'bubble-in'} msg-bubble"><p class="${mine?'msg-text-out':'msg-text-in'}">${esc(m.text)}</p><div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
+      wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
+      wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
       bottom.scrollIntoView({behavior:'auto'});
     }
     async function refreshMe(){
@@ -1740,16 +1742,23 @@
       if(!q.trim()){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Введите имя для поиска</div>';return;}
       searchTimer=setTimeout(async ()=>{
         try{
-          const data=await api(`/chats?q=${encodeURIComponent(q.trim())}`);
+          const data=await api(`/users/search?q=${encodeURIComponent(q.trim())}`);
           const filtered=data.items||[];
           if(!filtered.length){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Ничего не найдено</div>';return;}
-          res.innerHTML=filtered.map(c=>`<button class="chat-row chat-row-item" onclick="showScreen('screen-chat')" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
-            <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;flex-shrink:0;">${esc(c.avatar||'U')}</div>
+          res.innerHTML=filtered.map(c=>`<button class="chat-row chat-row-item search-row-item" data-chat-id="${esc(c.id||'')}" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
+            <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;flex-shrink:0;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
             <div style="flex:1;min-width:0;">
-              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name)}</span>${c.time?`<span style="color:#8E8E93;font-size:12px;">${c.time}</span>`:''}</div>
-              <span style="color:#8E8E93;font-size:14px;">${esc(c.preview)}</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span></div>
+              <span style="color:#8E8E93;font-size:14px;">@${esc(c.username||'')}</span>
             </div>
           </button>`).join('');
+          res.querySelectorAll('.search-row-item').forEach(el=>{
+            el.addEventListener('click',async ()=>{
+              const uid=el.dataset.chatId;
+              if(!uid)return;
+              await openChatWith(uid);
+            });
+          });
         }catch(e){
           res.innerHTML='<div style="color:#ff453a;font-size:15px;text-align:center;padding:32px 0;">Ошибка поиска</div>';
         }

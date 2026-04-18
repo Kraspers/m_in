@@ -275,7 +275,13 @@
   #chatlist-ctx-row-wrap{position:absolute;left:12px;right:12px;}
   #chatlist-ctx-menu{position:absolute;left:12px;right:12px;background:#2C2C2E;border-radius:1.2rem;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6);will-change:transform,opacity;transform-origin:top center;transform:scale(0.86);opacity:0;transition:transform 0.32s cubic-bezier(0.22,1,0.36,1),opacity 0.24s ease;}
   #chatlist-ctx-overlay.open #chatlist-ctx-menu{transform:scale(1);opacity:1;}
-  #top-profile-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+#top-profile-btn img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+#top-profile-btn{padding:0;overflow:hidden;}
+#upv-close{position:absolute;top:14px;right:14px;width:36px;height:36px;border:none;border-radius:50%;background:rgba(0,0,0,0.24);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;}
+.upv-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%;margin-top:16px;}
+.upv-action{background:#1f2f45;border:none;border-radius:12px;min-height:66px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-family:inherit;cursor:pointer;}
+.upv-action span{font-size:21px;line-height:1;}
+.upv-action em{font-style:normal;font-size:13px;}
 
   /* ════════════ DESKTOP LAYOUT ════════════ */
   @media (min-width: 768px) {
@@ -382,7 +388,7 @@
       border-radius: 1.8rem !important;
       max-height: 86dvh !important;
     }
-    #profile-edit-close-row { display: none !important; }
+    #profile-edit-close-row { display: flex !important; }
   }
 
 /* ── Upload progress animation ── */

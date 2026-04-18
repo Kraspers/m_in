@@ -352,8 +352,13 @@ function handleApi(req, res, urlObj) {
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
     const messages = db.messages || [];
+    const dialogUserIds = new Set(
+      messages
+        .filter(m => m.fromUserId === user.id || m.toUserId === user.id)
+        .map(m => (m.fromUserId === user.id ? m.toUserId : m.fromUserId))
+    );
     const items = db.users
-      .filter(u => u.id !== user.id)
+      .filter(u => u.id !== user.id && dialogUserIds.has(u.id))
       .filter(u => {
         const n = String(u.name || '').toLowerCase();
         const un = String(u.username || '').toLowerCase();
@@ -377,6 +382,31 @@ function handleApi(req, res, urlObj) {
           color: colorForId(u.id)
         };
       });
+    return sendJson(res, 200, { items });
+  }
+
+  if (pathname === '/api/users/search' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const q = String(searchParams.get('q') || '').toLowerCase();
+    if (!q) return sendJson(res, 200, { items: [] });
+    const items = db.users
+      .filter(u => u.id !== user.id)
+      .filter(u => {
+        const n = String(u.name || '').toLowerCase();
+        const un = String(u.username || '').toLowerCase();
+        return n.includes(q) || un.includes(q);
+      })
+      .slice(0, 50)
+      .map(u => ({
+        id: u.id,
+        name: u.name || u.username,
+        username: u.username,
+        avatarDataUrl: u.avatarDataUrl || '',
+        avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
+        color: colorForId(u.id)
+      }));
     return sendJson(res, 200, { items });
   }
 
