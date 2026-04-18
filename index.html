@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>MIN 2.0</title>
+<link rel="stylesheet" href="app.css">
+
+</head>
+<body>
+
+<!-- ════════════════ ЭКРАН 1 — ЧАТ ════════════════ -->
+
+<div id="screen-chat" class="screen">
+  <div class="header-blur" style="padding:52px 20px 16px;display:flex;align-items:center;gap:12px;">
+    <button onclick="showScreen('screen-list')" style="background:none;border:none;cursor:pointer;padding:4px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span style="font-size:20px;font-weight:700;color:#fff;flex:1;text-align:center;margin-right:36px;">Contact Name</span>
+  </div>
+
+  <div id="chat-messages" class="scroll-area" style="position:absolute;inset:0;padding:108px 12px 90px;display:flex;flex-direction:column;gap:8px;">
+    <div style="display:flex;align-items:flex-end;gap:8px;max-width:78%;align-self:flex-start;">
+      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
+      <div>
+        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
+        <div class="bubble-in msg-bubble"><p class="msg-text-in">Здравствуйте! Чем могу помочь?</p><div class="msg-meta"><span class="msg-time-in">12:28</span></div></div>
+      </div>
+    </div>
+    <div style="align-self:flex-end;max-width:78%;">
+      <div class="bubble-out msg-bubble"><p class="msg-text-out">Почему не работает интернет? ВКонтакте не открывается</p><div class="msg-meta"><span class="msg-time-out">12:29</span><svg width="16" height="10" viewBox="0 0 16 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:8px;max-width:78%;align-self:flex-start;">
+      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
+      <div>
+        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
+        <div class="bubble-in msg-bubble"><p class="msg-text-in">ВКонтакте, государственные ресурсы, маркетплейсы — эти сервисы доступны. Полный список: <a href="#" style="color:#60a5fa;text-decoration:none;">https://s.beeline.ru/wlistd</a></p><div class="msg-meta"><span class="msg-time-in">12:29</span></div></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:8px;max-width:78%;align-self:flex-start;">
+      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
+      <div>
+        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
+        <div class="bubble-in msg-bubble"><p class="msg-text-in">Все ли вопросы мы обсудили?</p><div class="msg-meta"><span class="msg-time-in">12:31</span></div></div>
+      </div>
+    </div>
+    <div style="align-self:flex-end;max-width:78%;">
+      <div class="bubble-out msg-bubble"><p class="msg-text-out">Когда вернётся интернет?</p><div class="msg-meta"><span class="msg-time-out">12:32</span><svg width="16" height="10" viewBox="0 0 16 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:8px;max-width:82%;align-self:flex-start;">
+      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
+      <div>
+        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
+        <div class="bubble-in msg-bubble"><p class="msg-text-in">Ограничения не связаны с работой нашего оборудования, поэтому сроки восстановления нам неизвестны.</p><div class="msg-meta"><span class="msg-time-in">12:32</span></div></div>
+      </div>
+    </div>
+    <div style="align-self:flex-end;max-width:80%;">
+      <div class="bubble-out msg-bubble"><p class="msg-text-out">И введут ли системные приложения в вайтлист? App Store и тд. Это просто замечательно, что наши сервисы работают. Но их же надо обновлять</p><div class="msg-meta"><span class="msg-time-out">12:33</span><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:8px;max-width:82%;align-self:flex-start;">
+      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
+      <div>
+        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
+        <div class="bubble-in msg-bubble"><p class="msg-text-in">Данный список был составлен Минцифры как самые полезные и нужные ресурсы. Список будет расширяться. Следите за обновлениями в приложении.</p><div class="msg-meta"><span class="msg-time-in">12:35</span></div></div>
+      </div>
+    </div>
+    <div id="chat-bottom"></div>
+  </div>
+
+  <div id="pinned-bar" onclick="scrollToPinned()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0078FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>
+    <div id="pinned-bar-info">
+      <div id="pinned-bar-label">Закреплённое сообщение</div>
+      <div id="pinned-bar-preview"></div>
+    </div>
+    <button id="pinned-bar-close" onclick="event.stopPropagation();unpinMessage()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="input-bar">
+    <div id="media-preview"></div>
+    <div id="reply-island">
+      <div id="reply-island-text">
+        <div id="reply-island-title">В ответ</div>
+        <div id="reply-island-preview"></div>
+      </div>
+      <button id="reply-close" onclick="dismissReply()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="edit-island">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF9500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <div id="edit-island-text">
+        <div id="edit-island-title">Редактирование</div>
+        <div id="edit-island-preview"></div>
+      </div>
+      <button id="edit-close" onclick="dismissEdit()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="input-pill">
+      <div id="drag-hint"><div id="drag-hint-pill">Перетащите файл сюда</div></div>
+      <input id="media-file" type="file" accept="image/*,video/*" multiple style="display:none" onchange="addMedia(this)" />
+      <button onclick="triggerMedia()" style="background:none;border:none;cursor:pointer;padding:4px;color:rgba(255,255,255,0.5);flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <input id="msg-input" type="text" placeholder="Напишите сообщение…"
+        style="flex:1 1 0%;background:none;border:none;outline:none;color:#fff;font-size:15px;font-family:inherit;min-width:0;-webkit-user-select:text;user-select:text;"
+        oninput="updateSendBtn()" onkeydown="if(event.key==='Enter')sendMessage()" />
+      <button id="send-btn" onclick="sendMessage()"
+        style="background:#0078FF;border:none;cursor:pointer;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:-2px;transition:opacity 0.18s ease;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ЭКРАН 2 — СПИСОК ЧАТОВ ════════════════ -->
+
+<div id="screen-list" class="screen active">
+  <div class="header-blur" style="padding:36px 20px 18px;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-size:22px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;">Minimum<img src="/logo_app.png" style="height:26px;width:26px;object-fit:contain;border-radius:6px;vertical-align:middle;"></span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button onclick="showScreen('screen-search')" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button onclick="showScreen('screen-profile')" style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0078FF,#005fcc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;font-family:inherit;">М</button>
+    </div>
+  </div>
+  <div class="scroll-area" style="padding:16px 12px;display:flex;flex-direction:column;gap:8px;">
+    <button class="chat-row chat-row-item">
+      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:20px;">П</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">ВПизде</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">12:29</span></div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+          <svg width="14" height="9" viewBox="0 0 16 10" fill="none" style="flex-shrink:0;"><polyline points="1,5 4,8 9,2" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Когда Вп выйдет все пользовате...</span>
+        </div>
+      </div>
+    </button>
+    <button class="chat-row chat-row-item">
+      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#555,#333);font-size:20px;">У</div>
+      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="color:#fff;font-size:16px;font-weight:600;">sosocasino_bot</span></div><span style="color:#8E8E93;font-size:14px;">Вы успешно депнули своего друга!</span></div>
+    </button>
+    <button class="chat-row chat-row-item">
+      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#e53935,#b71c1c);font-size:20px;">Ч</div>
+      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="color:#fff;font-size:16px;font-weight:600;">MAX</span></div><span style="color:#8E8E93;font-size:14px;">Мы удаляем МАХ. Мы не справим...</span></div>
+    </button>
+    <button class="chat-row chat-row-item">
+      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#1976D2,#0D47A1);font-size:20px;">М</div>
+      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">Избраное</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">вчера</span></div><span style="color:#8E8E93;font-size:14px;">Звонок</span></div>
+    </button>
+    <button class="chat-row chat-row-item">
+      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#388E3C,#1B5E20);font-size:20px;">Д</div>
+      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">Анастасися</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">пн</span></div><span style="color:#8E8E93;font-size:14px;">ДА ТЫ ШУИШЬ</span></div>
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ ЭКРАН 3 — ПРОФИЛЬ ════════════════ -->
+
+<div id="screen-profile" class="screen" style="background:#111;">
+  <div style="flex-shrink:0;position:relative;">
+    <div style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;"></div>
+    <div style="position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);">
+      <div class="tg-avatar" style="width:96px;height:96px;background:linear-gradient(135deg,#0078FF,#005fcc);border:5px solid #111;font-size:38px;">М</div>
+    </div>
+    <button onclick="showScreen('screen-list')" style="position:absolute;top:52px;left:16px;background:rgba(0,0,0,0.12);border:none;cursor:pointer;padding:6px 10px;border-radius:999px;display:flex;align-items:center;gap:4px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <span style="font-size:15px;color:#111;font-weight:500;">Назад</span>
+    </button>
+  </div>
+  <div class="scroll-area" style="padding:66px 12px 24px;display:flex;flex-direction:column;gap:10px;">
+    <div style="text-align:center;margin-bottom:8px;"><div style="color:#fff;font-size:20px;font-weight:700;">Мой профиль</div></div>
+    <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
+      <button class="settings-row" onclick="openProfileEdit()">
+        <div class="tg-avatar settings-icon" style="background:linear-gradient(135deg,#e53935,#b71c1c);width:34px;height:34px;font-size:16px;">М</div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Мой профиль</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openFavorites()">
+        <div class="settings-icon" style="background:linear-gradient(160deg,#4AAFF8,#2477E6);"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-4 7 4V5a2 2 0 00-2-2z"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Избранное</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;">
+        <div class="settings-icon" style="background:#FF9500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Устройства</span>
+        <span style="color:#8E8E93;font-size:15px;">3</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row">
+        <div class="settings-icon" style="background:#5AC8FA;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Папки с чатами</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;">
+        <div class="settings-icon" style="background:#FF3B30;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Уведомления</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openPrivacy()">
+        <div class="settings-icon" style="background:#636366;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Конфиденциальность</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row">
+        <div class="settings-icon" style="background:#0078FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polygon points="12,2 14.5,4 17.5,3 19,5.5 22,7 21,10 23,12.5 21,15 22,18 19,19.5 17.5,22 14.5,21 12,23 9.5,21 6.5,22 5,19.5 2,18 3,15 1,12.5 3,10 2,7 5,5.5 6.5,3 9.5,4" fill="white"/><polyline points="8,12.5 11,15.5 16,9.5" stroke="#0078FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Верификация</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ШТОРКА — МОЙ ПРОФИЛЬ ════════════════ -->
+<div id="profile-edit-wrap">
+  <div id="profile-edit-bg" onclick="closeProfileEdit()"></div>
+  <div id="profile-edit-slideable">
+    <!-- Кнопка закрытия над шторкой -->
+    <div id="profile-edit-close-row">
+      <button onclick="closeProfileEdit()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Мой профиль
+      </button>
+    </div>
+  <div id="profile-edit-sheet">
+    <!-- Ручка -->
+    <div style="display:flex;justify-content:center;padding:10px 0 0;">
+      <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+    </div>
+    <!-- Баннер + Аватар -->
+    <div style="padding:14px 16px 0;position:relative;margin-bottom:48px;">
+      <div id="pe-banner" style="background:#fff;border-radius:1.8rem;height:130px;position:relative;overflow:hidden;cursor:pointer;">
+        <img id="pe-banner-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+        <div id="pe-banner-overlay" style="position:absolute;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;border-radius:1.8rem;transition:background 0.18s ease;">
+          <svg id="pe-banner-cam" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0;transition:opacity 0.18s ease;filter:drop-shadow(0 1px 4px rgba(0,0,0,0.4));"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <input id="pe-banner-input" type="file" accept="image/*" style="display:none;" onchange="setPeBanner(this)" />
+      </div>
+      <!-- Аватар -->
+      <div style="position:absolute;bottom:-44px;left:50%;transform:translateX(-50%);">
+        <div id="pe-avatar-wrap" style="position:relative;cursor:pointer;" onclick="document.getElementById('pe-avatar-input').click()">
+          <div id="pe-avatar-circle" class="tg-avatar" style="width:76px;height:76px;background:linear-gradient(135deg,#0078FF,#005fcc);border:4px solid #1C1C1E;font-size:30px;overflow:hidden;">М</div>
+          <div id="pe-avatar-overlay" style="position:absolute;inset:0;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center;transition:background 0.18s ease;">
+            <svg id="pe-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0;transition:opacity 0.18s ease;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5));"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <input id="pe-avatar-input" type="file" accept="image/*" style="display:none;" onchange="setPeAvatar(this)" />
+        </div>
+      </div>
+    </div>
+    <!-- Поля -->
+    <div style="padding:0 16px 32px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div class="pe-label">Имя</div>
+        <input id="pe-name" class="pe-field" type="text" placeholder="Ваше отображаемое имя" />
+        <div class="pe-hint">Ваше отображаемое имя</div>
+      </div>
+      <div>
+        <div class="pe-label">Username</div>
+        <input id="pe-username" class="pe-field" type="text" placeholder="username" />
+        <div class="pe-hint">Ваш уникальный идентификатор (только латиница, цифры и _)</div>
+      </div>
+      <div>
+        <div class="pe-label">О себе</div>
+        <textarea id="pe-bio" class="pe-field" placeholder="Расскажите немного о себе" rows="3" style="resize:none;"></textarea>
+      </div>
+      <button onclick="saveProfileEdit()" style="background:#0078FF;color:#fff;border:none;border-radius:999px;padding:16px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;">Сохранить</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ════════════════ ТОСТ СКОПИРОВАНО ════════════════ -->
+<div id="copy-toast">Скопировано</div>
+
+<!-- ════════════════ ШТОРКА — КОНФИДЕНЦИАЛЬНОСТЬ ════════════════ -->
+<div id="privacy-wrap">
+  <div id="privacy-bg" onclick="closePrivacy()"></div>
+  <div id="privacy-slideable">
+    <div id="privacy-close-row" style="display:flex;align-items:center;padding:6px 16px 12px;">
+      <button onclick="closePrivacy()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Конфиденциальность
+      </button>
+    </div>
+    <div id="privacy-sheet">
+      <div style="display:flex;justify-content:center;padding:10px 0 0;">
+        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+      </div>
+      <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:14px;">
+        <!-- Синяя плитка с кодом -->
+        <div onclick="copyPrivacyCode()" style="background:#0078FF;border-radius:1.4rem;padding:22px 20px;display:flex;align-items:center;justify-content:flex-end;cursor:pointer;min-height:72px;position:relative;-webkit-tap-highlight-color:transparent;" id="privacy-code-card">
+          <span id="privacy-code-text" style="color:#fff;font-size:28px;font-weight:800;letter-spacing:4px;font-family:monospace;">А7К2М9</span>
+        </div>
+        <!-- Изменить пароль -->
+        <button onclick="openPwdSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;font-family:inherit;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#30D158" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          <span style="color:#30D158;font-size:17px;font-weight:500;flex:1;text-align:left;">Изменить пароль</span>
+        </button>
+        <!-- Удалить аккаунт -->
+        <button onclick="openDelSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;font-family:inherit;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+          <span style="color:#FF453A;font-size:17px;font-weight:500;flex:1;text-align:left;">Удалить аккаунт</span>
+        </button>
+        <!-- Разделитель -->
+        <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"></div>
+        <!-- Выйти из аккаунта -->
+        <button style="width:100%;background:none;border:2px solid #FF453A;border-radius:999px;padding:16px;color:#FF453A;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Выйти из аккаунта</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ШТОРКА — ИЗМЕНИТЬ ПАРОЛЬ ════════════════ -->
+<div id="pwd-wrap">
+  <div id="pwd-bg" onclick="closePwdSheet()"></div>
+  <div id="pwd-slideable">
+    <div id="pwd-sheet">
+      <div style="display:flex;justify-content:center;padding:4px 0 8px;">
+        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+      </div>
+      <input class="pe-field" type="password" placeholder="Текущий пароль" style="border-radius:999px;padding:20px 20px;" />
+      <input class="pe-field" type="password" placeholder="Новый пароль" style="border-radius:999px;padding:20px 20px;" />
+      <input class="pe-field" type="password" placeholder="Повторите новый пароль" style="border-radius:999px;padding:20px 20px;" />
+      <button onclick="closePwdSheet()" style="background:#0078FF;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;">Сохранить</button>
+      <button onclick="closePwdSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;color:rgba(255,255,255,0.6);font-size:17px;font-weight:500;cursor:pointer;font-family:inherit;padding:17px;">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ШТОРКА — УДАЛИТЬ АККАУНТ ════════════════ -->
+<div id="del-wrap">
+  <div id="del-bg" onclick="closeDelSheet()"></div>
+  <div id="del-slideable">
+    <div id="del-sheet">
+      <div style="display:flex;justify-content:center;padding:4px 0 8px;">
+        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 6px;">
+        <div style="width:60px;height:60px;border-radius:50%;background:rgba(255,69,58,0.18);display:flex;align-items:center;justify-content:center;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div style="color:#fff;font-size:20px;font-weight:700;text-align:center;">Удалить аккаунт?</div>
+        <div style="color:rgba(255,255,255,0.65);font-size:15px;text-align:center;line-height:1.5;">Это действие <span style="color:#FF453A;font-weight:600;">необратимо</span>. Все ваши посты, истории и данные будут удалены навсегда. Восстановить аккаунт будет невозможно.</div>
+        <input class="pe-field" type="password" placeholder="Введите пароль для подтверждения" style="border-radius:999px;background:rgba(44,44,46,0.6);border:1px solid rgba(255,255,255,0.1);padding:20px 20px;" />
+        <button style="width:100%;background:#FF453A;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Удалить навсегда</button>
+        <button onclick="closeDelSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;color:rgba(255,255,255,0.6);font-size:17px;font-weight:500;cursor:pointer;font-family:inherit;padding:17px;">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ КОНТЕКСТНОЕ МЕНЮ ════════════════ -->
+
+<div id="ctx-overlay" onclick="closeCtx(event)">
+  <div id="ctx-blur-bg"></div>
+  <div id="ctx-msg-wrap">
+    <div id="ctx-msg-scroll"></div>
+  </div>
+  <div id="ctx-menu">
+    <button class="ctx-item" onclick="doReply()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+      Ответить
+    </button>
+    <button id="ctx-copy" class="ctx-item" onclick="doCopy()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      Скопировать
+    </button>
+    <button id="ctx-edit" class="ctx-item" onclick="doEdit()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Изменить
+    </button>
+    <button id="ctx-pin" class="ctx-item" onclick="doPinMessage()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>
+      <span id="ctx-pin-label">Закрепить</span>
+    </button>
+    <button class="ctx-item" onclick="openReactionPicker()">
+      <span style="font-size:20px;line-height:1;">😀</span>
+      Реакция
+    </button>
+    <button class="ctx-item" onclick="doForward()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 014-4h12"/></svg>
+      Переслать
+    </button>
+    <button id="ctx-delete" class="ctx-item danger" onclick="doDeleteMessage()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      Удалить
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ ЭКРАН 4 — ПОИСК ════════════════ -->
+<div id="screen-search" class="screen">
+  <div style="padding:52px 0 0;flex-shrink:0;">
+    <div id="search-bar-wrap">
+      <input id="search-input" type="text" placeholder="Поиск…" oninput="doSearch(this.value)" autocomplete="off" />
+      <button id="search-cancel" onclick="showScreen('screen-list');document.getElementById('search-input').value='';doSearch('');">Отмена</button>
+    </div>
+  </div>
+  <div id="search-results" class="scroll-area" style="padding:0 12px 24px;display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+
+<!-- ════════════════ КОНТЕКСТНОЕ МЕНЮ ЧАТА (LIST) ════════════════ -->
+<div id="chatlist-ctx-overlay" onclick="closeChatListCtx(event)">
+  <div id="chatlist-ctx-blur-bg"></div>
+  <div id="chatlist-ctx-row-wrap"></div>
+  <div id="chatlist-ctx-menu">
+    <button id="chatlist-pin-btn" class="ctx-item" onclick="pinChat();closeChatListCtxClean();">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>
+      <span id="chatlist-pin-label">Закрепить</span>
+    </button>
+    <button class="ctx-item danger" onclick="doDeleteChat()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      Удалить
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ ПИКЕР РЕАКЦИЙ ════════════════ -->
+<div id="reaction-picker">
+  <div id="reaction-picker-bg" onclick="closeReactionPicker()"></div>
+  <div id="reaction-picker-sheet">
+    <button class="emoji-pick-btn" onclick="doReaction('❤️')">❤️</button>
+    <button class="emoji-pick-btn" onclick="doReaction('👍')">👍</button>
+    <button class="emoji-pick-btn" onclick="doReaction('😂')">😂</button>
+    <button class="emoji-pick-btn" onclick="doReaction('😮')">😮</button>
+    <button class="emoji-pick-btn" onclick="doReaction('😢')">😢</button>
+    <button class="emoji-pick-btn" onclick="doReaction('🔥')">🔥</button>
+    <button class="emoji-pick-btn" onclick="doReaction('👏')">👏</button>
+    <button class="emoji-pick-btn" onclick="doReaction('🎉')">🎉</button>
+    <button class="emoji-pick-btn" onclick="doReaction('🤔')">🤔</button>
+    <button class="emoji-pick-btn" onclick="doReaction('💯')">💯</button>
+    <button class="emoji-pick-btn" onclick="doReaction('😍')">😍</button>
+    <button class="emoji-pick-btn" onclick="doReaction('🙏')">🙏</button>
+  </div>
+</div>
+
+<!-- ════════════════ ЭКРАН ИЗБРАННОЕ ════════════════ -->
+<div id="screen-favorites" class="screen" style="background:#111;overflow:hidden;">
+  <div class="header-blur" style="padding:52px 20px 16px;display:flex;align-items:center;gap:12px;">
+    <button onclick="showScreen('screen-profile')" style="background:none;border:none;cursor:pointer;padding:4px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span style="font-size:20px;font-weight:700;color:#fff;flex:1;text-align:center;margin-right:36px;">Избранное</span>
+  </div>
+
+  <div id="fav-messages" class="scroll-area" style="position:absolute;inset:0;padding:108px 12px 90px;display:flex;flex-direction:column;gap:8px;">
+    <!-- Карточка-заставка — по центру -->
+    <div class="fav-intro-wrap">
+      <div class="favorites-intro-card">
+        <div class="favorites-intro-avatar" style="background:linear-gradient(160deg,#4AAFF8,#2477E6);">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-4 7 4V5a2 2 0 00-2-2z"/></svg>
+        </div>
+        <div class="favorites-intro-name">Избранное</div>
+        <div class="favorites-intro-sub">Сохраняйте важное</div>
+      </div>
+    </div>
+    <div id="fav-bottom"></div>
+  </div>
+
+  <div id="fav-pinned-bar" onclick="scrollToFavPinned()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0078FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>
+    <div id="fav-pinned-bar-info">
+      <div id="fav-pinned-bar-label">Закреплённое сообщение</div>
+      <div id="fav-pinned-bar-preview"></div>
+    </div>
+    <button id="fav-pinned-bar-close" onclick="event.stopPropagation();unpinFavMessage()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="input-bar" style="position:absolute;bottom:0;left:0;right:0;z-index:5;">
+    <div id="fav-media-preview"></div>
+    <div id="fav-reply-island">
+      <div id="fav-reply-island-text">
+        <div id="fav-reply-island-title">В ответ</div>
+        <div id="fav-reply-island-preview"></div>
+      </div>
+      <button id="fav-reply-close" onclick="dismissFavReply()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="fav-edit-island">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF9500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <div id="fav-edit-island-text">
+        <div id="fav-edit-island-title">Редактирование</div>
+        <div id="fav-edit-island-preview"></div>
+      </div>
+      <button id="fav-edit-close" onclick="dismissFavEdit()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="input-pill">
+      <input id="fav-media-file" type="file" accept="image/*,video/*" multiple style="display:none" onchange="addFavMedia(this)" />
+      <button onclick="document.getElementById('fav-media-file').click()" style="background:none;border:none;cursor:pointer;padding:4px;color:rgba(255,255,255,0.5);flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <input id="fav-input" type="text" placeholder="Напишите сообщение…"
+        style="flex:1 1 0%;background:none;border:none;outline:none;color:#fff;font-size:15px;font-family:inherit;min-width:50px;-webkit-user-select:text;user-select:text;"
+        oninput="updateFavBtn()" onkeydown="if(event.key==='Enter')sendFavMessage()" />
+      <button id="fav-send-btn" onclick="sendFavMessage()"
+        style="background:#0078FF;border:none;cursor:pointer;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:-2px;transition:opacity 0.18s ease;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ШТОРКА ПЕРЕСЫЛКИ ════════════════ -->
+<div id="forward-overlay" onclick="closeForwardIfBg(event)">
+  <div id="forward-bg"></div>
+  <div id="forward-sheet">
+    <div id="forward-sheet-handle">
+      <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+    </div>
+    <div class="forward-title">Переслать сообщение</div>
+    <!-- Избранное -->
+    <button class="forward-row" onclick="forwardToChat('favorites')">
+      <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(160deg,#4AAFF8,#2477E6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-4 7 4V5a2 2 0 00-2-2z"/></svg>
+      </div>
+      <span class="forward-row-name">Избранное</span>
+    </button>
+    <!-- Чаты -->
+    <button class="forward-row" onclick="forwardToChat('поддержка')">
+      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:19px;flex-shrink:0;">П</div>
+      <span class="forward-row-name">чат с поддержкой</span>
+    </button>
+    <button class="forward-row" onclick="forwardToChat('уведомления')">
+      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#555,#333);font-size:19px;flex-shrink:0;">У</div>
+      <span class="forward-row-name">уведомления</span>
+    </button>
+    <button class="forward-row" onclick="forwardToChat('что нового')">
+      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#e53935,#b71c1c);font-size:19px;flex-shrink:0;">Ч</div>
+      <span class="forward-row-name">что нового</span>
+    </button>
+    <button class="forward-row" onclick="forwardToChat('михаил')">
+      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#1976D2,#0D47A1);font-size:19px;flex-shrink:0;">М</div>
+      <span class="forward-row-name">Михаил</span>
+    </button>
+    <button class="forward-row" onclick="forwardToChat('диана')">
+      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#388E3C,#1B5E20);font-size:19px;flex-shrink:0;">Д</div>
+      <span class="forward-row-name">Диана</span>
+    </button>
+    <div style="height:40px;"></div>
+  </div>
+</div>
+
+<!-- ════════════════ ПРОСМОТР МЕДИА ════════════════ -->
+<div id="media-viewer">
+  <div id="mv-wrap">
+    <div id="mv-item"></div>
+  </div>
+  <button id="mv-close" onclick="closeViewer()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <div id="mv-count"></div>
+  <button id="mv-prev" onclick="mvNav(-1)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button id="mv-next" onclick="mvNav(1)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+</div>
+
+<script src="app.js"></script>
+
+<!-- ════════════════ ДЕСКТОП: ПЛЕЙСХОЛДЕР ПРАВОЙ ПАНЕЛИ ════════════════ -->
+<div id="desktop-placeholder">
+  <div id="desktop-placeholder-pill">Выберите чат и начните общение!</div>
+</div>
+
+</body>
+</html>
