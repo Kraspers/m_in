@@ -366,13 +366,17 @@
       width: min(860px, 92vw) !important;
       max-width: none !important;
       margin: 0 !important;
-      transform: scale(0.96) translateY(0) !important;
-      transition: transform 0.22s ease !important;
+      transform: scale(0.96) translateY(32px) !important;
+      opacity: 0 !important;
+      transition: transform 0.22s ease, opacity 0.22s ease !important;
     }
     #privacy-wrap.open #privacy-slideable,
     #pwd-wrap.open #pwd-slideable,
     #del-wrap.open #del-slideable,
-    #profile-edit-wrap.open #profile-edit-slideable { transform: scale(1) translateY(0) !important; }
+    #profile-edit-wrap.open #profile-edit-slideable {
+      transform: scale(1) translateY(0) !important;
+      opacity: 1 !important;
+    }
     #privacy-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet {
       border-radius: 1.8rem !important;
       max-height: 86dvh !important;
