@@ -503,19 +503,21 @@
 </div>
 
 <div id="user-profile-view" style="position:fixed;inset:0;z-index:320;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
-  <div id="upv-card" style="width:min(92vw,480px);background:#152235;border-radius:24px;overflow:hidden;position:relative;">
+  <div id="upv-card" style="width:min(92vw,480px);background:#1c1c1e;border-radius:24px;overflow:hidden;position:relative;">
     <button id="upv-close" onclick="closeUserProfileView()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Закрыть
     </button>
-    <div id="upv-banner" style="height:180px;background:#fff;background-size:cover;background-position:center;"></div>
+    <div id="upv-banner" style="height:160px;background:#fff;background-size:cover;background-position:center;border-radius:0 0 2.8rem 2.8rem;"></div>
     <div style="padding:0 18px 22px;display:flex;flex-direction:column;align-items:center;">
-      <div id="upv-avatar" class="tg-avatar" style="width:92px;height:92px;margin-top:-46px;border:5px solid #152235;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:36px;">U</div>
+      <div id="upv-avatar" class="tg-avatar" style="width:92px;height:92px;margin-top:-46px;border:5px solid #1c1c1e;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:36px;">U</div>
       <div id="upv-name" style="color:#fff;font-size:30px;font-weight:700;margin-top:10px;">Профиль</div>
       <div id="upv-username" style="color:#8E8E93;font-size:16px;margin-top:4px;">@username</div>
       <div class="upv-actions">
-        <button class="upv-action"><span>💬</span><em>Чат</em></button>
-        <button class="upv-action"><span>🔇</span><em>Звук</em></button>
-        <button class="upv-action"><span>📞</span><em>Звонок</em></button>
+        <button class="upv-action">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <em>Чат</em>
+        </button>
         <button class="upv-action"><span>⋯</span><em>Ещё</em></button>
       </div>
     </div>
