@@ -23,8 +23,8 @@ const MIME_TYPES = {
   '.txt': 'text/plain; charset=utf-8'
 };
 
-const sessions = new Map();
-const sseClients = new Map();
+const sessions = new Map(); // token -> session
+const sseClients = new Map(); // token -> SSE response
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -96,11 +96,43 @@ function makeUniqueVpscCode(db) {
   return code;
 }
 
+function getSessionByToken(token) {
+  if (!token || !sessions.has(token)) return null;
+  const s = sessions.get(token);
+  return s && typeof s === 'object' ? s : null;
+}
 function getUserByToken(req, db) {
   const token = req.headers['x-session-token'];
-  if (!token || !sessions.has(token)) return null;
-  const uid = sessions.get(token);
-  return db.users.find(u => u.id === uid) || null;
+  const session = getSessionByToken(token);
+  if (!session) return null;
+  session.lastSeenAt = new Date().toISOString();
+  sessions.set(token, session);
+  return db.users.find(u => u.id === session.userId) || null;
+}
+function parseDeviceInfo(req) {
+  const ua = String(req.headers['user-agent'] || 'MIN Web');
+  const ipRaw = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
+  const ip = ipRaw.split(',')[0].trim() || 'Unknown';
+  return { ua, ip };
+}
+function createSession(req, userId) {
+  const token = makeToken();
+  const { ua, ip } = parseDeviceInfo(req);
+  const now = new Date().toISOString();
+  const session = {
+    id: crypto.randomUUID(),
+    token,
+    userId,
+    ua,
+    ip,
+    app: 'MIN Web',
+    os: ua,
+    location: 'Unknown',
+    createdAt: now,
+    lastSeenAt: now
+  };
+  sessions.set(token, session);
+  return session;
 }
 
 function publicUser(user) {
@@ -127,19 +159,20 @@ function colorForId(id) {
   return palette[hash % palette.length];
 }
 
-function broadcastProfile(user) {
-  const uid = user.id;
-  const set = sseClients.get(uid);
-  if (!set || !set.size) return;
-  const msg = `event: profile\ndata: ${JSON.stringify(publicUser(user))}\n\n`;
-  for (const res of set) res.write(msg);
+function sendEventToSessionToken(token, event, payload) {
+  const res = sseClients.get(token);
+  if (!res) return;
+  res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
 }
 
 function sendEventToUser(uid, event, payload) {
-  const set = sseClients.get(uid);
-  if (!set || !set.size) return;
-  const msg = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
-  for (const res of set) res.write(msg);
+  for (const [token, session] of sessions.entries()) {
+    if (session.userId === uid) sendEventToSessionToken(token, event, payload);
+  }
+}
+
+function broadcastProfile(user) {
+  sendEventToUser(user.id, 'profile', publicUser(user));
 }
 
 function normalizeMessage(msg) {
@@ -187,8 +220,8 @@ function handleApi(req, res, urlObj) {
         };
         db.users.push(user);
         writeDb(db);
-        const token = makeToken();
-        sessions.set(token, user.id);
+        const session = createSession(req, user.id);
+        const token = session.token;
         sendJson(res, 201, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -205,8 +238,8 @@ function handleApi(req, res, urlObj) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
         }
-        const token = makeToken();
-        sessions.set(token, user.id);
+        const session = createSession(req, user.id);
+        const token = session.token;
         sendJson(res, 200, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -215,8 +248,9 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/stream' && method === 'GET') {
     const db = readDb();
     const token = searchParams.get('token');
-    if (!token || !sessions.has(token)) return sendJson(res, 401, { error: 'Unauthorized' });
-    const uid = sessions.get(token);
+    const session = getSessionByToken(token);
+    if (!session) return sendJson(res, 401, { error: 'Unauthorized' });
+    const uid = session.userId;
     const user = db.users.find(u => u.id === uid);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
 
@@ -226,20 +260,19 @@ function handleApi(req, res, urlObj) {
       Connection: 'keep-alive'
     });
     res.write(`event: profile\ndata: ${JSON.stringify(publicUser(user))}\n\n`);
-    if (!sseClients.has(uid)) sseClients.set(uid, new Set());
-    sseClients.get(uid).add(res);
+    sseClients.set(token, res);
     req.on('close', () => {
-      const set = sseClients.get(uid);
-      if (!set) return;
-      set.delete(res);
-      if (!set.size) sseClients.delete(uid);
+      sseClients.delete(token);
     });
     return;
   }
 
   if (pathname === '/api/logout' && method === 'POST') {
     const token = req.headers['x-session-token'];
-    if (token) sessions.delete(token);
+    if (token) {
+      sessions.delete(token);
+      sseClients.delete(token);
+    }
     return sendJson(res, 200, { ok: true });
   }
 
@@ -251,8 +284,8 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
-        const token = makeToken();
-        sessions.set(token, user.id);
+        const session = createSession(req, user.id);
+        const token = session.token;
         sendJson(res, 200, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -269,9 +302,40 @@ function handleApi(req, res, urlObj) {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
-    let count = 0;
-    for (const uid of sessions.values()) if (uid === user.id) count++;
-    return sendJson(res, 200, { count: Math.max(1, count) });
+    const token = req.headers['x-session-token'];
+    const items = [];
+    for (const s of sessions.values()) {
+      if (s.userId !== user.id) continue;
+      items.push({
+        id: s.id,
+        ua: s.ua,
+        app: s.app,
+        os: s.os,
+        ip: s.ip,
+        location: s.location || 'Unknown',
+        createdAt: s.createdAt,
+        lastSeenAt: s.lastSeenAt,
+        current: s.token === token
+      });
+    }
+    items.sort((a, b) => (a.current === b.current ? (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '') : (a.current ? -1 : 1)));
+    return sendJson(res, 200, { count: Math.max(1, items.length), items });
+  }
+
+  if (pathname === '/api/me/sessions/logout-others' && method === 'POST') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const currentToken = req.headers['x-session-token'];
+    let removed = 0;
+    for (const [token, s] of sessions.entries()) {
+      if (s.userId !== user.id || token === currentToken) continue;
+      sendEventToSessionToken(token, 'force_logout', { reason: 'logout_others' });
+      sseClients.delete(token);
+      sessions.delete(token);
+      removed++;
+    }
+    return sendJson(res, 200, { ok: true, removed });
   }
 
   if (pathname === '/api/me' && method === 'PATCH') {
@@ -341,7 +405,7 @@ function handleApi(req, res, urlObj) {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
-    user.vpscCode = makeVpscCode();
+    user.vpscCode = makeUniqueVpscCode(db);
     writeDb(db);
     return sendJson(res, 200, { code: user.vpscCode });
   }
@@ -374,7 +438,11 @@ function handleApi(req, res, urlObj) {
         db.users = db.users.filter(u => u.id !== user.id);
         db.messages = (db.messages || []).filter(m => m.fromUserId !== user.id && m.toUserId !== user.id);
         writeDb(db);
-        for (const [token, uid] of sessions.entries()) if (uid === user.id) sessions.delete(token);
+        for (const [token, s] of sessions.entries()) {
+          if (s.userId !== user.id) continue;
+          sseClients.delete(token);
+          sessions.delete(token);
+        }
         return sendJson(res, 200, { ok: true });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));

@@ -1465,14 +1465,65 @@
   function closePrivacy(){
     document.getElementById('privacy-wrap').classList.remove('open');
   }
-  function openDevicesSheet(){
+  let devicesSessionsCache=[];
+  function renderDeviceRow(s,current){
+    const when=s.lastSeenAt?new Date(s.lastSeenAt).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'}):'—';
+    return `<button class="settings-row device-row" data-session-id="${esc(s.id)}" style="border-bottom:1px solid #243446;background:#13263a;">
+      <div class="settings-icon" style="background:#50aef8;">📱</div>
+      <div style="flex:1;min-width:0;text-align:left;">
+        <div style="color:#fff;font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.ua||'Устройство')}</div>
+        <div style="color:#8E8E93;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.app||'MIN Web')}</div>
+        <div style="color:#8E8E93;font-size:14px;">${esc(s.location||'Unknown')}${current?'':''}</div>
+      </div>
+      ${current?'<span style="color:#5fb3ff;font-size:14px;">Это устройство</span>':'<span style="color:#8E8E93;font-size:14px;">'+esc(when)+'</span>'}
+    </button>`;
+  }
+  function bindDeviceRows(){
+    document.querySelectorAll('.device-row[data-session-id]').forEach(el=>{
+      el.onclick=()=>{
+        const sid=el.dataset.sessionId;
+        const s=devicesSessionsCache.find(x=>x.id===sid);
+        if(!s)return;
+        document.getElementById('devices-main-view').style.display='none';
+        document.getElementById('device-detail-view').style.display='block';
+        document.getElementById('device-detail-head').textContent=s.ua||'Устройство';
+        document.getElementById('device-detail-sub').textContent=s.lastSeenAt?new Date(s.lastSeenAt).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'}):'—';
+        document.getElementById('device-detail-info').innerHTML=`<div><b>${esc(s.app||'MIN Web')}</b><div style="color:#8E8E93;font-size:16px;">Приложение</div></div>
+        <div style="margin-top:10px;"><b>${esc(s.os||s.ua||'Unknown')}</b><div style="color:#8E8E93;font-size:16px;">Версия системы</div></div>
+        <div style="margin-top:10px;"><b>${esc(s.location||'Unknown')}</b><div style="color:#8E8E93;font-size:16px;">Геопозиция</div></div>`;
+      };
+    });
+  }
+  function closeDeviceDetail(){
+    document.getElementById('device-detail-view').style.display='none';
+    document.getElementById('devices-main-view').style.display='block';
+  }
+  async function openDevicesSheet(){
     document.getElementById('devices-wrap').classList.add('open');
-    const c=document.getElementById('devices-count')?.textContent||'1';
-    const sc=document.getElementById('devices-sheet-count');
-    if(sc) sc.textContent=c;
+    closeDeviceDetail();
+    try{
+      const r=await api('/me/sessions');
+      devicesSessionsCache=r.items||[];
+      const c=String(r.count||1);
+      const sc=document.getElementById('devices-sheet-count');
+      const dc=document.getElementById('devices-count');
+      if(sc) sc.textContent=c;
+      if(dc) dc.textContent=c;
+      const cur=devicesSessionsCache.filter(x=>x.current);
+      const oth=devicesSessionsCache.filter(x=>!x.current);
+      document.getElementById('devices-current-list').innerHTML=cur.map(s=>renderDeviceRow(s,true)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Нет данных</div>';
+      document.getElementById('devices-other-list').innerHTML=oth.map(s=>renderDeviceRow(s,false)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Других сеансов нет</div>';
+      bindDeviceRows();
+    }catch(_){}
   }
   function closeDevicesSheet(){
     document.getElementById('devices-wrap').classList.remove('open');
+  }
+  async function logoutOtherSessions(){
+    try{
+      await api('/me/sessions/logout-others',{method:'POST'});
+      await openDevicesSheet();
+    }catch(e){ alert(e.message); }
   }
   function openPwdSheet(){
     document.getElementById('pwd-wrap').classList.add('open');
@@ -1853,6 +1904,14 @@
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
           scheduleChatsRefresh();
         }catch(_){}
+      });
+      stream.addEventListener('force_logout',()=>{
+        authToken='';
+        localStorage.removeItem('auth_token');
+        try{ stream.close(); }catch(_){}
+        stream=null;
+        openAuth('login');
+        location.reload();
       });
     }
 
