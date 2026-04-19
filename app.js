@@ -222,13 +222,13 @@
 
   function clearMedia(){attachedMedia=[];renderMediaPreview();}
 
-  function buildMediaGrid(media,mid,br){
+  function buildMediaGrid(media,mid,br,showUpload=true){
     msgMediaMap[mid]=media;
     const MAX_SHOW=9;
     const show=media.slice(0,MAX_SHOW);
     const extra=media.length-MAX_SHOW;
     const cls='n'+Math.min(media.length,MAX_SHOW);
-    const uploadSvg=`<div class="mi-upload-anim"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" fill="rgba(0,0,0,0.28)" stroke="none"/><circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2.8"/><circle cx="22" cy="22" r="18" fill="none" stroke="#fff" stroke-width="2.8" stroke-dasharray="113" stroke-dashoffset="113" class="upload-arc"/></svg></div>`;
+    const uploadSvg=showUpload?`<div class="mi-upload-anim"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" fill="rgba(0,0,0,0.28)" stroke="none"/><circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2.8"/><circle cx="22" cy="22" r="18" fill="none" stroke="#fff" stroke-width="2.8" stroke-dasharray="113" stroke-dashoffset="113" class="upload-arc"/></svg></div>`:'';
     const items=show.map((m,i)=>{
       const isLast=i===show.length-1&&extra>0;
       const content=m.type==='video'
@@ -1844,7 +1844,7 @@
         const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
-        const mediaHtml=mediaArr.length?`<div style="overflow:hidden;margin:${m.text?'6px 0 0':'4px 0 0'};">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px')}</div>`:'';
+        const mediaHtml=mediaArr.length?`<div style="overflow:hidden;margin:${m.text?'6px 0 0':'4px 0 0'};">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px',false)}</div>`:'';
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderMentions(m.text)}</p>`:'';
         return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${textHtml}${mediaHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');

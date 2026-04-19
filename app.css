@@ -278,7 +278,7 @@
   .vpsc-box.active-box{border-color:#1877f2;}
   .vpsc-input-hidden{position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-9999px;left:-9999px;}
   /* ── Тост «Скопировано» ── */
-  #copy-toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(0,120,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#fff;font-size:17px;font-weight:700;box-shadow:0 10px 30px rgba(0,120,255,0.35);opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
+  #copy-toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#111;font-size:17px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
   #copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   /* ── Закреплённый чат: иконка пина ── */
   .chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
