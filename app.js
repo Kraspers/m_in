@@ -1466,6 +1466,10 @@
     document.getElementById('privacy-wrap').classList.remove('open');
   }
   let devicesSessionsCache=[];
+  function backendApi(path,opts={}){
+    if(typeof window.__api==='function') return window.__api(path,opts);
+    return Promise.reject(new Error('API не готов'));
+  }
   function renderDeviceRow(s,current){
     const when=s.lastSeenAt?new Date(s.lastSeenAt).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'}):'—';
     return `<button class="settings-row device-row" data-session-id="${esc(s.id)}" style="border-bottom:1px solid #243446;background:#13263a;">
@@ -1502,7 +1506,7 @@
     document.getElementById('devices-wrap').classList.add('open');
     closeDeviceDetail();
     try{
-      const r=await api('/me/sessions');
+      const r=await backendApi('/me/sessions');
       devicesSessionsCache=r.items||[];
       const c=String(r.count||1);
       const dc=document.getElementById('devices-count');
@@ -1512,14 +1516,17 @@
       document.getElementById('devices-current-list').innerHTML=cur.map(s=>renderDeviceRow(s,true)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Текущее устройство не найдено</div>';
       document.getElementById('devices-other-list').innerHTML=oth.map(s=>renderDeviceRow(s,false)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Нет других активных сеансов</div>';
       bindDeviceRows();
-    }catch(_){}
+    }catch(e){
+      document.getElementById('devices-current-list').innerHTML='<div style="color:#ff453a;padding:0 16px 10px;">Не удалось загрузить устройства</div>';
+      document.getElementById('devices-other-list').innerHTML='';
+    }
   }
   function closeDevicesSheet(){
     document.getElementById('devices-wrap').classList.remove('open');
   }
   async function logoutOtherSessions(){
     try{
-      await api('/me/sessions/logout-others',{method:'POST',body:'{}'});
+      await backendApi('/me/sessions/logout-others',{method:'POST',body:'{}'});
       await openDevicesSheet();
     }catch(e){ alert(e.message); }
   }
@@ -1594,6 +1601,7 @@
         return data;
       });
     }
+    window.__api=api;
     function initials(name){
       const t=(name||'М').trim();
       return t ? t.charAt(0).toUpperCase() : 'М';
