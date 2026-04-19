@@ -267,7 +267,7 @@
   .vpsc-box.active-box{border-color:#1877f2;}
   .vpsc-input-hidden{position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-9999px;left:-9999px;}
   /* ── Тост «Скопировано» ── */
-  #copy-toast{position:fixed;bottom:120px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(44,44,46,0.82);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:8px 20px;color:#fff;font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
+  #copy-toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(0,120,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#fff;font-size:17px;font-weight:700;box-shadow:0 10px 30px rgba(0,120,255,0.35);opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
   #copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   /* ── Закреплённый чат: иконка пина ── */
   .chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
@@ -285,7 +285,7 @@
 #user-profile-view.open{opacity:1;}
 #upv-card{transform:translateY(18px) scale(0.98);opacity:0;transition:transform 0.28s cubic-bezier(0.22,1,0.36,1),opacity 0.2s ease;}
 #user-profile-view.open #upv-card{transform:translateY(0) scale(1);opacity:1;}
-.chat-row-skeleton{display:flex;align-items:center;gap:12px;background:rgba(44,44,46,0.82);border-radius:1.2rem;padding:10px 12px;min-height:68px;}
+.chat-row-skeleton{display:flex;align-items:center;gap:12px;background:rgba(44,44,46,0.82);border-radius:999px;padding:10px 12px;min-height:68px;}
 .chat-row-skeleton-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(90deg,#2e2e31 0%,#3a3a3d 50%,#2e2e31 100%);background-size:200% 100%;animation:chat-skeleton-shimmer 1.2s linear infinite;}
 .chat-row-skeleton-lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;}
 .chat-row-skeleton-line{height:11px;border-radius:999px;background:linear-gradient(90deg,#2e2e31 0%,#3a3a3d 50%,#2e2e31 100%);background-size:220% 100%;animation:chat-skeleton-shimmer 1.2s linear infinite;}

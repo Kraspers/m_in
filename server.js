@@ -86,6 +86,15 @@ function makeVpscCode() {
   for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
+function normalizeVpscCode(code) {
+  return String(code || '').trim().toLowerCase();
+}
+function makeUniqueVpscCode(db) {
+  let code = makeVpscCode();
+  const used = new Set((db.users || []).map(u => normalizeVpscCode(u.vpscCode)));
+  while (used.has(normalizeVpscCode(code))) code = makeVpscCode();
+  return code;
+}
 
 function getUserByToken(req, db) {
   const token = req.headers['x-session-token'];
@@ -171,7 +180,7 @@ function handleApi(req, res, urlObj) {
           name: name || username,
           username,
           passwordHash: hashPassword(password),
-          vpscCode: makeVpscCode(),
+          vpscCode: makeUniqueVpscCode(db),
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
@@ -193,7 +202,7 @@ function handleApi(req, res, urlObj) {
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
         if (!user.vpscCode) {
-          user.vpscCode = makeVpscCode();
+          user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
         }
         const token = makeToken();
@@ -237,10 +246,10 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/vpsc/login' && method === 'POST') {
     return readBody(req)
       .then(body => {
-        const code = String(body.code || '').trim();
+        const code = normalizeVpscCode(body.code);
         if (code.length !== 6) return sendJson(res, 400, { error: 'Некорректный код' });
         const db = readDb();
-        const user = db.users.find(u => u.vpscCode === code);
+        const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
         const token = makeToken();
         sessions.set(token, user.id);
@@ -254,6 +263,15 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     return sendJson(res, 200, { user: publicUser(user), vpscCode: user.vpscCode || '' });
+  }
+
+  if (pathname === '/api/me/sessions' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    let count = 0;
+    for (const uid of sessions.values()) if (uid === user.id) count++;
+    return sendJson(res, 200, { count: Math.max(1, count) });
   }
 
   if (pathname === '/api/me' && method === 'PATCH') {

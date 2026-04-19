@@ -1680,20 +1680,28 @@
         await loadChats();
       }catch(e){ document.getElementById('vpsc-error').textContent=e.message; }
     };
+    let chatsRefreshTimer=null;
+    function scheduleChatsRefresh(){
+      if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
+      chatsRefreshTimer=setTimeout(()=>{ loadChats(); },120);
+    }
     async function loadChats(query=''){
       const holder=document.getElementById('chat-list');
       if(!holder) return;
+      const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
       holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
       const emptyPre=document.getElementById('chat-list-empty');
       if(emptyPre) emptyPre.style.display='none';
-      const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
+      if(hadChats){
+        const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
         <div class="chat-row-skeleton-avatar"></div>
         <div class="chat-row-skeleton-lines">
           <div class="chat-row-skeleton-line w1"></div>
           <div class="chat-row-skeleton-line w2"></div>
         </div>
       </div>`).join('');
-      holder.insertAdjacentHTML('beforeend',skel);
+        holder.insertAdjacentHTML('beforeend',skel);
+      }
       try{
         const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
         const items=data.items||[];
@@ -1756,7 +1764,8 @@
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
         const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
-        const mediaHtml=(Array.isArray(m.media)?m.media:[]).map(src=>`<img src="${esc(src)}" style="width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-top:6px;">`).join('');
+        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const mediaHtml=mediaArr.length?`<div style="overflow:hidden;margin:${m.text?'6px 0 0':'4px 0 0'};">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px')}</div>`:'';
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderMentions(m.text)}</p>`:'';
         return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${textHtml}${mediaHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
@@ -1807,6 +1816,11 @@
     async function refreshMe(){
       const res=await api('/me');
       applyProfileUI(res.user);
+      try{
+        const s=await api('/me/sessions');
+        const dc=document.getElementById('devices-count');
+        if(dc) dc.textContent=String(s.count||1);
+      }catch(_){}
     }
     function startRealtime(){
       if(stream) stream.close();
@@ -1819,14 +1833,14 @@
         try{
           const msg=JSON.parse(ev.data);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
-          loadChats();
+          scheduleChatsRefresh();
         }catch(_){}
       });
       stream.addEventListener('message_update',ev=>{
         try{
           const msg=JSON.parse(ev.data);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
-          loadChats();
+          scheduleChatsRefresh();
         }catch(_){}
       });
     }
@@ -2036,7 +2050,6 @@
       try{
         await api(`/messages/${encodeURIComponent(bubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify({action:'react',emoji})});
         if(currentChatUserId) await openChatWith(currentChatUserId);
-        await loadChats();
       }catch(_){}
     };
     doPinMessage=async function(){
