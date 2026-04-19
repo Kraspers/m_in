@@ -206,6 +206,14 @@
   #privacy-wrap.open #privacy-slideable{transform:translateY(0);}
   #privacy-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;}
   #privacy-sheet::-webkit-scrollbar{display:none;}
+  /* ── Шторка Устройства ── */
+  #devices-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
+  #devices-wrap.open{pointer-events:all;}
+  #devices-bg{position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;transition:opacity 0.2s ease;}
+  #devices-wrap.open #devices-bg{opacity:1;}
+  #devices-slideable{position:relative;width:100%;transform:translateY(100%);transition:transform 0.36s cubic-bezier(0.25,0.46,0.45,0.94);}
+  #devices-wrap.open #devices-slideable{transform:translateY(0);}
+  #devices-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;}
   /* ── Шторка Изменить пароль ── */
   #pwd-wrap{position:fixed;inset:0;z-index:210;display:flex;align-items:flex-end;pointer-events:none;}
   #pwd-wrap.open{pointer-events:all;}

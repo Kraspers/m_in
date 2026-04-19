@@ -1465,6 +1465,15 @@
   function closePrivacy(){
     document.getElementById('privacy-wrap').classList.remove('open');
   }
+  function openDevicesSheet(){
+    document.getElementById('devices-wrap').classList.add('open');
+    const c=document.getElementById('devices-count')?.textContent||'1';
+    const sc=document.getElementById('devices-sheet-count');
+    if(sc) sc.textContent=c;
+  }
+  function closeDevicesSheet(){
+    document.getElementById('devices-wrap').classList.remove('open');
+  }
   function openPwdSheet(){
     document.getElementById('pwd-wrap').classList.add('open');
   }
@@ -1820,6 +1829,8 @@
         const s=await api('/me/sessions');
         const dc=document.getElementById('devices-count');
         if(dc) dc.textContent=String(s.count||1);
+        const dsc=document.getElementById('devices-sheet-count');
+        if(dsc) dsc.textContent=String(s.count||1);
       }catch(_){}
     }
     function startRealtime(){
