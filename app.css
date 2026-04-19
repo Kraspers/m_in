@@ -326,6 +326,9 @@
 @keyframes spinUpload{to{transform:rotate(360deg);}}
 #ext-link-modal.open{opacity:1 !important;}
 #ext-link-modal.open #ext-link-card{transform:translateY(0) scale(1) !important;}
+#profile-save-btn.loading{position:relative;color:transparent !important;pointer-events:none;overflow:hidden;}
+#profile-save-btn.loading::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,rgba(180,180,180,.16) 8%,rgba(220,220,220,.38) 18%,rgba(180,180,180,.16) 33%);background-size:200% 100%;animation:saveShimmer 1s linear infinite;}
+@keyframes saveShimmer{to{background-position:-200% 0;}}
 
   /* ════════════ DESKTOP LAYOUT ════════════ */
   @media (min-width: 768px) {

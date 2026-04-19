@@ -34,6 +34,7 @@
         return;
       }
       /* Правая панель */
+      SIDEBAR_OVERLAY.forEach(sid=>resetScreen(document.getElementById(sid)));
       RIGHT_PANEL.forEach(sid=>resetScreen(document.getElementById(sid)));
       document.getElementById(id).classList.add('active');
       document.body.classList.add('has-right-screen');
@@ -51,6 +52,15 @@
 
   /* ── Избранное ── */
   function openFavorites(){ showScreen('screen-favorites'); }
+  function closeProfileSidebar(){
+    if(isDesktop()){
+      resetScreen(document.getElementById('screen-profile'));
+      resetScreen(document.getElementById('screen-search'));
+      return;
+    }
+    showScreen('screen-list');
+  }
+  window.closeProfileSidebar=closeProfileSidebar;
 
   function updateFavBtn(){
     const btn=document.getElementById('fav-send-btn');
@@ -120,7 +130,7 @@
       :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
-        ?`<div class="msg-quote-out" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -375,7 +385,7 @@
       :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
-        ?`<div class="msg-quote-out" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -878,6 +888,14 @@
         if(contact&&contact.textContent.trim()) forwardingSenderName=contact.textContent.trim();
       }
     }
+    const list=document.getElementById('forward-chat-list');
+    if(list){
+      const items=Array.from(usersMap.values()).filter(u=>u&&u.id&&u.id!==currentChatUserId);
+      list.innerHTML=items.map(u=>`<button class="forward-row" onclick="forwardToChat('${esc(u.id)}')">
+        <div class="tg-avatar" style="width:46px;height:46px;background:${esc(u.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:19px;flex-shrink:0;overflow:hidden;">${u.avatarDataUrl?`<img src="${esc(u.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc((u.avatar||(u.name||'U').charAt(0)).toUpperCase())}</div>
+        <span class="forward-row-name">${esc(u.name||'Пользователь')}</span>
+      </button>`).join('')||'<div style="color:#8E8E93;font-size:14px;padding:12px 16px;">Нет доступных чатов</div>';
+    }
     closeCtxClean();
     setTimeout(()=>document.getElementById('forward-overlay').classList.add('open'),60);
   }
@@ -927,7 +945,7 @@
     setTimeout(()=>{forwardingBubble=null;forwardingSenderName='';},400);
   }
 
-  function forwardToChat(dest){
+  async function forwardToChat(dest){
     if(!forwardingBubble)return closeForward();
     const pEl=forwardingBubble.querySelector('p');
     const grid=forwardingBubble.querySelector('.msg-media-grid');
@@ -968,8 +986,15 @@
     msgs.insertBefore(w,anchor);
     bindBubble(w.querySelector('.msg-bubble'));
     bindMsgRow(w);
+    if(dest!=='favorites'&&authToken){
+      try{
+        const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:dest,text:txt,media:localMedia,forwardedFromName:forwardingSenderName})});
+      }catch(_){}
+    }
     closeForward();
     if(dest==='favorites') showScreen('screen-favorites');
+    else if(dest&&dest!=='favorites'&&window.openChatWith) await openChatWith(dest);
     else showScreen('screen-chat');
     setTimeout(()=>anchor.scrollIntoView({behavior:'smooth'}),80);
   }
@@ -1867,6 +1892,13 @@
       usersMap.set(userId,peer);
       const title=document.getElementById('chat-contact-name');
       if(title) title.textContent=peer.name||'Чат';
+      const uname=document.getElementById('chat-contact-username');
+      if(uname) uname.textContent=peer.username?`@${peer.username}`:'';
+      const av=document.getElementById('chat-header-avatar');
+      if(av){
+        if(peer.avatarDataUrl) av.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        else av.textContent=String(peer.avatar||peer.name||'Ч').charAt(0).toUpperCase();
+      }
       renderChatMessages(data.items||[]);
       showScreen('screen-chat');
     }
@@ -1890,7 +1922,13 @@
         const mine=me&&m.fromUserId===me.id;
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
-        const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
+        let replyHtml='';
+        if(reply){
+          const replyMediaSrc=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
+          const replyText=(reply.text||'').slice(0,80)||'Медиа';
+          const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
+          replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
+        }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
         const mediaHtml=mediaArr.length
@@ -2089,7 +2127,9 @@
     };
 
     window.saveProfileEdit=async function(){
+      const saveBtn=document.getElementById('profile-save-btn');
       try{
+        if(saveBtn) saveBtn.classList.add('loading');
         const name=document.getElementById('pe-name').value.trim();
         const username=document.getElementById('pe-username').value.trim();
         if(!name||!username){ alert('Имя и username обязательны'); return; }
@@ -2102,6 +2142,7 @@
         applyProfileUI(res.user);
         closeProfileEdit();
       }catch(e){ alert(e.message); }
+      finally{ if(saveBtn) saveBtn.classList.remove('loading'); }
     };
     async function fileToDataUrl(file){
       return new Promise((resolve,reject)=>{
@@ -2304,6 +2345,15 @@
       });
     }
     document.querySelectorAll('#profile-edit-sheet > div[style*="background:#1A1A1A"]').forEach(el=>{ el.style.flexShrink='0'; });
+    const chatHeader=document.getElementById('chat-header-open-profile');
+    if(chatHeader){
+      chatHeader.addEventListener('click',e=>{
+        if(e.target.closest('button')) return;
+        if(!currentChatUserId) return;
+        const u=usersMap.get(currentChatUserId);
+        if(u) openUserProfileView(u);
+      });
+    }
     (async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
