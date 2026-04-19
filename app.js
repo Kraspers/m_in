@@ -1479,14 +1479,14 @@
   }
   function renderDeviceRow(s,current){
     const when=s.lastSeenAt?new Date(s.lastSeenAt).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'}):'—';
-    return `<button class="settings-row device-row" data-session-id="${esc(s.id)}" style="border-bottom:1px solid #243446;background:#13263a;">
+    return `<button class="settings-row device-row" data-session-id="${esc(s.id)}" style="border-bottom:1px solid #2a2a2a;background:#1A1A1A;">
       <div class="settings-icon" style="background:#50aef8;border-radius:50%;">${deviceIconSvg(s.deviceName)}</div>
       <div style="flex:1;min-width:0;text-align:left;">
         <div style="color:#fff;font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.deviceName||'Устройство')}</div>
         <div style="color:#8E8E93;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.app||'MIN Web')}</div>
         <div style="color:#8E8E93;font-size:14px;">${esc(s.location||'Unknown')}${current?'':''}</div>
       </div>
-      ${current?'<span style="color:#5fb3ff;font-size:14px;">Это устройство</span>':'<span style="color:#8E8E93;font-size:13px;">'+esc(when)+'</span>'}
+      ${current?'<span style="color:#8E8E93;font-size:14px;">Это устройство</span>':'<span style="color:#8E8E93;font-size:13px;">'+esc(when)+'</span>'}
     </button>`;
   }
   function bindDeviceRows(){
@@ -1520,6 +1520,12 @@
       if(dc) dc.textContent=c;
       const cur=devicesSessionsCache.filter(x=>x.current);
       const oth=devicesSessionsCache.filter(x=>!x.current);
+      const loBtn=document.getElementById('devices-logout-others-btn');
+      if(loBtn){
+        loBtn.disabled=oth.length===0;
+        loBtn.style.opacity=oth.length===0?'0.45':'1';
+        loBtn.style.pointerEvents=oth.length===0?'none':'auto';
+      }
       document.getElementById('devices-current-list').innerHTML=cur.map(s=>renderDeviceRow(s,true)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Текущее устройство не найдено</div>';
       document.getElementById('devices-other-list').innerHTML=oth.map(s=>renderDeviceRow(s,false)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Нет других активных сеансов</div>';
       bindDeviceRows();

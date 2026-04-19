@@ -113,8 +113,18 @@ function parseDeviceInfo(req) {
   const ua = String(req.headers['user-agent'] || 'MIN Web');
   const ipRaw = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
   const ip = ipRaw.split(',')[0].trim() || 'Unknown';
-  const country = String(req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || req.headers['x-country-code'] || '').trim();
+  const rawCountry = String(req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || req.headers['x-country-code'] || '').trim();
   const city = String(req.headers['x-vercel-ip-city'] || req.headers['x-city'] || '').trim();
+  let country = rawCountry;
+  if (rawCountry && rawCountry.length <= 3) {
+    try {
+      const dn = new Intl.DisplayNames(['ru'], { type: 'region' });
+      country = dn.of(rawCountry.toUpperCase()) || rawCountry;
+    } catch {
+      const map = { TR: 'Турция', US: 'США', RU: 'Россия' };
+      country = map[rawCountry.toUpperCase()] || rawCountry;
+    }
+  }
   const location = [city, country].filter(Boolean).join(', ') || 'Unknown';
   return { ua, ip, location };
 }
