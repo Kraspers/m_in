@@ -8,6 +8,8 @@
   let pendingExternalUrl='';
   let peAvatarScale=1;
   let peBannerScale=1;
+  let pendingAvatarDataUrl='';
+  let pendingBannerDataUrl='';
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
   function hideAppLoading(){
@@ -891,10 +893,18 @@
     const list=document.getElementById('forward-chat-list');
     if(list){
       const items=Array.from(usersMap.values()).filter(u=>u&&u.id&&u.id!==currentChatUserId);
-      list.innerHTML=items.map(u=>`<button class="forward-row" onclick="forwardToChat('${esc(u.id)}')">
-        <div class="tg-avatar" style="width:46px;height:46px;background:${esc(u.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:19px;flex-shrink:0;overflow:hidden;">${u.avatarDataUrl?`<img src="${esc(u.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc((u.avatar||(u.name||'U').charAt(0)).toUpperCase())}</div>
-        <span class="forward-row-name">${esc(u.name||'Пользователь')}</span>
-      </button>`).join('')||'<div style="color:#8E8E93;font-size:14px;padding:12px 16px;">Нет доступных чатов</div>';
+      list.innerHTML='';
+      if(!items.length){
+        list.innerHTML='<div style="color:#8E8E93;font-size:14px;padding:12px 16px;">Нет доступных чатов</div>';
+      }else{
+        items.forEach(u=>{
+          const row=document.createElement('button');
+          row.className='forward-row';
+          row.innerHTML=`<div class="tg-avatar" style="width:46px;height:46px;background:${esc(u.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:19px;flex-shrink:0;overflow:hidden;">${u.avatarDataUrl?`<img src="${esc(u.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc((u.avatar||(u.name||'U').charAt(0)).toUpperCase())}</div><span class="forward-row-name">${esc(u.name||'Пользователь')}</span>`;
+          row.addEventListener('click',()=>forwardToChat(u.id));
+          list.appendChild(row);
+        });
+      }
     }
     closeCtxClean();
     setTimeout(()=>document.getElementById('forward-overlay').classList.add('open'),60);
@@ -1483,6 +1493,9 @@
     const avCam=document.getElementById('pe-avatar-cam');
     bOver.style.background='transparent';bCam.style.opacity='0';
     avOver.style.background='transparent';avCam.style.opacity='0';
+    pendingAvatarDataUrl='';
+    pendingBannerDataUrl='';
+    if(me) applyProfileUI(me);
   }
   function setPeBanner(input){
     if(!input.files||!input.files[0])return;
@@ -1634,6 +1647,8 @@
     window.__upvUserId=p.id||'';
     document.getElementById('upv-name').textContent=p.name||'Профиль';
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
+    const bioEl=document.getElementById('upv-bio');
+    if(bioEl) bioEl.textContent=(p.bio||'').slice(0,120);
     const banner=document.getElementById('upv-banner');
     banner.style.backgroundImage=p.bannerDataUrl?`url('${p.bannerDataUrl}')`:'none';
     banner.style.backgroundColor=p.bannerDataUrl?'transparent':'#2C2C2E';
@@ -1892,12 +1907,18 @@
       usersMap.set(userId,peer);
       const title=document.getElementById('chat-contact-name');
       if(title) title.textContent=peer.name||'Чат';
-      const uname=document.getElementById('chat-contact-username');
-      if(uname) uname.textContent=peer.username?`@${peer.username}`:'';
-      const av=document.getElementById('chat-header-avatar');
-      if(av){
-        if(peer.avatarDataUrl) av.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-        else av.textContent=String(peer.avatar||peer.name||'Ч').charAt(0).toUpperCase();
+      const card=document.getElementById('chat-peer-card');
+      const cardName=document.getElementById('chat-peer-name');
+      const cardU=document.getElementById('chat-peer-username');
+      const cardA=document.getElementById('chat-peer-avatar');
+      if(card){
+        card.style.display='flex';
+        if(cardName) cardName.textContent=peer.name||'Пользователь';
+        if(cardU) cardU.textContent=peer.username?`@${peer.username}`:'';
+        if(cardA){
+          if(peer.avatarDataUrl) cardA.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+          else cardA.textContent=String(peer.avatar||peer.name||'U').charAt(0).toUpperCase();
+        }
       }
       renderChatMessages(data.items||[]);
       showScreen('screen-chat');
@@ -2128,21 +2149,40 @@
 
     window.saveProfileEdit=async function(){
       const saveBtn=document.getElementById('profile-save-btn');
+      const avWrap=document.getElementById('pe-avatar-wrap');
+      const bWrap=document.getElementById('pe-banner');
       try{
         if(saveBtn) saveBtn.classList.add('loading');
+        if(avWrap&&pendingAvatarDataUrl) avWrap.classList.add('shimmer-loading');
+        if(bWrap&&pendingBannerDataUrl) bWrap.classList.add('shimmer-loading');
         const name=document.getElementById('pe-name').value.trim();
         const username=document.getElementById('pe-username').value.trim();
         if(!name||!username){ alert('Имя и username обязательны'); return; }
         const payload={
           name,
           username,
-          bio:document.getElementById('pe-bio').value.trim()
+          bio:document.getElementById('pe-bio').value.trim().slice(0,120)
         };
         const res=await api('/me',{method:'PATCH',body:JSON.stringify(payload)});
-        applyProfileUI(res.user);
+        let user=res.user;
+        if(pendingAvatarDataUrl){
+          const avRes=await api('/me/avatar',{method:'POST',body:JSON.stringify({dataUrl:pendingAvatarDataUrl})});
+          user=avRes.user||user;
+          pendingAvatarDataUrl='';
+        }
+        if(pendingBannerDataUrl){
+          const bRes=await api('/me/banner',{method:'POST',body:JSON.stringify({dataUrl:pendingBannerDataUrl})});
+          user=bRes.user||user;
+          pendingBannerDataUrl='';
+        }
+        applyProfileUI(user);
         closeProfileEdit();
       }catch(e){ alert(e.message); }
-      finally{ if(saveBtn) saveBtn.classList.remove('loading'); }
+      finally{
+        if(saveBtn) saveBtn.classList.remove('loading');
+        if(avWrap) avWrap.classList.remove('shimmer-loading');
+        if(bWrap) bWrap.classList.remove('shimmer-loading');
+      }
     };
     async function fileToDataUrl(file){
       return new Promise((resolve,reject)=>{
@@ -2168,27 +2208,22 @@
     };
     window.setPeAvatar=async function(input){
       if(!input.files||!input.files[0])return;
-      const avWrap=document.getElementById('pe-avatar-wrap');
       try{
-        if(avWrap) avWrap.classList.add('uploading-media');
         const dataUrl=await fileToDataUrl(input.files[0]);
-        const res=await api('/me/avatar',{method:'POST',body:JSON.stringify({dataUrl})});
-        applyProfileUI(res.user);
+        pendingAvatarDataUrl=dataUrl;
+        setAvatarNode(document.getElementById('pe-avatar-circle'),dataUrl,'U');
       }catch(e){ alert(e.message); }
-      if(avWrap) avWrap.classList.remove('uploading-media');
       applyPeMediaScale();
       input.value='';
     };
     window.setPeBanner=async function(input){
       if(!input.files||!input.files[0])return;
-      const bWrap=document.getElementById('pe-banner');
       try{
-        if(bWrap) bWrap.classList.add('uploading-media');
         const dataUrl=await fileToDataUrl(input.files[0]);
-        const res=await api('/me/banner',{method:'POST',body:JSON.stringify({dataUrl})});
-        applyProfileUI(res.user);
+        pendingBannerDataUrl=dataUrl;
+        const bImg=document.getElementById('pe-banner-img');
+        if(bImg){ bImg.src=dataUrl; bImg.style.display='block'; }
       }catch(e){ alert(e.message); }
-      if(bWrap) bWrap.classList.remove('uploading-media');
       applyPeMediaScale();
       input.value='';
     };

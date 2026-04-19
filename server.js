@@ -416,7 +416,7 @@ function handleApi(req, res, urlObj) {
         }
         user.name = String(body.name || user.name || '').trim() || user.name;
         if (nextUsername) user.username = nextUsername;
-        user.bio = String(body.bio || '').slice(0, 400);
+        user.bio = String(body.bio || '').slice(0, 120);
         writeDb(db);
         broadcastProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
