@@ -1470,12 +1470,19 @@
     if(typeof window.__api==='function') return window.__api(path,opts);
     return Promise.reject(new Error('API не готов'));
   }
+  function deviceIconSvg(name){
+    const n=String(name||'').toLowerCase();
+    if(n.includes('android')) return `<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M7 9h10v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9zm1.2-3.6 1.4 1.4m4.8-1.4-1.4 1.4M9 21v2m6-2v2M3 10v6m18-6v6"/></svg>`;
+    if(n.includes('iphone')||n.includes('ipad')||n.includes('mac')) return `<svg width="16" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M16.7 13.2c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.7-1.7-3.3-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.7-.8-2.8-.8-1.4 0-2.8.8-3.5 2-.8 1.4-.2 3.6.6 4.8.8 1.2 1.7 2.6 2.9 2.5 1.1-.1 1.6-.7 3-.7 1.4 0 1.8.7 3 .7 1.3 0 2.1-1.1 2.9-2.3.9-1.3 1.2-2.6 1.2-2.7 0 0-2.3-.9-2.3-3.2zM14.4 6.8c.6-.7 1-1.7.9-2.8-.9 0-2 .6-2.6 1.3-.6.6-1.1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z"/></svg>`;
+    if(n.includes('windows')) return `<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M2 4l9-1v9H2V4zm11-1 9-1v10h-9V3zM2 13h9v9l-9-1v-8zm11 0h9v10l-9-1v-9z"/></svg>`;
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><circle cx="12" cy="18" r="1.4" fill="#fff" stroke="none"/></svg>`;
+  }
   function renderDeviceRow(s,current){
     const when=s.lastSeenAt?new Date(s.lastSeenAt).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'}):'—';
     return `<button class="settings-row device-row" data-session-id="${esc(s.id)}" style="border-bottom:1px solid #243446;background:#13263a;">
-      <div class="settings-icon" style="background:#50aef8;">📱</div>
+      <div class="settings-icon" style="background:#50aef8;border-radius:50%;">${deviceIconSvg(s.deviceName)}</div>
       <div style="flex:1;min-width:0;text-align:left;">
-        <div style="color:#fff;font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.ua||'Устройство')}</div>
+        <div style="color:#fff;font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.deviceName||'Устройство')}</div>
         <div style="color:#8E8E93;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.app||'MIN Web')}</div>
         <div style="color:#8E8E93;font-size:14px;">${esc(s.location||'Unknown')}${current?'':''}</div>
       </div>
@@ -1490,10 +1497,10 @@
         if(!s)return;
         document.getElementById('devices-main-view').style.display='none';
         document.getElementById('device-detail-view').style.display='block';
-        document.getElementById('device-detail-head').textContent=s.ua||'Устройство';
+        document.getElementById('device-detail-head').textContent=s.deviceName||'Устройство';
         document.getElementById('device-detail-sub').textContent=s.lastSeenAt?new Date(s.lastSeenAt).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'}):'—';
         document.getElementById('device-detail-info').innerHTML=`<div><b>${esc(s.app||'MIN Web')}</b><div style="color:#8E8E93;font-size:16px;">Приложение</div></div>
-        <div style="margin-top:10px;"><b>${esc(s.os||s.ua||'Unknown')}</b><div style="color:#8E8E93;font-size:16px;">Версия системы</div></div>
+        <div style="margin-top:10px;"><b>${esc(s.osVersion||s.os||'Unknown')}</b><div style="color:#8E8E93;font-size:16px;">Версия системы</div></div>
         <div style="margin-top:10px;"><b>${esc(s.location||'Unknown')}</b><div style="color:#8E8E93;font-size:16px;">Геопозиция</div></div>`;
       };
     });

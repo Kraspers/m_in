@@ -113,21 +113,38 @@ function parseDeviceInfo(req) {
   const ua = String(req.headers['user-agent'] || 'MIN Web');
   const ipRaw = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
   const ip = ipRaw.split(',')[0].trim() || 'Unknown';
-  return { ua, ip };
+  const country = String(req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || req.headers['x-country-code'] || '').trim();
+  const city = String(req.headers['x-vercel-ip-city'] || req.headers['x-city'] || '').trim();
+  const location = [city, country].filter(Boolean).join(', ') || 'Unknown';
+  return { ua, ip, location };
+}
+function deriveDeviceMeta(uaRaw) {
+  const ua = String(uaRaw || '').toLowerCase();
+  if (ua.includes('android')) return { deviceName: 'Android', osVersion: 'Android' };
+  if (ua.includes('iphone')) return { deviceName: 'iPhone', osVersion: 'iOS' };
+  if (ua.includes('ipad')) return { deviceName: 'iPad', osVersion: 'iPadOS' };
+  if (ua.includes('mac os')) return { deviceName: 'MacOS', osVersion: 'macOS' };
+  if (ua.includes('windows nt 10.0')) return { deviceName: 'Windows', osVersion: 'Windows 10/11 x64' };
+  if (ua.includes('windows')) return { deviceName: 'Windows', osVersion: 'Windows' };
+  if (ua.includes('linux')) return { deviceName: 'Linux', osVersion: 'Linux' };
+  return { deviceName: 'MIN Web', osVersion: 'Web' };
 }
 function createSession(req, userId) {
   const token = makeToken();
-  const { ua, ip } = parseDeviceInfo(req);
+  const { ua, ip, location } = parseDeviceInfo(req);
+  const meta = deriveDeviceMeta(ua);
   const now = new Date().toISOString();
   const session = {
     id: crypto.randomUUID(),
     token,
     userId,
     ua,
+    deviceName: meta.deviceName,
+    osVersion: meta.osVersion,
     ip,
     app: 'MIN Web',
-    os: ua,
-    location: 'Unknown',
+    os: meta.osVersion,
+    location,
     createdAt: now,
     lastSeenAt: now
   };
@@ -322,8 +339,10 @@ function handleApi(req, res, urlObj) {
       items.push({
         id: s.id,
         ua: s.ua,
+        deviceName: s.deviceName || 'MIN Web',
         app: s.app,
         os: s.os,
+        osVersion: s.osVersion || s.os || 'Web',
         ip: s.ip,
         location: s.location || 'Unknown',
         createdAt: s.createdAt,
