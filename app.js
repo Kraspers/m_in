@@ -1324,9 +1324,13 @@
       if(dx>7||dy>7){crMoved=true;clearTimeout(crPressTimer);clearTimeout(crScaleTimer);el.style.transition='transform 0.18s ease';el.style.transform='';}
     },{passive:true});
 
-    el.addEventListener('touchend',()=>{
+    el.addEventListener('touchend',(e)=>{
       clearTimeout(crPressTimer);clearTimeout(crScaleTimer);
       el.style.transition='transform 0.18s ease';el.style.transform='';
+      if(el.dataset.avatarTap==='1'){
+        el.dataset.avatarTap='0';
+        return;
+      }
       if(!crLongPressed&&!crMoved){
         const uid=el.dataset.chatId;
         if(uid&&window.openChatWith) window.openChatWith(uid);
@@ -1556,13 +1560,20 @@
     document.getElementById('del-wrap').classList.remove('open');
   }
   let copyToastTimer=null;
-  function copyPrivacyCode(){
-    const code=document.getElementById('privacy-code-text').textContent;
-    navigator.clipboard.writeText(code).catch(()=>{});
+  function showTopToast(msg,isError=false){
     const toast=document.getElementById('copy-toast');
+    if(!toast) return;
+    toast.textContent=msg;
+    toast.style.background=isError?'rgba(255,69,58,0.95)':'rgba(255,255,255,0.95)';
+    toast.style.color=isError?'#fff':'#111';
     toast.classList.add('show');
     if(copyToastTimer)clearTimeout(copyToastTimer);
     copyToastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
+  }
+  function copyPrivacyCode(){
+    const code=document.getElementById('privacy-code-text').textContent;
+    navigator.clipboard.writeText(code).catch(()=>{});
+    showTopToast('Скопировано');
   }
   function closeUserProfileView(){
     const view=document.getElementById('user-profile-view');
@@ -1801,11 +1812,15 @@
         holder.insertAdjacentHTML('beforeend',html);
         holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
         holder.querySelectorAll('.chat-open-avatar').forEach(el=>{
-          el.addEventListener('click',ev=>{
+          const openProfile=(ev)=>{
             ev.stopPropagation();
             const u=usersMap.get(el.dataset.chatId);
             if(u) openUserProfileView(u);
-          });
+            const row=el.closest('.chat-row-item');
+            if(row) row.dataset.avatarTap='1';
+          };
+          el.addEventListener('click',openProfile);
+          el.addEventListener('touchend',openProfile,{passive:false});
         });
       }catch(_){
         holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
@@ -2040,6 +2055,7 @@
       localStorage.removeItem('auth_token');
       openAuth('login');
       loadChats();
+      location.reload();
     };
     window.submitChangePassword=async function(){
       const currentPassword=document.getElementById('pwd-current').value;
@@ -2054,12 +2070,16 @@
     };
     window.submitDeleteAccount=async function(){
       const password=document.getElementById('del-password').value;
-      await api('/me',{method:'DELETE',body:JSON.stringify({password})});
-      authToken='';
-      localStorage.removeItem('auth_token');
-      if(stream) stream.close();
-      openAuth('login');
-      closeDelSheet();
+      try{
+        await api('/me',{method:'DELETE',body:JSON.stringify({password})});
+        authToken='';
+        localStorage.removeItem('auth_token');
+        if(stream) stream.close();
+        openAuth('login');
+        closeDelSheet();
+      }catch(e){
+        showTopToast(e.message||'Ошибка',true);
+      }
     };
 
     document.getElementById('login-username').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('login-password').focus(); });
@@ -2121,11 +2141,16 @@
       await openChatWith(currentChatUserId);
       await loadChats();
     };
+    const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
     const doPinMessageLocal=doPinMessage;
 
     doDeleteMessage=async function(){
-      if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
+      if(!currentBubble) return closeCtxClean();
+      if(!currentBubble.dataset||!currentBubble.dataset.mid){
+        doDeleteMessageLocal();
+        return;
+      }
       const id=currentBubble.dataset.mid;
       closeCtxClean();
       await api(`/messages/${encodeURIComponent(id)}`,{method:'DELETE'});
@@ -2141,7 +2166,6 @@
       addReactionLocal(bubble,emoji);
       try{
         await api(`/messages/${encodeURIComponent(bubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify({action:'react',emoji})});
-        if(currentChatUserId) await openChatWith(currentChatUserId);
       }catch(_){}
     };
     doPinMessage=async function(){
