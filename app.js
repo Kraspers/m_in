@@ -141,6 +141,9 @@
     bindBubble(newFavBubble);
     bindMsgRow(w);
     newFavBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+    setTimeout(()=>{
+      newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
+    },220);
   }
 
   /* ── Кнопка отправки ── */
@@ -1773,16 +1776,17 @@
     let chatsRefreshTimer=null;
     function scheduleChatsRefresh(){
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
-      chatsRefreshTimer=setTimeout(()=>{ loadChats(); },120);
+      chatsRefreshTimer=setTimeout(()=>{ loadChats('',{showSkeleton:false}); },120);
     }
-    async function loadChats(query=''){
+    async function loadChats(query='',opts={}){
+      const showSkeleton=opts.showSkeleton!==false;
       const holder=document.getElementById('chat-list');
       if(!holder) return;
       const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
       holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
       const emptyPre=document.getElementById('chat-list-empty');
       if(emptyPre) emptyPre.style.display='none';
-      if(hadChats){
+      if(hadChats&&showSkeleton){
         const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
         <div class="chat-row-skeleton-avatar"></div>
         <div class="chat-row-skeleton-lines">
@@ -2126,7 +2130,7 @@
         clearMedia();
         dismissEdit();
         await openChatWith(currentChatUserId);
-        await loadChats();
+        await loadChats('',{showSkeleton:false});
         return;
       }
       if(!text&&!media.length) return;
@@ -2139,7 +2143,7 @@
       dismissReply();
       clearMedia();
       await openChatWith(currentChatUserId);
-      await loadChats();
+      await loadChats('',{showSkeleton:false});
     };
     const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
@@ -2155,7 +2159,7 @@
       closeCtxClean();
       await api(`/messages/${encodeURIComponent(id)}`,{method:'DELETE'});
       await openChatWith(currentChatUserId);
-      await loadChats();
+      await loadChats('',{showSkeleton:false});
     };
     addReaction=async function(bubble,emoji){
       if(!bubble) return;
