@@ -5,14 +5,25 @@
   const SIDEBAR_OVERLAY=['screen-search','screen-profile'];
   /* Экраны правой панели */
   const RIGHT_PANEL=['screen-chat','screen-favorites'];
+  let pendingExternalUrl='';
+  let peAvatarScale=1;
+  let peBannerScale=1;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
+  function hideAppLoading(){
+    const el=document.getElementById('app-loading');
+    if(!el) return;
+    el.classList.add('hidden');
+    setTimeout(()=>{ if(el&&el.parentNode) el.parentNode.removeChild(el); },320);
+  }
 
   function showScreen(id){
     if(isDesktop()){
       if(id==='screen-list'){
         /* Закрываем оверлеи сайдбара (поиск, профиль) */
         SIDEBAR_OVERLAY.forEach(sid=>resetScreen(document.getElementById(sid)));
+        RIGHT_PANEL.forEach(sid=>resetScreen(document.getElementById(sid)));
+        document.body.classList.remove('has-right-screen');
         return;
       }
       if(SIDEBAR_OVERLAY.includes(id)){
@@ -1591,9 +1602,10 @@
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
     const banner=document.getElementById('upv-banner');
     banner.style.backgroundImage=p.bannerDataUrl?`url('${p.bannerDataUrl}')`:'none';
+    banner.style.backgroundColor=p.bannerDataUrl?'transparent':'#2C2C2E';
     const av=document.getElementById('upv-avatar');
     if(p.avatarDataUrl) av.innerHTML=`<img src="${p.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-    else av.textContent=(p.name||p.username||'U').charAt(0).toUpperCase();
+    else av.textContent=p.deleted?'⌧':(p.name||p.username||'U').charAt(0).toUpperCase();
     const view=document.getElementById('user-profile-view');
     view.style.display='flex';
     requestAnimationFrame(()=>view.classList.add('open'));
@@ -1682,6 +1694,7 @@
         if(banner){ bImg.src=banner; bImg.style.display='block'; }
         else{ bImg.removeAttribute('src'); bImg.style.display='none'; }
       }
+      applyPeMediaScale();
     }
     function showLoginScreen(){ document.getElementById('login-screen').classList.remove('hidden'); }
     function hideLoginScreen(){ document.getElementById('login-screen').classList.add('hidden'); }
@@ -1808,8 +1821,8 @@
           return `<button class="chat-row chat-row-item" data-chat-id="${esc(c.id||'')}">
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
-            <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.preview||'')}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
+            <span class="chat-row-preview">${esc(c.preview||'')}</span>
           </div>
         </button>`;
         }).join('');
@@ -1864,7 +1877,7 @@
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
         const mediaHtml=mediaArr.length?`<div style="overflow:hidden;margin:${m.text?'6px 0 0':'4px 0 0'};">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px',false)}</div>`:'';
-        const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderMentions(m.text)}</p>`:'';
+        const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderRichText(m.text)}</p>`:'';
         return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${textHtml}${mediaHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
@@ -1897,6 +1910,12 @@
           }catch(_){ alert('Пользователь не найден'); }
         });
       });
+      wrap.querySelectorAll('.ext-link').forEach(el=>{
+        el.addEventListener('click',e=>{
+          e.preventDefault();
+          openExternalLinkModal(el.dataset.url||'');
+        });
+      });
       const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
@@ -1908,9 +1927,29 @@
       }
       bottom.scrollIntoView({behavior:'auto'});
     }
-    function renderMentions(text){
-      return esc(text).replace(/(^|\\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
+    function renderRichText(text){
+      const withLinks=esc(text).replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi,(m)=>{
+        const raw=m.trim();
+        const href=/^https?:\/\//i.test(raw)?raw:`https://${raw}`;
+        return `<a href="#" class="ext-link" data-url="${esc(href)}" style="color:#60a5fa;text-decoration:none;">${raw}</a>`;
+      });
+      return withLinks.replace(/(^|\\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
     }
+    function openExternalLinkModal(url){
+      if(!url) return;
+      pendingExternalUrl=url;
+      const m=document.getElementById('ext-link-modal');
+      if(m) m.style.display='flex';
+    }
+    window.closeExternalLinkModal=function(){
+      const m=document.getElementById('ext-link-modal');
+      if(m) m.style.display='none';
+      pendingExternalUrl='';
+    };
+    window.proceedExternalLink=function(){
+      if(pendingExternalUrl) window.open(pendingExternalUrl,'_blank','noopener,noreferrer');
+      window.closeExternalLinkModal();
+    };
     async function refreshMe(){
       const res=await api('/me');
       applyProfileUI(res.user);
@@ -2022,22 +2061,44 @@
         fr.readAsDataURL(file);
       });
     }
+    function applyPeMediaScale(){
+      const b=document.getElementById('pe-banner-img');
+      if(b){ b.style.transform=`scale(${peBannerScale})`; b.style.transformOrigin='center center'; }
+      const a=document.querySelector('#pe-avatar-circle img');
+      if(a){ a.style.transform=`scale(${peAvatarScale})`; a.style.transformOrigin='center center'; }
+    }
+    window.setPeBannerScale=function(v){
+      peBannerScale=Math.max(1,Math.min(2.2,Number(v)||1));
+      applyPeMediaScale();
+    };
+    window.setPeAvatarScale=function(v){
+      peAvatarScale=Math.max(1,Math.min(2.2,Number(v)||1));
+      applyPeMediaScale();
+    };
     window.setPeAvatar=async function(input){
       if(!input.files||!input.files[0])return;
+      const avWrap=document.getElementById('pe-avatar-wrap');
       try{
+        if(avWrap) avWrap.classList.add('uploading-media');
         const dataUrl=await fileToDataUrl(input.files[0]);
         const res=await api('/me/avatar',{method:'POST',body:JSON.stringify({dataUrl})});
         applyProfileUI(res.user);
       }catch(e){ alert(e.message); }
+      if(avWrap) avWrap.classList.remove('uploading-media');
+      applyPeMediaScale();
       input.value='';
     };
     window.setPeBanner=async function(input){
       if(!input.files||!input.files[0])return;
+      const bWrap=document.getElementById('pe-banner');
       try{
+        if(bWrap) bWrap.classList.add('uploading-media');
         const dataUrl=await fileToDataUrl(input.files[0]);
         const res=await api('/me/banner',{method:'POST',body:JSON.stringify({dataUrl})});
         applyProfileUI(res.user);
       }catch(e){ alert(e.message); }
+      if(bWrap) bWrap.classList.remove('uploading-media');
+      applyPeMediaScale();
       input.value='';
     };
 
@@ -2196,15 +2257,17 @@
     (async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
-      if(!authToken){ openAuth('login'); return; }
+      if(!authToken){ openAuth('login'); hideAppLoading(); return; }
       try{
         await refreshMe();
         startRealtime();
         await loadChats();
+        hideAppLoading();
       }catch(_){
         authToken='';
         localStorage.removeItem('auth_token');
         openAuth('login');
+        hideAppLoading();
       }
     })();
   })();

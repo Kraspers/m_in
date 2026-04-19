@@ -479,7 +479,6 @@ function handleApi(req, res, urlObj) {
         const password = String(body.password || '');
         if (hashPassword(password) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный пароль' });
         db.users = db.users.filter(u => u.id !== user.id);
-        db.messages = (db.messages || []).filter(m => m.fromUserId !== user.id && m.toUserId !== user.id);
         writeDb(db);
         for (const [token, s] of sessions.entries()) {
           if (s.userId !== user.id) continue;
@@ -503,32 +502,36 @@ function handleApi(req, res, urlObj) {
         .filter(m => m.fromUserId === user.id || m.toUserId === user.id)
         .map(m => (m.fromUserId === user.id ? m.toUserId : m.fromUserId))
     );
-    const items = db.users
-      .filter(u => u.id !== user.id && dialogUserIds.has(u.id))
-      .filter(u => {
-        const n = String(u.name || '').toLowerCase();
-        const un = String(u.username || '').toLowerCase();
-        return !q || n.includes(q) || un.includes(q);
-      })
-      .map(u => {
+    const userById = new Map((db.users || []).map(u => [u.id, u]));
+    const items = [...dialogUserIds]
+      .map(uid => {
+        const u = userById.get(uid);
         const thread = messages.filter(m =>
-          (m.fromUserId === user.id && m.toUserId === u.id) ||
-          (m.fromUserId === u.id && m.toUserId === user.id)
+          (m.fromUserId === user.id && m.toUserId === uid) ||
+          (m.fromUserId === uid && m.toUserId === user.id)
         );
         const last = thread[thread.length - 1];
+        const name = u ? (u.name || u.username) : 'Пользователь удалён';
+        const username = u ? u.username : '';
         const preview = last
           ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length) ? '📷 Медиа' : ''))
-          : `@${u.username}`;
+          : (username ? `@${username}` : '');
         return {
-          id: u.id,
-          name: u.name || u.username,
+          id: uid,
+          name,
           preview,
           lastCreatedAt: last ? last.createdAt : '',
-          avatarDataUrl: u.avatarDataUrl || '',
-          bannerDataUrl: u.bannerDataUrl || '',
-          avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
-          color: colorForId(u.id)
+          avatarDataUrl: u ? (u.avatarDataUrl || '') : '',
+          bannerDataUrl: u ? (u.bannerDataUrl || '') : '',
+          avatar: u ? (u.name || u.username || 'U').charAt(0).toUpperCase() : '⌧',
+          color: u ? colorForId(u.id) : 'linear-gradient(135deg,#4B5563,#1F2937)',
+          deleted: !u
         };
+      })
+      .filter(u => {
+        const n = String(u.name || '').toLowerCase();
+        const un = String((u.username || '')).toLowerCase();
+        return !q || n.includes(q) || un.includes(q);
       });
     return sendJson(res, 200, { items });
   }
@@ -564,14 +567,16 @@ function handleApi(req, res, urlObj) {
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const withUserId = String(searchParams.get('withUserId') || '');
     const peer = db.users.find(u => u.id === withUserId);
-    if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
     const items = (db.messages || []).filter(m =>
       (m.fromUserId === user.id && m.toUserId === withUserId) ||
       (m.fromUserId === withUserId && m.toUserId === user.id)
     );
+    if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
     return sendJson(res, 200, {
       items: items.map(normalizeMessage),
-      peer: { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' }
+      peer: peer
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' }
+        : { id: withUserId, name: 'Пользователь удалён', username: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
     });
   }
 
