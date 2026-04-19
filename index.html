@@ -582,12 +582,12 @@
   </div>
 </div>
 
-<div id="ext-link-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;">
-  <div style="width:min(92vw,420px);background:#1C1C1E;border-radius:18px;padding:18px 16px;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <img src="logo_app.png" alt="MIN" style="width:28px;height:28px;object-fit:contain;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3"><polyline points="9 18 15 12 9 6"/></svg>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3"><path d="M10 14a5 5 0 0 1 0-7l1.5-1.5a5 5 0 1 1 7 7L17 14"/><path d="M14 10a5 5 0 0 1 0 7L12.5 18.5a5 5 0 1 1-7-7L7 10"/></svg>
+<div id="ext-link-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;opacity:0;transition:opacity .18s ease;">
+  <div id="ext-link-card" style="width:min(92vw,420px);background:#1C1C1E;border-radius:18px;padding:18px 16px;transform:translateY(10px) scale(.98);transition:transform .2s ease;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px;">
+      <img src="logo_app.png" alt="MIN" style="width:40px;height:40px;object-fit:contain;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M8.5 15.5l7-7"/><path d="M9 7h8v8"/><rect x="4" y="9" width="11" height="11" rx="2"/></svg>
     </div>
     <div style="color:#fff;font-size:17px;font-weight:700;">Вы покидаете MIN</div>
     <div style="color:#8E8E93;font-size:14px;margin-top:6px;">Мы не контролируем содержимое сторонних сайтов.</div>

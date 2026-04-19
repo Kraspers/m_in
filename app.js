@@ -900,11 +900,20 @@
   }
 
   /* ── Удалить чат ── */
-  function doDeleteChat(){
+  async function doDeleteChat(){
     if(!currentChatListEl)return closeChatListCtxClean();
     const el=currentChatListEl;
+    const uid=el.dataset.chatId||'';
     closeChatListCtxClean();
+    if(uid){
+      try{ await api(`/chats/${encodeURIComponent(uid)}`,{method:'DELETE'}); }catch(_){}
+    }
     setTimeout(()=>{if(el&&el.parentElement)el.remove();},320);
+    if(currentChatUserId===uid){
+      currentChatUserId='';
+      showScreen('screen-list');
+    }
+    setTimeout(()=>loadChats('',{showSkeleton:false}),340);
   }
 
   function closeForwardIfBg(e){
@@ -1787,6 +1796,12 @@
       }catch(e){ document.getElementById('vpsc-error').textContent=e.message; }
     };
     let chatsRefreshTimer=null;
+    let openChatRefreshTimer=null;
+    function scheduleOpenCurrentChat(){
+      if(!currentChatUserId) return;
+      if(openChatRefreshTimer) clearTimeout(openChatRefreshTimer);
+      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId); },80);
+    }
     function scheduleChatsRefresh(){
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
       chatsRefreshTimer=setTimeout(()=>{ loadChats('',{showSkeleton:false}); },120);
@@ -1796,10 +1811,11 @@
       const holder=document.getElementById('chat-list');
       if(!holder) return;
       const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
+      const prevHtml=holder.innerHTML;
       holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
       const emptyPre=document.getElementById('chat-list-empty');
       if(emptyPre) emptyPre.style.display='none';
-      if(hadChats&&showSkeleton){
+      if(showSkeleton){
         const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
         <div class="chat-row-skeleton-avatar"></div>
         <div class="chat-row-skeleton-lines">
@@ -1841,6 +1857,7 @@
         });
       }catch(_){
         holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
+        if(!holder.querySelector('.chat-row-item')) holder.innerHTML=prevHtml;
       }
     }
     async function openChatWith(userId){
@@ -1876,7 +1893,11 @@
         const replyHtml=reply?`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc((reply.text||'').slice(0,80)||'Медиа')}</div></div>`:'';
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
-        const mediaHtml=mediaArr.length?`<div style="overflow:hidden;margin:${m.text?'6px 0 0':'4px 0 0'};">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px',false)}</div>`:'';
+        const mediaHtml=mediaArr.length
+          ? (m.text
+            ? `<div style="overflow:hidden;margin:6px 0 0;">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px 12px 0 0',false)}</div>`
+            : `<div style="position:relative;overflow:hidden;margin:2px -10px 0;">${buildMediaGrid(mediaArr,m.id,mine?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)':'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0',false)}</div>`)
+          : '';
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderRichText(m.text)}</p>`:'';
         return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${textHtml}${mediaHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
@@ -1925,6 +1946,7 @@
       }else{
         unpinMessage();
       }
+      enrichLinkPreviews(wrap);
       bottom.scrollIntoView({behavior:'auto'});
     }
     function renderRichText(text){
@@ -1939,17 +1961,45 @@
       if(!url) return;
       pendingExternalUrl=url;
       const m=document.getElementById('ext-link-modal');
-      if(m) m.style.display='flex';
+      if(m){
+        m.style.display='flex';
+        requestAnimationFrame(()=>m.classList.add('open'));
+      }
     }
     window.closeExternalLinkModal=function(){
       const m=document.getElementById('ext-link-modal');
-      if(m) m.style.display='none';
+      if(m){
+        m.classList.remove('open');
+        setTimeout(()=>{ if(!m.classList.contains('open')) m.style.display='none'; },180);
+      }
       pendingExternalUrl='';
     };
     window.proceedExternalLink=function(){
       if(pendingExternalUrl) window.open(pendingExternalUrl,'_blank','noopener,noreferrer');
       window.closeExternalLinkModal();
     };
+    async function enrichLinkPreviews(wrap){
+      const links=Array.from(wrap.querySelectorAll('.ext-link')).slice(0,20);
+      for(const a of links){
+        const bubble=a.closest('.msg-bubble');
+        const url=a.dataset.url||'';
+        if(!bubble||!url||bubble.querySelector(`.link-preview[data-url="${url}"]`)) continue;
+        const p=document.createElement('a');
+        p.className='link-preview';
+        p.dataset.url=url;
+        p.href='#';
+        p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
+        p.innerHTML=`<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
+        p.addEventListener('click',e=>{ e.preventDefault(); openExternalLinkModal(url); });
+        bubble.appendChild(p);
+        try{
+          const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
+          p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
+        }catch(_){
+          p.innerHTML=`<div style="font-size:12px;opacity:.7;">Ссылка</div><div style="font-size:13px;">${url}</div>`;
+        }
+      }
+    }
     async function refreshMe(){
       const res=await api('/me');
       applyProfileUI(res.user);
@@ -1969,14 +2019,14 @@
       stream.addEventListener('message',ev=>{
         try{
           const msg=JSON.parse(ev.data);
-          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
           scheduleChatsRefresh();
         }catch(_){}
       });
       stream.addEventListener('message_update',ev=>{
         try{
           const msg=JSON.parse(ev.data);
-          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
           scheduleChatsRefresh();
         }catch(_){}
       });

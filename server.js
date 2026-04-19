@@ -25,6 +25,7 @@ const MIME_TYPES = {
 
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
+const linkPreviewCache = new Map();
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -224,6 +225,28 @@ function normalizeMessage(msg) {
     editedAt: msg.editedAt || '',
     createdAt: msg.createdAt
   };
+}
+
+async function fetchLinkPreview(urlStr) {
+  const key = String(urlStr || '').trim();
+  if (!key) throw new Error('url required');
+  if (linkPreviewCache.has(key)) return linkPreviewCache.get(key);
+  const u = new URL(key);
+  if (!/^https?:$/.test(u.protocol)) throw new Error('invalid protocol');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  const res = await fetch(u.toString(), { signal: ctrl.signal, redirect: 'follow' });
+  clearTimeout(timer);
+  const html = await res.text();
+  const grab = (re) => {
+    const m = html.match(re);
+    return m ? String(m[1] || '').replace(/\s+/g, ' ').trim() : '';
+  };
+  const title = grab(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || grab(/<title[^>]*>([^<]+)<\/title>/i);
+  const description = grab(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) || grab(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+  const out = { url: u.toString(), site: u.hostname.replace(/^www\./i, ''), title: title || u.toString(), description: description.slice(0, 220) };
+  linkPreviewCache.set(key, out);
+  return out;
 }
 
 function handleApi(req, res, urlObj) {
@@ -534,6 +557,33 @@ function handleApi(req, res, urlObj) {
         return !q || n.includes(q) || un.includes(q);
       });
     return sendJson(res, 200, { items });
+  }
+
+  const chatMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
+  if (chatMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const peerId = chatMatch[1];
+    db.messages = (db.messages || []).filter(m => !(
+      (m.fromUserId === user.id && m.toUserId === peerId) ||
+      (m.fromUserId === peerId && m.toUserId === user.id)
+    ));
+    writeDb(db);
+    sendEventToUser(user.id, 'message_update', { chatDeletedWith: peerId });
+    sendEventToUser(peerId, 'message_update', { chatDeletedWith: user.id });
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (pathname === '/api/link-preview' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const url = String(searchParams.get('url') || '');
+    if (!url) return sendJson(res, 400, { error: 'url required' });
+    return fetchLinkPreview(url)
+      .then(data => sendJson(res, 200, data))
+      .catch(() => sendJson(res, 200, { url, site: '', title: url, description: '' }));
   }
 
   if (pathname === '/api/users/search' && method === 'GET') {
