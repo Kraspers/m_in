@@ -1475,7 +1475,7 @@
         <div style="color:#8E8E93;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.app||'MIN Web')}</div>
         <div style="color:#8E8E93;font-size:14px;">${esc(s.location||'Unknown')}${current?'':''}</div>
       </div>
-      ${current?'<span style="color:#5fb3ff;font-size:14px;">Это устройство</span>':'<span style="color:#8E8E93;font-size:14px;">'+esc(when)+'</span>'}
+      ${current?'<span style="color:#5fb3ff;font-size:14px;">Это устройство</span>':'<span style="color:#8E8E93;font-size:13px;">'+esc(when)+'</span>'}
     </button>`;
   }
   function bindDeviceRows(){
@@ -1505,14 +1505,12 @@
       const r=await api('/me/sessions');
       devicesSessionsCache=r.items||[];
       const c=String(r.count||1);
-      const sc=document.getElementById('devices-sheet-count');
       const dc=document.getElementById('devices-count');
-      if(sc) sc.textContent=c;
       if(dc) dc.textContent=c;
       const cur=devicesSessionsCache.filter(x=>x.current);
       const oth=devicesSessionsCache.filter(x=>!x.current);
-      document.getElementById('devices-current-list').innerHTML=cur.map(s=>renderDeviceRow(s,true)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Нет данных</div>';
-      document.getElementById('devices-other-list').innerHTML=oth.map(s=>renderDeviceRow(s,false)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Других сеансов нет</div>';
+      document.getElementById('devices-current-list').innerHTML=cur.map(s=>renderDeviceRow(s,true)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Текущее устройство не найдено</div>';
+      document.getElementById('devices-other-list').innerHTML=oth.map(s=>renderDeviceRow(s,false)).join('')||'<div style="color:#8E8E93;padding:0 16px 10px;">Нет других активных сеансов</div>';
       bindDeviceRows();
     }catch(_){}
   }
@@ -1521,7 +1519,7 @@
   }
   async function logoutOtherSessions(){
     try{
-      await api('/me/sessions/logout-others',{method:'POST'});
+      await api('/me/sessions/logout-others',{method:'POST',body:'{}'});
       await openDevicesSheet();
     }catch(e){ alert(e.message); }
   }
@@ -1880,8 +1878,6 @@
         const s=await api('/me/sessions');
         const dc=document.getElementById('devices-count');
         if(dc) dc.textContent=String(s.count||1);
-        const dsc=document.getElementById('devices-sheet-count');
-        if(dsc) dsc.textContent=String(s.count||1);
       }catch(_){}
     }
     function startRealtime(){
@@ -1904,6 +1900,11 @@
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) openChatWith(currentChatUserId);
           scheduleChatsRefresh();
         }catch(_){}
+      });
+      stream.addEventListener('sessions_update',()=>{
+        refreshMe();
+        const dw=document.getElementById('devices-wrap');
+        if(dw&&dw.classList.contains('open')) openDevicesSheet();
       });
       stream.addEventListener('force_logout',()=>{
         authToken='';

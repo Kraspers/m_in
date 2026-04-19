@@ -174,6 +174,14 @@ function sendEventToUser(uid, event, payload) {
 function broadcastProfile(user) {
   sendEventToUser(user.id, 'profile', publicUser(user));
 }
+function sessionCountForUser(userId) {
+  let c = 0;
+  for (const s of sessions.values()) if (s.userId === userId) c++;
+  return c;
+}
+function broadcastSessionsUpdate(userId) {
+  sendEventToUser(userId, 'sessions_update', { count: sessionCountForUser(userId) });
+}
 
 function normalizeMessage(msg) {
   return {
@@ -222,6 +230,7 @@ function handleApi(req, res, urlObj) {
         writeDb(db);
         const session = createSession(req, user.id);
         const token = session.token;
+        broadcastSessionsUpdate(user.id);
         sendJson(res, 201, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -240,6 +249,7 @@ function handleApi(req, res, urlObj) {
         }
         const session = createSession(req, user.id);
         const token = session.token;
+        broadcastSessionsUpdate(user.id);
         sendJson(res, 200, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -270,8 +280,10 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/logout' && method === 'POST') {
     const token = req.headers['x-session-token'];
     if (token) {
+      const s = sessions.get(token);
       sessions.delete(token);
       sseClients.delete(token);
+      if (s && s.userId) broadcastSessionsUpdate(s.userId);
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -286,6 +298,7 @@ function handleApi(req, res, urlObj) {
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
         const session = createSession(req, user.id);
         const token = session.token;
+        broadcastSessionsUpdate(user.id);
         sendJson(res, 200, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -335,6 +348,7 @@ function handleApi(req, res, urlObj) {
       sessions.delete(token);
       removed++;
     }
+    broadcastSessionsUpdate(user.id);
     return sendJson(res, 200, { ok: true, removed });
   }
 
@@ -443,6 +457,7 @@ function handleApi(req, res, urlObj) {
           sseClients.delete(token);
           sessions.delete(token);
         }
+        broadcastSessionsUpdate(user.id);
         return sendJson(res, 200, { ok: true });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));

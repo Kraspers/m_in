@@ -386,7 +386,7 @@
     }
 
     /* ── Шторки (sheets) — по центру экрана с полным блюром ── */
-    #privacy-wrap, #pwd-wrap, #del-wrap, #profile-edit-wrap {
+    #privacy-wrap, #pwd-wrap, #del-wrap, #profile-edit-wrap, #devices-wrap {
       left: 0 !important;
       right: 0 !important;
       width: auto !important;
@@ -394,7 +394,7 @@
       align-items: center !important;
       justify-content: center !important;
     }
-    #privacy-slideable, #pwd-slideable, #del-slideable, #profile-edit-slideable {
+    #privacy-slideable, #pwd-slideable, #del-slideable, #profile-edit-slideable, #devices-slideable {
       width: min(480px, 92vw) !important;
       max-width: none !important;
       margin: 0 !important;
@@ -405,11 +405,12 @@
     #privacy-wrap.open #privacy-slideable,
     #pwd-wrap.open #pwd-slideable,
     #del-wrap.open #del-slideable,
-    #profile-edit-wrap.open #profile-edit-slideable {
+    #profile-edit-wrap.open #profile-edit-slideable,
+    #devices-wrap.open #devices-slideable {
       transform: scale(1) translateY(0) !important;
       opacity: 1 !important;
     }
-    #privacy-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet {
+    #privacy-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet, #devices-sheet {
       border-radius: 1.8rem !important;
       max-height: 86dvh !important;
     }
