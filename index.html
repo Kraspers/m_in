@@ -9,61 +9,26 @@
 
 </head>
 <body>
-
+<div id="app-loading" aria-hidden="true">
+  <img src="logo_app.png" alt="MIN" />
+</div>
 <!-- ════════════════ ЭКРАН 1 — ЧАТ ════════════════ -->
 
 <div id="screen-chat" class="screen">
-  <div class="header-blur" style="padding:52px 20px 16px;display:flex;align-items:center;gap:12px;">
+  <div class="header-blur" id="chat-header-open-profile" style="padding:52px 20px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;">
     <button onclick="showScreen('screen-list')" style="background:none;border:none;cursor:pointer;padding:4px;">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <span style="font-size:20px;font-weight:700;color:#fff;flex:1;text-align:center;margin-right:36px;">Contact Name</span>
+    <span id="chat-contact-name" style="font-size:20px;font-weight:700;color:#fff;flex:1;text-align:center;margin-right:36px;">Чат</span>
   </div>
 
   <div id="chat-messages" class="scroll-area" style="position:absolute;inset:0;padding:108px 12px 90px;display:flex;flex-direction:column;gap:8px;">
-    <div style="display:flex;align-items:flex-end;gap:8px;max-width:78%;align-self:flex-start;">
-      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
-      <div>
-        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
-        <div class="bubble-in msg-bubble"><p class="msg-text-in">Здравствуйте! Чем могу помочь?</p><div class="msg-meta"><span class="msg-time-in">12:28</span></div></div>
+    <div id="chat-peer-card" class="favorites-intro-card" style="margin-top:8px;display:none;cursor:pointer;">
+      <div id="chat-peer-avatar" class="favorites-intro-avatar">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M12 2a5 5 0 00-5 5c0 2.6 2.1 4.7 5 4.7s5-2.1 5-4.7a5 5 0 00-5-5zm0 12.2c-4.4 0-8 2.4-8 5.3V22h16v-2.5c0-2.9-3.6-5.3-8-5.3z"/></svg>
       </div>
-    </div>
-    <div style="align-self:flex-end;max-width:78%;">
-      <div class="bubble-out msg-bubble"><p class="msg-text-out">Почему не работает интернет? ВКонтакте не открывается</p><div class="msg-meta"><span class="msg-time-out">12:29</span><svg width="16" height="10" viewBox="0 0 16 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
-    </div>
-    <div style="display:flex;align-items:flex-end;gap:8px;max-width:78%;align-self:flex-start;">
-      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
-      <div>
-        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
-        <div class="bubble-in msg-bubble"><p class="msg-text-in">ВКонтакте, государственные ресурсы, маркетплейсы — эти сервисы доступны. Полный список: <a href="#" style="color:#60a5fa;text-decoration:none;">https://s.beeline.ru/wlistd</a></p><div class="msg-meta"><span class="msg-time-in">12:29</span></div></div>
-      </div>
-    </div>
-    <div style="display:flex;align-items:flex-end;gap:8px;max-width:78%;align-self:flex-start;">
-      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
-      <div>
-        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
-        <div class="bubble-in msg-bubble"><p class="msg-text-in">Все ли вопросы мы обсудили?</p><div class="msg-meta"><span class="msg-time-in">12:31</span></div></div>
-      </div>
-    </div>
-    <div style="align-self:flex-end;max-width:78%;">
-      <div class="bubble-out msg-bubble"><p class="msg-text-out">Когда вернётся интернет?</p><div class="msg-meta"><span class="msg-time-out">12:32</span><svg width="16" height="10" viewBox="0 0 16 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="rgba(255,255,255,.6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
-    </div>
-    <div style="display:flex;align-items:flex-end;gap:8px;max-width:82%;align-self:flex-start;">
-      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
-      <div>
-        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
-        <div class="bubble-in msg-bubble"><p class="msg-text-in">Ограничения не связаны с работой нашего оборудования, поэтому сроки восстановления нам неизвестны.</p><div class="msg-meta"><span class="msg-time-in">12:32</span></div></div>
-      </div>
-    </div>
-    <div style="align-self:flex-end;max-width:80%;">
-      <div class="bubble-out msg-bubble"><p class="msg-text-out">И введут ли системные приложения в вайтлист? App Store и тд. Это просто замечательно, что наши сервисы работают. Но их же надо обновлять</p><div class="msg-meta"><span class="msg-time-out">12:33</span><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
-    </div>
-    <div style="display:flex;align-items:flex-end;gap:8px;max-width:82%;align-self:flex-start;">
-      <div class="tg-avatar" style="width:32px;height:32px;background:linear-gradient(135deg,#2196F3,#1565C0);font-size:13px;">А</div>
-      <div>
-        <div style="font-size:11px;color:#8E8E93;margin-bottom:3px;padding-left:4px;">Анастасия</div>
-        <div class="bubble-in msg-bubble"><p class="msg-text-in">Данный список был составлен Минцифры как самые полезные и нужные ресурсы. Список будет расширяться. Следите за обновлениями в приложении.</p><div class="msg-meta"><span class="msg-time-in">12:35</span></div></div>
-      </div>
+      <div id="chat-peer-name" class="favorites-intro-title">Пользователь</div>
+      <div id="chat-peer-username" class="favorites-intro-sub">@username</div>
     </div>
     <div id="chat-bottom"></div>
   </div>
@@ -129,33 +94,11 @@
       <button id="top-profile-btn" onclick="showScreen('screen-profile')" style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0078FF,#005fcc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;font-family:inherit;">М</button>
     </div>
   </div>
-  <div class="scroll-area" style="padding:16px 12px;display:flex;flex-direction:column;gap:8px;">
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:20px;">П</div>
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">ВПизде</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">12:29</span></div>
-        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
-          <svg width="14" height="9" viewBox="0 0 16 10" fill="none" style="flex-shrink:0;"><polyline points="1,5 4,8 9,2" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="5,5 8,8 13,2" stroke="#8E8E93" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span style="color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Когда Вп выйдет все пользовате...</span>
-        </div>
-      </div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#555,#333);font-size:20px;">У</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="color:#fff;font-size:16px;font-weight:600;">sosocasino_bot</span></div><span style="color:#8E8E93;font-size:14px;">Вы успешно депнули своего друга!</span></div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#e53935,#b71c1c);font-size:20px;">Ч</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;"><span style="color:#fff;font-size:16px;font-weight:600;">MAX</span></div><span style="color:#8E8E93;font-size:14px;">Мы удаляем МАХ. Мы не справим...</span></div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#1976D2,#0D47A1);font-size:20px;">М</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">Избраное</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">вчера</span></div><span style="color:#8E8E93;font-size:14px;">Звонок</span></div>
-    </button>
-    <button class="chat-row chat-row-item">
-      <div class="tg-avatar" style="width:48px;height:48px;background:linear-gradient(135deg,#388E3C,#1B5E20);font-size:20px;">Д</div>
-      <div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">Анастасися</span><span style="color:#8E8E93;font-size:12px;flex-shrink:0;">пн</span></div><span style="color:#8E8E93;font-size:14px;">ДА ТЫ ШУИШЬ</span></div>
-    </button>
+  <div class="scroll-area" id="chat-list" style="padding:16px 12px;display:flex;flex-direction:column;gap:8px;">
+    <div id="chat-list-empty" style="color:#8E8E93;font-size:16px;text-align:center;padding:28px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:42vh;">
+      <div style="font-size:34px;line-height:1;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif;">😔</div>
+      <div>Чатов пока нет</div>
+    </div>
   </div>
 </div>
 
@@ -163,13 +106,13 @@
 
 <div id="screen-profile" class="screen" style="background:#111;">
   <div style="flex-shrink:0;position:relative;">
-    <div style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;"></div>
+    <div id="profile-main-banner" style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;background-size:cover;background-position:center;"></div>
     <div style="position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);">
       <div id="profile-main-avatar" class="tg-avatar" style="width:96px;height:96px;background:linear-gradient(135deg,#0078FF,#005fcc);border:5px solid #111;font-size:38px;">М</div>
     </div>
-    <button onclick="showScreen('screen-list')" style="position:absolute;top:52px;left:16px;background:rgba(0,0,0,0.12);border:none;cursor:pointer;padding:6px 10px;border-radius:999px;display:flex;align-items:center;gap:4px;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      <span style="font-size:15px;color:#111;font-weight:500;">Назад</span>
+    <button id="profile-main-back" onclick="closeProfileSidebar()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <span>Назад</span>
     </button>
   </div>
   <div class="scroll-area" style="padding:66px 12px 24px;display:flex;flex-direction:column;gap:10px;">
@@ -187,10 +130,10 @@
         <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Избранное</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
-      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;">
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openDevicesSheet()">
         <div class="settings-icon" style="background:#FF9500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
         <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Устройства</span>
-        <span style="color:#8E8E93;font-size:15px;">3</span>
+        <span id="devices-count" style="color:#8E8E93;font-size:15px;">1</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <button class="settings-row">
@@ -221,11 +164,11 @@
 
 <!-- ════════════════ ШТОРКА — МОЙ ПРОФИЛЬ ════════════════ -->
 <div id="profile-edit-wrap">
-  <div id="profile-edit-bg" onclick="closeProfileEdit()"></div>
+  <div id="profile-edit-bg"></div>
   <div id="profile-edit-slideable">
     <!-- Кнопка закрытия над шторкой -->
     <div id="profile-edit-close-row">
-      <button onclick="closeProfileEdit()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+      <button id="profile-edit-close-btn" onclick="closeProfileEdit()" style="flex-shrink:0;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         Мой профиль
       </button>
@@ -271,7 +214,7 @@
         <div class="pe-label">О себе</div>
         <textarea id="pe-bio" class="pe-field" placeholder="Расскажите немного о себе" rows="3" style="resize:none;"></textarea>
       </div>
-      <button onclick="saveProfileEdit()" style="background:#0078FF;color:#fff;border:none;border-radius:999px;padding:16px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;">Сохранить</button>
+      <button id="profile-save-btn" onclick="saveProfileEdit()" style="background:#0078FF;color:#fff;border:none;border-radius:999px;padding:16px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;">Сохранить</button>
     </div>
   </div>
   </div>
@@ -280,9 +223,52 @@
 <!-- ════════════════ ТОСТ СКОПИРОВАНО ════════════════ -->
 <div id="copy-toast">Скопировано</div>
 
+<!-- ════════════════ ШТОРКА — УСТРОЙСТВА ════════════════ -->
+<div id="devices-wrap">
+  <div id="devices-bg"></div>
+  <div id="devices-slideable">
+    <div style="display:flex;align-items:center;padding:6px 16px 12px;">
+      <button onclick="closeDevicesSheet()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Устройства
+      </button>
+    </div>
+    <div id="devices-sheet">
+      <div style="display:flex;justify-content:center;padding:10px 0 0;">
+        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+      </div>
+      <div style="padding:14px 0 0;">
+        <div id="devices-main-view">
+          <div id="devices-current-list" style="padding:0 0 8px;"></div>
+          <button id="devices-logout-others-btn" onclick="logoutOtherSessions()" style="width:calc(100% - 24px);margin:8px 12px 0;background:#FF3B30;border:none;border-radius:999px;padding:14px 16px;color:#fff;font-size:17px;font-weight:600;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M5 8c0-3.87 3.13-7 7-7s7 3.13 7 7"/></svg>
+            <span>Завершить все другие сеансы</span>
+          </button>
+          <div style="color:#8E8E93;font-size:14px;padding:8px 16px 14px;">Выйти на всех устройствах, кроме текущего.</div>
+          <div style="height:10px;background:#2C2C2E;"></div>
+          <div style="color:#fff;font-size:22px;font-weight:700;padding:14px 16px 10px;">Активные сеансы</div>
+          <div id="devices-other-list" style="padding:0 0 10px;"></div>
+          <div style="background:#2C2C2E;color:#8E8E93;font-size:14px;padding:14px 16px 20px;">Официальное приложение Minimum доступно для Android, iOS, Windows, MacOS.</div>
+        </div>
+        <div id="device-detail-view" style="display:none;">
+          <button onclick="closeDeviceDetail()" style="margin:0 16px 12px;background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+            Назад
+          </button>
+          <div id="device-detail-head" style="padding:4px 16px 14px;color:#fff;font-size:28px;font-weight:700;"></div>
+          <div id="device-detail-sub" style="padding:0 16px 14px;color:#8E8E93;font-size:18px;"></div>
+          <div style="height:10px;background:#2C2C2E;"></div>
+          <div style="color:#fff;font-size:22px;font-weight:700;padding:14px 16px 10px;">Информация</div>
+          <div id="device-detail-info" style="padding:0 16px 22px;color:#fff;font-size:22px;line-height:1.6;"></div>
+          <div style="background:#2C2C2E;color:#8E8E93;font-size:14px;padding:14px 16px 20px;">Данные о геопозиции основаны на IP-адресе и могут быть неточными.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════ ШТОРКА — КОНФИДЕНЦИАЛЬНОСТЬ ════════════════ -->
 <div id="privacy-wrap">
-  <div id="privacy-bg" onclick="closePrivacy()"></div>
+  <div id="privacy-bg"></div>
   <div id="privacy-slideable">
     <div id="privacy-close-row" style="display:flex;align-items:center;padding:6px 16px 12px;">
       <button onclick="closePrivacy()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
@@ -296,7 +282,8 @@
       </div>
       <div style="padding:18px 16px 32px;display:flex;flex-direction:column;gap:14px;">
         <!-- Синяя плитка с кодом -->
-        <div onclick="copyPrivacyCode()" style="background:#0078FF;border-radius:1.4rem;padding:22px 20px;display:flex;align-items:center;justify-content:flex-end;cursor:pointer;min-height:72px;position:relative;-webkit-tap-highlight-color:transparent;" id="privacy-code-card">
+        <div onclick="copyPrivacyCode()" style="background:#0078FF;border-radius:1.4rem;padding:22px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:72px;position:relative;-webkit-tap-highlight-color:transparent;" id="privacy-code-card">
+          <img src="vpsc_btn.png" alt="VPSC" style="height:34px;width:auto;object-fit:contain;display:block;" onerror="this.style.display='none'">
           <span id="privacy-code-text" style="color:#fff;font-size:28px;font-weight:800;letter-spacing:4px;font-family:monospace;">А7К2М9</span>
         </div>
         <!-- Изменить пароль -->
@@ -312,7 +299,7 @@
         <!-- Разделитель -->
         <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"></div>
         <!-- Выйти из аккаунта -->
-        <button style="width:100%;background:none;border:2px solid #FF453A;border-radius:999px;padding:16px;color:#FF453A;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Выйти из аккаунта</button>
+        <button onclick="logoutAccount()" style="width:100%;background:none;border:2px solid #FF453A;border-radius:999px;padding:16px;color:#FF453A;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Выйти из аккаунта</button>
       </div>
     </div>
   </div>
@@ -320,16 +307,16 @@
 
 <!-- ════════════════ ШТОРКА — ИЗМЕНИТЬ ПАРОЛЬ ════════════════ -->
 <div id="pwd-wrap">
-  <div id="pwd-bg" onclick="closePwdSheet()"></div>
+  <div id="pwd-bg"></div>
   <div id="pwd-slideable">
     <div id="pwd-sheet">
       <div style="display:flex;justify-content:center;padding:4px 0 8px;">
         <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
       </div>
-      <input class="pe-field" type="password" placeholder="Текущий пароль" style="border-radius:999px;padding:20px 20px;" />
-      <input class="pe-field" type="password" placeholder="Новый пароль" style="border-radius:999px;padding:20px 20px;" />
-      <input class="pe-field" type="password" placeholder="Повторите новый пароль" style="border-radius:999px;padding:20px 20px;" />
-      <button onclick="closePwdSheet()" style="background:#0078FF;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;">Сохранить</button>
+      <input id="pwd-current" class="pe-field" type="password" placeholder="Текущий пароль" style="border-radius:999px;padding:20px 20px;" />
+      <input id="pwd-new" class="pe-field" type="password" placeholder="Новый пароль" style="border-radius:999px;padding:20px 20px;" />
+      <input id="pwd-new2" class="pe-field" type="password" placeholder="Повторите новый пароль" style="border-radius:999px;padding:20px 20px;" />
+      <button onclick="submitChangePassword()" style="background:#0078FF;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px;">Сохранить</button>
       <button onclick="closePwdSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;color:rgba(255,255,255,0.6);font-size:17px;font-weight:500;cursor:pointer;font-family:inherit;padding:17px;">Отмена</button>
     </div>
   </div>
@@ -337,7 +324,7 @@
 
 <!-- ════════════════ ШТОРКА — УДАЛИТЬ АККАУНТ ════════════════ -->
 <div id="del-wrap">
-  <div id="del-bg" onclick="closeDelSheet()"></div>
+  <div id="del-bg"></div>
   <div id="del-slideable">
     <div id="del-sheet">
       <div style="display:flex;justify-content:center;padding:4px 0 8px;">
@@ -349,8 +336,8 @@
         </div>
         <div style="color:#fff;font-size:20px;font-weight:700;text-align:center;">Удалить аккаунт?</div>
         <div style="color:rgba(255,255,255,0.65);font-size:15px;text-align:center;line-height:1.5;">Это действие <span style="color:#FF453A;font-weight:600;">необратимо</span>. Все ваши посты, истории и данные будут удалены навсегда. Восстановить аккаунт будет невозможно.</div>
-        <input class="pe-field" type="password" placeholder="Введите пароль для подтверждения" style="border-radius:999px;background:rgba(44,44,46,0.6);border:1px solid rgba(255,255,255,0.1);padding:20px 20px;" />
-        <button style="width:100%;background:#FF453A;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Удалить навсегда</button>
+        <input id="del-password" class="pe-field" type="password" placeholder="Введите пароль для подтверждения" style="border-radius:999px;background:rgba(44,44,46,0.6);border:1px solid rgba(255,255,255,0.1);padding:20px 20px;" />
+        <button onclick="submitDeleteAccount()" style="width:100%;background:#FF453A;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Удалить навсегда</button>
         <button onclick="closeDelSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;color:rgba(255,255,255,0.6);font-size:17px;font-weight:500;cursor:pointer;font-family:inherit;padding:17px;">Отмена</button>
       </div>
     </div>
@@ -528,27 +515,7 @@
       </div>
       <span class="forward-row-name">Избранное</span>
     </button>
-    <!-- Чаты -->
-    <button class="forward-row" onclick="forwardToChat('поддержка')">
-      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:19px;flex-shrink:0;">П</div>
-      <span class="forward-row-name">чат с поддержкой</span>
-    </button>
-    <button class="forward-row" onclick="forwardToChat('уведомления')">
-      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#555,#333);font-size:19px;flex-shrink:0;">У</div>
-      <span class="forward-row-name">уведомления</span>
-    </button>
-    <button class="forward-row" onclick="forwardToChat('что нового')">
-      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#e53935,#b71c1c);font-size:19px;flex-shrink:0;">Ч</div>
-      <span class="forward-row-name">что нового</span>
-    </button>
-    <button class="forward-row" onclick="forwardToChat('михаил')">
-      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#1976D2,#0D47A1);font-size:19px;flex-shrink:0;">М</div>
-      <span class="forward-row-name">Михаил</span>
-    </button>
-    <button class="forward-row" onclick="forwardToChat('диана')">
-      <div class="tg-avatar" style="width:46px;height:46px;background:linear-gradient(135deg,#388E3C,#1B5E20);font-size:19px;flex-shrink:0;">Д</div>
-      <span class="forward-row-name">Диана</span>
-    </button>
+    <div id="forward-chat-list"></div>
     <div style="height:40px;"></div>
   </div>
 </div>
@@ -570,28 +537,92 @@
   </button>
 </div>
 
-<div id="auth-wrap">
-  <div id="auth-bg"></div>
-  <div id="auth-sheet">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div style="color:#fff;font-size:22px;font-weight:700;">Minimum</div>
-      <div style="display:flex;gap:8px;">
-        <button id="auth-tab-login" onclick="switchAuthTab('login')" class="auth-tab-btn">Вход</button>
-        <button id="auth-tab-register" onclick="switchAuthTab('register')" class="auth-tab-btn">Регистрация</button>
+<div id="user-profile-view" style="position:fixed;inset:0;z-index:320;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);">
+  <div id="upv-card" style="width:min(92vw,480px);background:#1c1c1e;border-radius:24px;overflow:hidden;position:relative;">
+    <button id="upv-close" onclick="closeUserProfileView()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Закрыть
+    </button>
+    <div id="upv-banner" style="height:160px;background:#fff;background-size:cover;background-position:center;border-radius:0 0 2.8rem 2.8rem;"></div>
+    <div style="padding:0 18px 22px;display:flex;flex-direction:column;align-items:center;">
+      <div id="upv-avatar" class="tg-avatar" style="width:92px;height:92px;margin-top:-46px;border:5px solid #1c1c1e;background:linear-gradient(135deg,#0078FF,#005fcc);font-size:36px;">U</div>
+      <div id="upv-name" style="color:#fff;font-size:30px;font-weight:700;margin-top:10px;">Профиль</div>
+      <div id="upv-username" style="color:#8E8E93;font-size:16px;margin-top:4px;">@username</div>
+      <div id="upv-bio" style="color:#8E8E93;font-size:14px;margin-top:8px;text-align:center;max-width:90%;line-height:1.3;"></div>
+      <div class="upv-actions">
+        <button id="upv-chat-btn" class="upv-action">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <em>Чат</em>
+        </button>
+        <button class="upv-action"><span>⋯</span><em>Ещё</em></button>
       </div>
     </div>
-    <div id="auth-error"></div>
-    <div id="auth-login-form">
-      <input id="auth-login-username" class="pe-field" type="text" placeholder="username" />
-      <input id="auth-login-password" class="pe-field" type="password" placeholder="пароль" style="margin-top:10px;" />
-      <button onclick="submitLogin()" style="margin-top:12px;width:100%;background:#0078FF;border:none;border-radius:999px;color:#fff;padding:14px 16px;font-size:16px;cursor:pointer;">Войти</button>
+  </div>
+</div>
+
+<div id="ext-link-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;opacity:0;transition:opacity .18s ease;">
+  <div id="ext-link-card" style="width:min(92vw,420px);background:#1C1C1E;border-radius:18px;padding:18px 16px;transform:translateY(10px) scale(.98);transition:transform .2s ease;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px;">
+      <img src="logo_app.png" alt="MIN" style="width:54px;height:54px;object-fit:contain;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 13.5l3-3"/><path d="M8.2 16.1l-1.4 1.4a3.3 3.3 0 1 1-4.7-4.7l2.8-2.8a3.3 3.3 0 0 1 4.7 0"/><path d="M15.8 7.9l1.4-1.4a3.3 3.3 0 1 1 4.7 4.7l-2.8 2.8a3.3 3.3 0 0 1-4.7 0"/></svg>
     </div>
-    <div id="auth-register-form" style="display:none;">
-      <input id="auth-register-name" class="pe-field" type="text" placeholder="отображаемое имя" />
-      <input id="auth-register-username" class="pe-field" type="text" placeholder="username" style="margin-top:10px;" />
-      <input id="auth-register-password" class="pe-field" type="password" placeholder="пароль" style="margin-top:10px;" />
-      <button onclick="submitRegister()" style="margin-top:12px;width:100%;background:#34C759;border:none;border-radius:999px;color:#fff;padding:14px 16px;font-size:16px;cursor:pointer;">Создать аккаунт</button>
+    <div style="color:#fff;font-size:17px;font-weight:700;">Вы покидаете MIN</div>
+    <div style="color:#8E8E93;font-size:14px;margin-top:6px;">Мы не контролируем содержимое сторонних сайтов.</div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button onclick="closeExternalLinkModal()" style="flex:1;background:#2C2C2E;border:none;border-radius:999px;padding:12px;color:#fff;font-size:16px;font-weight:700;">Отмена</button>
+      <button onclick="proceedExternalLink()" style="flex:1;background:#0078FF;border:none;border-radius:999px;padding:12px;color:#fff;font-size:16px;font-weight:700;">Открыть</button>
     </div>
+  </div>
+</div>
+
+<div class="login-screen hidden" id="login-screen">
+  <div id="login-main-panel" style="width:100%;max-width:380px;display:flex;flex-direction:column;align-items:center;">
+    <div class="login-logo-wrap">
+      <img src="logo.png" alt="MIN" class="login-logo-img" onerror="this.style.display='none'">
+    </div>
+    <input class="login-input" id="login-username" type="text" placeholder="Логин" autocomplete="username" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9]/g,'')">
+    <input class="login-input" id="login-password" type="password" placeholder="Пароль" autocomplete="current-password">
+    <div class="login-error" id="login-error"></div>
+    <button class="login-btn-white" onclick="doLogin()">Войти</button>
+    <button class="login-btn-blue" onclick="showVpscPanel()">
+      <img src="vpsc_btn.png" alt="VPSC" style="height:58%;width:auto;object-fit:contain;display:block;" onerror="this.style.display='none'">
+    </button>
+    <button class="login-reg-link" onclick="showRegPanel()">Регистрация</button>
+  </div>
+
+  <div class="vpsc-panel" id="vpsc-panel">
+    <img src="vpsc.png" alt="VPSC" style="width:160px;height:160px;object-fit:contain;margin-bottom:20px;" onerror="this.style.display='none'">
+    <div class="vpsc-title">Вход по VPSC</div>
+    <div class="vpsc-subtitle">Введите ваш 6-значный код</div>
+    <div class="vpsc-boxes" id="vpsc-boxes">
+      <div class="vpsc-box" id="vpsc-b0"></div>
+      <div class="vpsc-box" id="vpsc-b1"></div>
+      <div class="vpsc-box" id="vpsc-b2"></div>
+      <div class="vpsc-box" id="vpsc-b3"></div>
+      <div class="vpsc-box" id="vpsc-b4"></div>
+      <div class="vpsc-box" id="vpsc-b5"></div>
+    </div>
+    <input class="vpsc-input-hidden" id="vpsc-hidden-input" maxlength="6" autocomplete="off" autocorrect="off" autocapitalize="off">
+    <div class="login-error" id="vpsc-error"></div>
+    <button class="login-btn-white" style="margin-top:0;" onclick="doVpscLogin()">Войти</button>
+    <button class="login-reg-link" onclick="showMainPanel()">Назад</button>
+  </div>
+
+  <div class="reg-panel" id="reg-panel">
+    <div class="reg-title">Регистрация</div>
+    <input class="login-input" id="reg-displayname" type="text" placeholder="Имя пользователя" autocorrect="off" autocapitalize="words" spellcheck="false">
+    <div style="position:relative;width:100%;max-width:380px;box-sizing:border-box;margin-bottom:14px;">
+      <span style="position:absolute;left:22px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.45);pointer-events:none;display:flex;align-items:center;z-index:1;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(150,150,160,0.85)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>
+      </span>
+      <input class="login-input" id="reg-username" type="text" placeholder="Логин" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_.-]/g,'')" style="padding-left:48px;margin-bottom:0;width:100%;box-sizing:border-box;">
+    </div>
+    <input class="login-input" id="reg-password" type="password" placeholder="Пароль">
+    <input class="login-input" id="reg-password2" type="password" placeholder="Повторите пароль">
+    <div class="login-error" id="reg-error"></div>
+    <button class="login-btn-white" onclick="doRegister()">Зарегистрироваться</button>
+    <button class="login-reg-link" onclick="showMainPanel()">Вход</button>
   </div>
 </div>
 

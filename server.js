@@ -23,21 +23,17 @@ const MIME_TYPES = {
   '.txt': 'text/plain; charset=utf-8'
 };
 
-const sessions = new Map();
-const sseClients = new Map();
+const sessions = new Map(); // token -> session
+const sseClients = new Map(); // token -> SSE response
+const linkPreviewCache = new Map();
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(DB_FILE)) {
     const defaultDb = {
       users: [],
-      chats: [
-        { name: 'чат с поддержкой', preview: 'Ограничения не связаны с работой оборуд…', time: '12:29', avatar: 'П', color: 'linear-gradient(135deg,#0078FF,#005fcc)' },
-        { name: 'уведомления', preview: 'с заботой, ваш MIN', time: '', avatar: 'У', color: 'linear-gradient(135deg,#555,#333)' },
-        { name: 'что нового', preview: 'для вас уникальные предложения', time: '', avatar: 'Ч', color: 'linear-gradient(135deg,#e53935,#b71c1c)' },
-        { name: 'Михаил', preview: 'Как дела? Давно не виделись', time: 'вчера', avatar: 'М', color: 'linear-gradient(135deg,#1976D2,#0D47A1)' },
-        { name: 'Диана', preview: 'Скинь файл потом', time: 'пн', avatar: 'Д', color: 'linear-gradient(135deg,#388E3C,#1B5E20)' }
-      ]
+      chats: [],
+      messages: []
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
   }
@@ -85,11 +81,86 @@ function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+function makeVpscCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+  let out = '';
+  for (let i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+function normalizeVpscCode(code) {
+  return String(code || '').trim().toLowerCase();
+}
+function makeUniqueVpscCode(db) {
+  let code = makeVpscCode();
+  const used = new Set((db.users || []).map(u => normalizeVpscCode(u.vpscCode)));
+  while (used.has(normalizeVpscCode(code))) code = makeVpscCode();
+  return code;
+}
+
+function getSessionByToken(token) {
+  if (!token || !sessions.has(token)) return null;
+  const s = sessions.get(token);
+  return s && typeof s === 'object' ? s : null;
+}
 function getUserByToken(req, db) {
   const token = req.headers['x-session-token'];
-  if (!token || !sessions.has(token)) return null;
-  const uid = sessions.get(token);
-  return db.users.find(u => u.id === uid) || null;
+  const session = getSessionByToken(token);
+  if (!session) return null;
+  session.lastSeenAt = new Date().toISOString();
+  sessions.set(token, session);
+  return db.users.find(u => u.id === session.userId) || null;
+}
+function parseDeviceInfo(req) {
+  const ua = String(req.headers['user-agent'] || 'MIN Web');
+  const ipRaw = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
+  const ip = ipRaw.split(',')[0].trim() || 'Unknown';
+  const rawCountry = String(req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || req.headers['x-country-code'] || '').trim();
+  const city = String(req.headers['x-vercel-ip-city'] || req.headers['x-city'] || '').trim();
+  let country = rawCountry;
+  if (rawCountry && rawCountry.length <= 3) {
+    try {
+      const dn = new Intl.DisplayNames(['ru'], { type: 'region' });
+      country = dn.of(rawCountry.toUpperCase()) || rawCountry;
+    } catch {
+      const map = { TR: 'Турция', US: 'США', RU: 'Россия' };
+      country = map[rawCountry.toUpperCase()] || rawCountry;
+    }
+  }
+  const location = [city, country].filter(Boolean).join(', ') || 'Unknown';
+  return { ua, ip, location };
+}
+function deriveDeviceMeta(uaRaw) {
+  const ua = String(uaRaw || '').toLowerCase();
+  if (ua.includes('android')) return { deviceName: 'Android', osVersion: 'Android' };
+  if (ua.includes('iphone')) return { deviceName: 'iPhone', osVersion: 'iOS' };
+  if (ua.includes('ipad')) return { deviceName: 'iPad', osVersion: 'iPadOS' };
+  if (ua.includes('mac os')) return { deviceName: 'MacOS', osVersion: 'macOS' };
+  if (ua.includes('windows nt 10.0')) return { deviceName: 'Windows', osVersion: 'Windows 10/11 x64' };
+  if (ua.includes('windows')) return { deviceName: 'Windows', osVersion: 'Windows' };
+  if (ua.includes('linux')) return { deviceName: 'Linux', osVersion: 'Linux' };
+  return { deviceName: 'MIN Web', osVersion: 'Web' };
+}
+function createSession(req, userId) {
+  const token = makeToken();
+  const { ua, ip, location } = parseDeviceInfo(req);
+  const meta = deriveDeviceMeta(ua);
+  const now = new Date().toISOString();
+  const session = {
+    id: crypto.randomUUID(),
+    token,
+    userId,
+    ua,
+    deviceName: meta.deviceName,
+    osVersion: meta.osVersion,
+    ip,
+    app: 'MIN Web',
+    os: meta.osVersion,
+    location,
+    createdAt: now,
+    lastSeenAt: now
+  };
+  sessions.set(token, session);
+  return session;
 }
 
 function publicUser(user) {
@@ -103,12 +174,79 @@ function publicUser(user) {
   };
 }
 
+function colorForId(id) {
+  const palette = [
+    'linear-gradient(135deg,#0078FF,#005fcc)',
+    'linear-gradient(135deg,#5e5ce6,#3a32d8)',
+    'linear-gradient(135deg,#34c759,#1e8f44)',
+    'linear-gradient(135deg,#ff9500,#d66d00)',
+    'linear-gradient(135deg,#ff2d55,#c21d3f)'
+  ];
+  let hash = 0;
+  for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
+}
+
+function sendEventToSessionToken(token, event, payload) {
+  const res = sseClients.get(token);
+  if (!res) return;
+  res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+}
+
+function sendEventToUser(uid, event, payload) {
+  for (const [token, session] of sessions.entries()) {
+    if (session.userId === uid) sendEventToSessionToken(token, event, payload);
+  }
+}
+
 function broadcastProfile(user) {
-  const uid = user.id;
-  const set = sseClients.get(uid);
-  if (!set || !set.size) return;
-  const msg = `event: profile\ndata: ${JSON.stringify(publicUser(user))}\n\n`;
-  for (const res of set) res.write(msg);
+  sendEventToUser(user.id, 'profile', publicUser(user));
+}
+function sessionCountForUser(userId) {
+  let c = 0;
+  for (const s of sessions.values()) if (s.userId === userId) c++;
+  return c;
+}
+function broadcastSessionsUpdate(userId) {
+  sendEventToUser(userId, 'sessions_update', { count: sessionCountForUser(userId) });
+}
+
+function normalizeMessage(msg) {
+  return {
+    id: msg.id,
+    fromUserId: msg.fromUserId,
+    toUserId: msg.toUserId,
+    text: msg.text || '',
+    media: Array.isArray(msg.media) ? msg.media : [],
+    replyToMessageId: msg.replyToMessageId || '',
+    forwardedFromName: msg.forwardedFromName || '',
+    reactions: msg.reactions || {},
+    pinnedBy: Array.isArray(msg.pinnedBy) ? msg.pinnedBy : [],
+    editedAt: msg.editedAt || '',
+    createdAt: msg.createdAt
+  };
+}
+
+async function fetchLinkPreview(urlStr) {
+  const key = String(urlStr || '').trim();
+  if (!key) throw new Error('url required');
+  if (linkPreviewCache.has(key)) return linkPreviewCache.get(key);
+  const u = new URL(key);
+  if (!/^https?:$/.test(u.protocol)) throw new Error('invalid protocol');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  const res = await fetch(u.toString(), { signal: ctrl.signal, redirect: 'follow' });
+  clearTimeout(timer);
+  const html = await res.text();
+  const grab = (re) => {
+    const m = html.match(re);
+    return m ? String(m[1] || '').replace(/\s+/g, ' ').trim() : '';
+  };
+  const title = grab(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) || grab(/<title[^>]*>([^<]+)<\/title>/i);
+  const description = grab(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i) || grab(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+  const out = { url: u.toString(), site: u.hostname.replace(/^www\./i, ''), title: title || u.toString(), description: description.slice(0, 220) };
+  linkPreviewCache.set(key, out);
+  return out;
 }
 
 function handleApi(req, res, urlObj) {
@@ -133,14 +271,16 @@ function handleApi(req, res, urlObj) {
           name: name || username,
           username,
           passwordHash: hashPassword(password),
+          vpscCode: makeUniqueVpscCode(db),
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
         };
         db.users.push(user);
         writeDb(db);
-        const token = makeToken();
-        sessions.set(token, user.id);
+        const session = createSession(req, user.id);
+        const token = session.token;
+        broadcastSessionsUpdate(user.id);
         sendJson(res, 201, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -153,8 +293,13 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
-        const token = makeToken();
-        sessions.set(token, user.id);
+        if (!user.vpscCode) {
+          user.vpscCode = makeUniqueVpscCode(db);
+          writeDb(db);
+        }
+        const session = createSession(req, user.id);
+        const token = session.token;
+        broadcastSessionsUpdate(user.id);
         sendJson(res, 200, { token, user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -163,8 +308,9 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/stream' && method === 'GET') {
     const db = readDb();
     const token = searchParams.get('token');
-    if (!token || !sessions.has(token)) return sendJson(res, 401, { error: 'Unauthorized' });
-    const uid = sessions.get(token);
+    const session = getSessionByToken(token);
+    if (!session) return sendJson(res, 401, { error: 'Unauthorized' });
+    const uid = session.userId;
     const user = db.users.find(u => u.id === uid);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
 
@@ -174,22 +320,88 @@ function handleApi(req, res, urlObj) {
       Connection: 'keep-alive'
     });
     res.write(`event: profile\ndata: ${JSON.stringify(publicUser(user))}\n\n`);
-    if (!sseClients.has(uid)) sseClients.set(uid, new Set());
-    sseClients.get(uid).add(res);
+    sseClients.set(token, res);
     req.on('close', () => {
-      const set = sseClients.get(uid);
-      if (!set) return;
-      set.delete(res);
-      if (!set.size) sseClients.delete(uid);
+      sseClients.delete(token);
     });
     return;
+  }
+
+  if (pathname === '/api/logout' && method === 'POST') {
+    const token = req.headers['x-session-token'];
+    if (token) {
+      const s = sessions.get(token);
+      sessions.delete(token);
+      sseClients.delete(token);
+      if (s && s.userId) broadcastSessionsUpdate(s.userId);
+    }
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (pathname === '/api/vpsc/login' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const code = normalizeVpscCode(body.code);
+        if (code.length !== 6) return sendJson(res, 400, { error: 'Некорректный код' });
+        const db = readDb();
+        const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
+        if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        const session = createSession(req, user.id);
+        const token = session.token;
+        broadcastSessionsUpdate(user.id);
+        sendJson(res, 200, { token, user: publicUser(user) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
   if (pathname === '/api/me' && method === 'GET') {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
-    return sendJson(res, 200, { user: publicUser(user) });
+    return sendJson(res, 200, { user: publicUser(user), vpscCode: user.vpscCode || '' });
+  }
+
+  if (pathname === '/api/me/sessions' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const token = req.headers['x-session-token'];
+    const items = [];
+    for (const s of sessions.values()) {
+      if (s.userId !== user.id) continue;
+      items.push({
+        id: s.id,
+        ua: s.ua,
+        deviceName: s.deviceName || 'MIN Web',
+        app: s.app,
+        os: s.os,
+        osVersion: s.osVersion || s.os || 'Web',
+        ip: s.ip,
+        location: s.location || 'Unknown',
+        createdAt: s.createdAt,
+        lastSeenAt: s.lastSeenAt,
+        current: s.token === token
+      });
+    }
+    items.sort((a, b) => (a.current === b.current ? (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '') : (a.current ? -1 : 1)));
+    return sendJson(res, 200, { count: Math.max(1, items.length), items });
+  }
+
+  if (pathname === '/api/me/sessions/logout-others' && method === 'POST') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const currentToken = req.headers['x-session-token'];
+    let removed = 0;
+    for (const [token, s] of sessions.entries()) {
+      if (s.userId !== user.id || token === currentToken) continue;
+      sendEventToSessionToken(token, 'force_logout', { reason: 'logout_others' });
+      sseClients.delete(token);
+      sessions.delete(token);
+      removed++;
+    }
+    broadcastSessionsUpdate(user.id);
+    return sendJson(res, 200, { ok: true, removed });
   }
 
   if (pathname === '/api/me' && method === 'PATCH') {
@@ -204,7 +416,7 @@ function handleApi(req, res, urlObj) {
         }
         user.name = String(body.name || user.name || '').trim() || user.name;
         if (nextUsername) user.username = nextUsername;
-        user.bio = String(body.bio || '').slice(0, 400);
+        user.bio = String(body.bio || '').slice(0, 120);
         writeDb(db);
         broadcastProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
@@ -244,13 +456,275 @@ function handleApi(req, res, urlObj) {
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
+  if (pathname === '/api/me/vpsc' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (!user.vpscCode) {
+      user.vpscCode = makeVpscCode();
+      writeDb(db);
+    }
+    return sendJson(res, 200, { code: user.vpscCode });
+  }
+
+  if (pathname === '/api/me/vpsc' && method === 'POST') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    user.vpscCode = makeUniqueVpscCode(db);
+    writeDb(db);
+    return sendJson(res, 200, { code: user.vpscCode });
+  }
+
+  if (pathname === '/api/me/password' && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const currentPassword = String(body.currentPassword || '');
+        const newPassword = String(body.newPassword || '');
+        if (hashPassword(currentPassword) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный текущий пароль' });
+        if (newPassword.length < 6) return sendJson(res, 400, { error: 'Новый пароль слишком короткий' });
+        user.passwordHash = hashPassword(newPassword);
+        writeDb(db);
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  if (pathname === '/api/me' && method === 'DELETE') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const password = String(body.password || '');
+        if (hashPassword(password) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный пароль' });
+        db.users = db.users.filter(u => u.id !== user.id);
+        writeDb(db);
+        for (const [token, s] of sessions.entries()) {
+          if (s.userId !== user.id) continue;
+          sseClients.delete(token);
+          sessions.delete(token);
+        }
+        broadcastSessionsUpdate(user.id);
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
   if (pathname === '/api/chats' && method === 'GET') {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
-    const items = db.chats.filter(c => c.name.toLowerCase().includes(q));
+    const messages = db.messages || [];
+    const dialogUserIds = new Set(
+      messages
+        .filter(m => m.fromUserId === user.id || m.toUserId === user.id)
+        .map(m => (m.fromUserId === user.id ? m.toUserId : m.fromUserId))
+    );
+    const userById = new Map((db.users || []).map(u => [u.id, u]));
+    const items = [...dialogUserIds]
+      .map(uid => {
+        const u = userById.get(uid);
+        const thread = messages.filter(m =>
+          (m.fromUserId === user.id && m.toUserId === uid) ||
+          (m.fromUserId === uid && m.toUserId === user.id)
+        );
+        const last = thread[thread.length - 1];
+        const name = u ? (u.name || u.username) : 'Пользователь удалён';
+        const username = u ? u.username : '';
+        const preview = last
+          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length) ? '📷 Медиа' : ''))
+          : (username ? `@${username}` : '');
+        return {
+          id: uid,
+          name,
+          preview,
+          lastCreatedAt: last ? last.createdAt : '',
+          avatarDataUrl: u ? (u.avatarDataUrl || '') : '',
+          bannerDataUrl: u ? (u.bannerDataUrl || '') : '',
+          avatar: u ? (u.name || u.username || 'U').charAt(0).toUpperCase() : '⌧',
+          color: u ? colorForId(u.id) : 'linear-gradient(135deg,#4B5563,#1F2937)',
+          deleted: !u
+        };
+      })
+      .filter(u => {
+        const n = String(u.name || '').toLowerCase();
+        const un = String((u.username || '')).toLowerCase();
+        return !q || n.includes(q) || un.includes(q);
+      });
     return sendJson(res, 200, { items });
+  }
+
+  const chatMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
+  if (chatMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const peerId = chatMatch[1];
+    db.messages = (db.messages || []).filter(m => !(
+      (m.fromUserId === user.id && m.toUserId === peerId) ||
+      (m.fromUserId === peerId && m.toUserId === user.id)
+    ));
+    writeDb(db);
+    sendEventToUser(user.id, 'message_update', { chatDeletedWith: peerId });
+    sendEventToUser(peerId, 'message_update', { chatDeletedWith: user.id });
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (pathname === '/api/link-preview' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const url = String(searchParams.get('url') || '');
+    if (!url) return sendJson(res, 400, { error: 'url required' });
+    return fetchLinkPreview(url)
+      .then(data => sendJson(res, 200, data))
+      .catch(() => sendJson(res, 200, { url, site: '', title: url, description: '' }));
+  }
+
+  if (pathname === '/api/users/search' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const q = String(searchParams.get('q') || '').toLowerCase();
+    if (!q) return sendJson(res, 200, { items: [] });
+    const items = db.users
+      .filter(u => u.id !== user.id)
+      .filter(u => {
+        const n = String(u.name || '').toLowerCase();
+        const un = String(u.username || '').toLowerCase();
+        return n.includes(q) || un.includes(q);
+      })
+      .slice(0, 50)
+      .map(u => ({
+        id: u.id,
+        name: u.name || u.username,
+        username: u.username,
+        avatarDataUrl: u.avatarDataUrl || '',
+        avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
+        color: colorForId(u.id)
+      }));
+    return sendJson(res, 200, { items });
+  }
+
+  if (pathname === '/api/messages' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const withUserId = String(searchParams.get('withUserId') || '');
+    const peer = db.users.find(u => u.id === withUserId);
+    const items = (db.messages || []).filter(m =>
+      (m.fromUserId === user.id && m.toUserId === withUserId) ||
+      (m.fromUserId === withUserId && m.toUserId === user.id)
+    );
+    if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
+    return sendJson(res, 200, {
+      items: items.map(normalizeMessage),
+      peer: peer
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' }
+        : { id: withUserId, name: 'Пользователь удалён', username: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
+    });
+  }
+
+  if (pathname === '/api/messages' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const toUserId = String(body.toUserId || '');
+        const text = String(body.text || '').trim();
+        const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        const peer = db.users.find(u => u.id === toUserId);
+        if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        const msg = {
+          id: crypto.randomUUID(),
+          fromUserId: user.id,
+          toUserId,
+          text: text.slice(0, 4000),
+          media,
+          replyToMessageId: String(body.replyToMessageId || ''),
+          forwardedFromName: String(body.forwardedFromName || '').slice(0, 200),
+          reactions: {},
+          pinnedBy: [],
+          createdAt: new Date().toISOString()
+        };
+        if (!Array.isArray(db.messages)) db.messages = [];
+        db.messages.push(msg);
+        writeDb(db);
+        const n = normalizeMessage(msg);
+        sendEventToUser(user.id, 'message', n);
+        sendEventToUser(toUserId, 'message', n);
+        return sendJson(res, 201, { message: n });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  const msgMatch = pathname.match(/^\/api\/messages\/([^/]+)$/);
+  if (msgMatch && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const msgId = msgMatch[1];
+        const msg = (db.messages || []).find(m => m.id === msgId);
+        if (!msg) return sendJson(res, 404, { error: 'Сообщение не найдено' });
+        if (msg.fromUserId !== user.id && msg.toUserId !== user.id) return sendJson(res, 403, { error: 'Forbidden' });
+        const action = String(body.action || '');
+        if (action === 'react') {
+          const emoji = String(body.emoji || '').trim().slice(0, 8);
+          if (!emoji) return sendJson(res, 400, { error: 'emoji required' });
+          if (!msg.reactions || typeof msg.reactions !== 'object') msg.reactions = {};
+          if (!Array.isArray(msg.reactions[emoji])) msg.reactions[emoji] = [];
+          const idx = msg.reactions[emoji].indexOf(user.id);
+          if (idx >= 0) msg.reactions[emoji].splice(idx, 1);
+          else msg.reactions[emoji].push(user.id);
+          if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
+        } else if (action === 'pin') {
+          msg.pinnedBy = [msg.fromUserId, msg.toUserId];
+        } else if (action === 'unpin') {
+          msg.pinnedBy = [];
+        } else if (action === 'edit') {
+          if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
+          const text = String(body.text || '').trim();
+          const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
+          const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
+          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          msg.text = text.slice(0, 4000);
+          if (Array.isArray(media)) msg.media = media;
+          msg.editedAt = new Date().toISOString();
+        } else {
+          return sendJson(res, 400, { error: 'Unknown action' });
+        }
+        writeDb(db);
+        const n = normalizeMessage(msg);
+        sendEventToUser(msg.fromUserId, 'message_update', n);
+        sendEventToUser(msg.toUserId, 'message_update', n);
+        return sendJson(res, 200, { message: n });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  if (msgMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const msgId = msgMatch[1];
+    const msg = (db.messages || []).find(m => m.id === msgId);
+    if (!msg) return sendJson(res, 404, { error: 'Сообщение не найдено' });
+    if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно удалить только своё сообщение' });
+    db.messages = (db.messages || []).filter(m => m.id !== msgId);
+    writeDb(db);
+    const payload = { id: msgId, deleted: true, fromUserId: msg.fromUserId, toUserId: msg.toUserId };
+    sendEventToUser(msg.fromUserId, 'message_update', payload);
+    sendEventToUser(msg.toUserId, 'message_update', payload);
+    return sendJson(res, 200, { ok: true });
   }
 
   return sendJson(res, 404, { error: 'Not found' });
