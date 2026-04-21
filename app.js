@@ -459,6 +459,10 @@
   let favPinnedBubble=null;
   let forwardingBubble=null;
   let forwardingSenderName='';
+  let authToken='';
+  let currentChatUserId='';
+  const usersMap=new Map();
+  let api=()=>Promise.reject(new Error('API not initialized'));
 
   function resetBubbleScale(el){
     el.style.transition='transform 0.18s ease';
@@ -1678,14 +1682,12 @@
   /* ── Backend sync + auth + routes ── */
   (function(){
     const API_BASE='/api';
-    let authToken=localStorage.getItem('auth_token')||'';
+    authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
-    let currentChatUserId='';
-    const usersMap=new Map();
     const messageMap=new Map();
 
-    function api(path,opts={}){
+    api=function(path,opts={}){
       const headers={ 'Content-Type':'application/json', ...(opts.headers||{}) };
       if(authToken) headers['x-session-token']=authToken;
       return fetch(`${API_BASE}${path}`,{...opts,headers}).then(async r=>{
