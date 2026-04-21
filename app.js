@@ -10,6 +10,7 @@
   let peBannerScale=1;
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
+  let me=null;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
   function hideAppLoading(){
@@ -993,14 +994,19 @@
       const textPart=txt?`<p class="msg-text-out">${esc(txt)}</p>`:'';
       w.innerHTML=`<div class="bubble-out msg-bubble msg-fwd">${fwdHeader}${textPart}<div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     }
-    msgs.insertBefore(w,anchor);
-    bindBubble(w.querySelector('.msg-bubble'));
-    bindMsgRow(w);
+    if(dest==='favorites'){
+      msgs.insertBefore(w,anchor);
+      bindBubble(w.querySelector('.msg-bubble'));
+      bindMsgRow(w);
+    }
     if(dest!=='favorites'&&authToken){
+      const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
       try{
-        const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
         await api('/messages',{method:'POST',body:JSON.stringify({toUserId:dest,text:txt,media:localMedia,forwardedFromName:forwardingSenderName})});
-      }catch(_){}
+      }catch(e){
+        alert(e.message||'Ошибка пересылки');
+        return;
+      }
     }
     closeForward();
     if(dest==='favorites') showScreen('screen-favorites');
@@ -1673,7 +1679,6 @@
   (function(){
     const API_BASE='/api';
     let authToken=localStorage.getItem('auth_token')||'';
-    let me=null;
     let stream=null;
     let searchTimer=null;
     let currentChatUserId='';
@@ -2050,7 +2055,9 @@
         p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
         p.innerHTML=`<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
         p.addEventListener('click',e=>{ e.preventDefault(); openExternalLinkModal(url); });
-        bubble.appendChild(p);
+        const meta=bubble.querySelector('.msg-meta');
+        if(meta) bubble.insertBefore(p,meta);
+        else bubble.appendChild(p);
         try{
           const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
