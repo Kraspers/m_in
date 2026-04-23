@@ -272,6 +272,7 @@ function handleApi(req, res, urlObj) {
           username,
           passwordHash: hashPassword(password),
           vpscCode: makeUniqueVpscCode(db),
+          blockedUsers: [],
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
@@ -611,6 +612,29 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, { items });
   }
 
+  const blockMatch = pathname.match(/^\/api\/users\/([^/]+)\/block$/);
+  if (blockMatch && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const peerId = blockMatch[1];
+        if (!peerId || peerId === user.id) return sendJson(res, 400, { error: 'Некорректный пользователь' });
+        const peer = db.users.find(u => u.id === peerId);
+        if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        if (!Array.isArray(user.blockedUsers)) user.blockedUsers = [];
+        const action = String(body.action || '').toLowerCase();
+        if (action === 'unblock') user.blockedUsers = user.blockedUsers.filter(id => id !== peerId);
+        else if (!user.blockedUsers.includes(peerId)) user.blockedUsers.push(peerId);
+        writeDb(db);
+        sendEventToUser(user.id, 'block_update', { byUserId: user.id, targetUserId: peerId, blocked: user.blockedUsers.includes(peerId) });
+        sendEventToUser(peerId, 'block_update', { byUserId: user.id, targetUserId: peerId, blocked: user.blockedUsers.includes(peerId) });
+        return sendJson(res, 200, { ok: true, blocked: user.blockedUsers.includes(peerId) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
   if (pathname === '/api/messages' && method === 'GET') {
     const db = readDb();
     const user = getUserByToken(req, db);
@@ -622,10 +646,12 @@ function handleApi(req, res, urlObj) {
       (m.fromUserId === withUserId && m.toUserId === user.id)
     );
     if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
+    const blockedByPeer = !!(peer && Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id));
+    const blockedPeer = !!(peer && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(peer.id));
     return sendJson(res, 200, {
       items: items.map(normalizeMessage),
       peer: peer
-        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '' }
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', blockedByPeer, blockedPeer }
         : { id: withUserId, name: 'Пользователь удалён', username: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
     });
   }
@@ -642,6 +668,9 @@ function handleApi(req, res, urlObj) {
         if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
+          return sendJson(res, 403, { error: 'Вы были заблокированы данным пользователем' });
+        }
         const msg = {
           id: crypto.randomUUID(),
           fromUserId: user.id,

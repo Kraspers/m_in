@@ -7,6 +7,7 @@
   .header-blur{backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);background:rgba(100,100,110,0.28);border-radius:0 0 2.2rem 2.2rem;flex-shrink:0;}
   .input-bar{padding:8px 10px 24px;flex-shrink:0;background:transparent;}
   .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;}
+  #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
   .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
   .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
@@ -326,6 +327,11 @@
 @keyframes spinUpload{to{transform:rotate(360deg);}}
 #ext-link-modal.open{opacity:1 !important;}
 #ext-link-modal.open #ext-link-card{transform:translateY(0) scale(1) !important;}
+#upv-ctx-overlay{position:fixed;inset:0;z-index:360;display:none;opacity:0;pointer-events:none;transition:opacity .22s ease;}
+#upv-ctx-overlay.open{display:block;opacity:1;pointer-events:all;}
+#upv-ctx-bg{position:absolute;inset:0;background:rgba(0,0,0,0.0);}
+#upv-ctx-menu{position:absolute;left:50%;transform:translateX(-50%) scale(.9);width:min(92vw,480px);bottom:12px;background:#1A1A1A;border-radius:14px;overflow:hidden;opacity:0;transition:transform .22s ease,opacity .22s ease;}
+#upv-ctx-overlay.open #upv-ctx-menu{transform:translateX(-50%) scale(1);opacity:1;}
 #profile-save-btn.loading{position:relative;pointer-events:none;overflow:hidden;}
 #profile-save-btn.loading::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,rgba(180,180,180,.16) 8%,rgba(220,220,220,.38) 18%,rgba(180,180,180,.16) 33%);background-size:200% 100%;animation:saveShimmer 1s linear infinite;}
 @keyframes saveShimmer{to{background-position:-200% 0;}}
