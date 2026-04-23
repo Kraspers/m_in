@@ -441,6 +441,28 @@
   }
 
   function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function renderRichText(text){
+    const withLinks=esc(String(text||'')).replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi,(m)=>{
+      const raw=m.trim();
+      const href=/^https?:\/\//i.test(raw)?raw:`https://${raw}`;
+      return `<a href="#" class="ext-link" data-url="${esc(href)}" style="color:#60a5fa;text-decoration:none;">${raw}</a>`;
+    });
+    return withLinks.replace(/(^|\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
+  }
+  function bindRichTextInteractions(root){
+    if(!root) return;
+    root.querySelectorAll('.ext-link').forEach(el=>{
+      if(el.dataset.bound==='1') return;
+      el.dataset.bound='1';
+      el.addEventListener('click',e=>{
+        e.preventDefault();
+        const url=el.dataset.url||'';
+        if(window.openExternalLinkModal) window.openExternalLinkModal(url);
+        else if(url) window.open(url,'_blank','noopener,noreferrer');
+      });
+    });
+  }
+  function enrichLinkPreviews(){ /* для локального избранного без backend-превью */ }
 
   /* ── Контекстное меню ── */
   const overlay=document.getElementById('ctx-overlay');
@@ -1385,6 +1407,7 @@
     });
 
     el.addEventListener('touchstart',e=>{
+      if(e.target.closest('.chat-open-avatar')) return;
       crTsX=e.touches[0].clientX;crTsY=e.touches[0].clientY;crMoved=false;crLongPressed=false;
       crScaleTimer=setTimeout(()=>{if(!crMoved){el.style.transition='transform 0.22s ease';el.style.transform='scale(0.97)';}},220);
       crPressTimer=setTimeout(()=>{crLongPressed=true;el.style.transition='transform 0.18s ease';el.style.transform='';openChatListCtx(el);},480);
@@ -1397,6 +1420,7 @@
     },{passive:true});
 
     el.addEventListener('touchend',(e)=>{
+      if(e.target.closest('.chat-open-avatar')) return;
       clearTimeout(crPressTimer);clearTimeout(crScaleTimer);
       el.style.transition='transform 0.18s ease';el.style.transform='';
       if(el.dataset.avatarTap==='1'){
@@ -1965,11 +1989,11 @@
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
         const mediaHtml=mediaArr.length
           ? (m.text
-            ? `<div style="overflow:hidden;margin:6px 0 0;">${buildMediaGrid(mediaArr,m.id,mine?'12px 12px 0 0':'12px 12px 0 0',false)}</div>`
+            ? `<div style="overflow:hidden;margin-bottom:4px;">${buildMediaGrid(mediaArr,m.id,'12px 12px 0 0',false)}</div>`
             : `<div style="position:relative;overflow:hidden;margin:2px -10px 0;">${buildMediaGrid(mediaArr,m.id,mine?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)':'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0',false)}</div>`)
           : '';
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderRichText(m.text)}</p>`:'';
-        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${textHtml}${mediaHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
+        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
@@ -2000,14 +2024,6 @@
       }
       enrichLinkPreviews(wrap);
       bottom.scrollIntoView({behavior:'auto'});
-    }
-    function renderRichText(text){
-      const withLinks=esc(text).replace(/((?:https?:\/\/|www\.)[^\s<]+)/gi,(m)=>{
-        const raw=m.trim();
-        const href=/^https?:\/\//i.test(raw)?raw:`https://${raw}`;
-        return `<a href="#" class="ext-link" data-url="${esc(href)}" style="color:#60a5fa;text-decoration:none;">${raw}</a>`;
-      });
-      return withLinks.replace(/(^|\\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
     }
     function bindRichTextInteractions(root){
       root.querySelectorAll('.mention-link').forEach(el=>{
