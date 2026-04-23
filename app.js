@@ -2082,8 +2082,10 @@
             ? `<div style="overflow:hidden;margin-bottom:4px;">${buildMediaGrid(mediaArr,m.id,'12px 12px 0 0',false)}</div>`
             : `<div style="position:relative;overflow:hidden;margin:2px -10px 0;">${buildMediaGrid(mediaArr,m.id,mine?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)':'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0',false)}</div>`)
           : '';
-        const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}">${renderRichText(m.text)}</p>`:'';
-        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble">${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
+        const hasMediaAndText=mediaArr.length&&!!m.text;
+        const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}"${hasMediaAndText?' style="padding:4px 8px 0;margin:0;"':''}>${renderRichText(m.text)}</p>`:'';
+        const bubbleStyle=hasMediaAndText?' style="padding:3px 4px 6px 4px;"':'';
+        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
@@ -2221,7 +2223,7 @@
       stream.addEventListener('block_update',ev=>{
         try{
           const b=JSON.parse(ev.data);
-          if(currentChatUserId&&b&&b.targetUserId===currentChatUserId){
+          if(currentChatUserId&&b&&(b.targetUserId===currentChatUserId||b.byUserId===currentChatUserId)){
             if(String(b.byUserId||'')===currentChatUserId) currentChatBlockedByPeer=!!b.blocked;
             if(me&&String(b.byUserId||'')===me.id) currentChatBlockedPeer=!!b.blocked;
             updateChatBlockedUI();
