@@ -68,8 +68,8 @@
     <div class="input-pill">
       <div id="drag-hint"><div id="drag-hint-pill">Перетащите файл сюда</div></div>
       <input id="media-file" type="file" accept="image/*,video/*" multiple style="display:none" onchange="addMedia(this)" />
-      <button onclick="triggerMedia()" style="background:none;border:none;cursor:pointer;padding:4px;color:rgba(255,255,255,0.5);flex-shrink:0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="currentColor"><path d="M288.6 76.8C344.8 20.6 436 20.6 492.2 76.8C548.4 133 548.4 224.2 492.2 280.4L328.2 444.4C293.8 478.8 238.1 478.8 203.7 444.4C169.3 410 169.3 354.3 203.7 319.9L356.5 167.3C369 154.8 389.3 154.8 401.8 167.3C414.3 179.8 414.3 200.1 401.8 212.6L249 365.3C239.6 374.7 239.6 389.9 249 399.2C258.4 408.5 273.6 408.6 282.9 399.2L446.9 235.2C478.1 204 478.1 153.3 446.9 122.1C415.7 90.9 365 90.9 333.8 122.1L169.8 286.1C116.7 339.2 116.7 425.3 169.8 478.4C222.9 531.5 309 531.5 362.1 478.4L492.3 348.3C504.8 335.8 525.1 335.8 537.6 348.3C550.1 360.8 550.1 381.1 537.6 393.6L407.4 523.6C329.3 601.7 202.7 601.7 124.6 523.6C46.5 445.5 46.5 318.9 124.6 240.8L288.6 76.8z"/></svg>
+      <button onclick="triggerMedia()" style="background:none;border:none;cursor:pointer;padding:5px 4px 3px;color:rgba(255,255,255,0.5);flex-shrink:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 640 640" fill="currentColor"><path d="M288.6 76.8C344.8 20.6 436 20.6 492.2 76.8C548.4 133 548.4 224.2 492.2 280.4L328.2 444.4C293.8 478.8 238.1 478.8 203.7 444.4C169.3 410 169.3 354.3 203.7 319.9L356.5 167.3C369 154.8 389.3 154.8 401.8 167.3C414.3 179.8 414.3 200.1 401.8 212.6L249 365.3C239.6 374.7 239.6 389.9 249 399.2C258.4 408.5 273.6 408.6 282.9 399.2L446.9 235.2C478.1 204 478.1 153.3 446.9 122.1C415.7 90.9 365 90.9 333.8 122.1L169.8 286.1C116.7 339.2 116.7 425.3 169.8 478.4C222.9 531.5 309 531.5 362.1 478.4L492.3 348.3C504.8 335.8 525.1 335.8 537.6 348.3C550.1 360.8 550.1 381.1 537.6 393.6L407.4 523.6C329.3 601.7 202.7 601.7 124.6 523.6C46.5 445.5 46.5 318.9 124.6 240.8L288.6 76.8z"/></svg>
       </button>
       <input id="msg-input" type="text" placeholder="Напишите сообщение…"
         style="flex:1 1 0%;background:none;border:none;outline:none;color:#fff;font-size:15px;font-family:inherit;min-width:0;-webkit-user-select:text;user-select:text;"
@@ -126,7 +126,7 @@
     </div>
     <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
       <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openFavorites()">
-        <div class="settings-icon" style="background:linear-gradient(160deg,#4AAFF8,#2477E6);"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-4 7 4V5a2 2 0 00-2-2z"/></svg></div>
+        <div class="settings-icon" style="background:linear-gradient(160deg,#4AAFF8,#2477E6);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M192 64C156.7 64 128 92.7 128 128L128 544C128 555.5 134.2 566.2 144.2 571.8C154.2 577.4 166.5 577.3 176.4 571.4L320 485.3L463.5 571.4C473.4 577.3 485.7 577.5 495.7 571.8C505.7 566.1 512 555.5 512 544L512 128C512 92.7 483.3 64 448 64L192 64z"/></svg></div>
         <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Избранное</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
@@ -241,7 +241,7 @@
         <div id="devices-main-view">
           <div id="devices-current-list" style="padding:0 0 8px;"></div>
           <button id="devices-logout-others-btn" onclick="logoutOtherSessions()" style="width:calc(100% - 24px);margin:8px 12px 0;background:#FF3B30;border:none;border-radius:999px;padding:14px 16px;color:#fff;font-size:17px;font-weight:600;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M5 8c0-3.87 3.13-7 7-7s7 3.13 7 7"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M352 96C352 78.3 337.7 64 320 64C302.3 64 288 78.3 288 96L288 304C288 312.8 280.8 320 272 320C263.2 320 256 312.8 256 304L256 128C256 110.3 241.7 96 224 96C206.3 96 192 110.3 192 128L192 400C192 401.5 192 403.1 192.1 404.6L131.6 347C115.6 331.8 90.3 332.4 75 348.4C59.7 364.4 60.4 389.7 76.4 405L188.8 512C231.9 553.1 289.2 576 348.8 576L368 576C465.2 576 544 497.2 544 400L544 192C544 174.3 529.7 160 512 160C494.3 160 480 174.3 480 192L480 304C480 312.8 472.8 320 464 320C455.2 320 448 312.8 448 304L448 128C448 110.3 433.7 96 416 96C398.3 96 384 110.3 384 128L384 304C384 312.8 376.8 320 368 320C359.2 320 352 312.8 352 304L352 96z"/></svg>
             <span>Завершить все другие сеансы</span>
           </button>
           <div style="color:#8E8E93;font-size:14px;padding:8px 16px 14px;">Выйти на всех устройствах, кроме текущего.</div>
@@ -443,7 +443,7 @@
     <div class="fav-intro-wrap">
       <div class="favorites-intro-card">
         <div class="favorites-intro-avatar" style="background:linear-gradient(160deg,#4AAFF8,#2477E6);">
-          <svg width="38" height="38" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-4 7 4V5a2 2 0 00-2-2z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 640 640" fill="#fff"><path d="M192 64C156.7 64 128 92.7 128 128L128 544C128 555.5 134.2 566.2 144.2 571.8C154.2 577.4 166.5 577.3 176.4 571.4L320 485.3L463.5 571.4C473.4 577.3 485.7 577.5 495.7 571.8C505.7 566.1 512 555.5 512 544L512 128C512 92.7 483.3 64 448 64L192 64z"/></svg>
         </div>
         <div class="favorites-intro-name">Избранное</div>
         <div class="favorites-intro-sub">Сохраняйте важное</div>
@@ -486,8 +486,8 @@
     </div>
     <div class="input-pill">
       <input id="fav-media-file" type="file" accept="image/*,video/*" multiple style="display:none" onchange="addFavMedia(this)" />
-      <button onclick="document.getElementById('fav-media-file').click()" style="background:none;border:none;cursor:pointer;padding:4px;color:rgba(255,255,255,0.5);flex-shrink:0;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="currentColor"><path d="M288.6 76.8C344.8 20.6 436 20.6 492.2 76.8C548.4 133 548.4 224.2 492.2 280.4L328.2 444.4C293.8 478.8 238.1 478.8 203.7 444.4C169.3 410 169.3 354.3 203.7 319.9L356.5 167.3C369 154.8 389.3 154.8 401.8 167.3C414.3 179.8 414.3 200.1 401.8 212.6L249 365.3C239.6 374.7 239.6 389.9 249 399.2C258.4 408.5 273.6 408.6 282.9 399.2L446.9 235.2C478.1 204 478.1 153.3 446.9 122.1C415.7 90.9 365 90.9 333.8 122.1L169.8 286.1C116.7 339.2 116.7 425.3 169.8 478.4C222.9 531.5 309 531.5 362.1 478.4L492.3 348.3C504.8 335.8 525.1 335.8 537.6 348.3C550.1 360.8 550.1 381.1 537.6 393.6L407.4 523.6C329.3 601.7 202.7 601.7 124.6 523.6C46.5 445.5 46.5 318.9 124.6 240.8L288.6 76.8z"/></svg>
+      <button onclick="document.getElementById('fav-media-file').click()" style="background:none;border:none;cursor:pointer;padding:5px 4px 3px;color:rgba(255,255,255,0.5);flex-shrink:0;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 640 640" fill="currentColor"><path d="M288.6 76.8C344.8 20.6 436 20.6 492.2 76.8C548.4 133 548.4 224.2 492.2 280.4L328.2 444.4C293.8 478.8 238.1 478.8 203.7 444.4C169.3 410 169.3 354.3 203.7 319.9L356.5 167.3C369 154.8 389.3 154.8 401.8 167.3C414.3 179.8 414.3 200.1 401.8 212.6L249 365.3C239.6 374.7 239.6 389.9 249 399.2C258.4 408.5 273.6 408.6 282.9 399.2L446.9 235.2C478.1 204 478.1 153.3 446.9 122.1C415.7 90.9 365 90.9 333.8 122.1L169.8 286.1C116.7 339.2 116.7 425.3 169.8 478.4C222.9 531.5 309 531.5 362.1 478.4L492.3 348.3C504.8 335.8 525.1 335.8 537.6 348.3C550.1 360.8 550.1 381.1 537.6 393.6L407.4 523.6C329.3 601.7 202.7 601.7 124.6 523.6C46.5 445.5 46.5 318.9 124.6 240.8L288.6 76.8z"/></svg>
       </button>
       <input id="fav-input" type="text" placeholder="Напишите сообщение…"
         style="flex:1 1 0%;background:none;border:none;outline:none;color:#fff;font-size:15px;font-family:inherit;min-width:50px;-webkit-user-select:text;user-select:text;"
@@ -511,7 +511,7 @@
     <!-- Избранное -->
     <button class="forward-row" onclick="forwardToChat('favorites')">
       <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(160deg,#4AAFF8,#2477E6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" stroke="none"><path d="M17 3H7a2 2 0 00-2 2v16l7-4 7 4V5a2 2 0 00-2-2z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M192 64C156.7 64 128 92.7 128 128L128 544C128 555.5 134.2 566.2 144.2 571.8C154.2 577.4 166.5 577.3 176.4 571.4L320 485.3L463.5 571.4C473.4 577.3 485.7 577.5 495.7 571.8C505.7 566.1 512 555.5 512 544L512 128C512 92.7 483.3 64 448 64L192 64z"/></svg>
       </div>
       <span class="forward-row-name">Избранное</span>
     </button>

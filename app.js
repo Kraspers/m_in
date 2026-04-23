@@ -139,7 +139,7 @@
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     if(hasMedia){
       const mid='m'+(++msgIdCounter);
-      const textPart=txt?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${esc(txt)}</p>`:'';
+      const textPart=txt?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${renderRichText(txt)}</p>`:'';
       if(!quoteHtml&&!txt){
         const pureGrid=buildMediaGrid(attachedFavMedia.slice(),mid,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)');
         w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:3px;"><div style="position:relative;line-height:0;">${pureGrid}<div class="media-time-ovl"><span class="msg-time-out">${t}</span>${tick}</div></div><div class="msg-meta media-meta-foot"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
@@ -153,7 +153,7 @@
         w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:${tp} 4px 6px 4px;">${quoteHtml}${gridWrapped}${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
       }
     } else {
-      w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${esc(txt)}</p><div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
+      w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${renderRichText(txt)}</p><div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     }
     msgs.insertBefore(w,anchor);
     inp.value='';
@@ -165,6 +165,8 @@
     bindBubble(newFavBubble);
     bindMsgRow(w);
     newFavBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+    bindRichTextInteractions(newFavBubble);
+    enrichLinkPreviews(w);
     setTimeout(()=>{
       newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
     },220);
@@ -394,7 +396,7 @@
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     if(hasMedia){
       const mid='m'+(++msgIdCounter);
-      const textPart=txt?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${esc(txt)}</p>`:'';
+      const textPart=txt?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${renderRichText(txt)}</p>`:'';
       if(!quoteHtml&&!txt){
         /* Чистое медиа — Telegram-стиль: правильный внутренний радиус, время поверх изображения */
         w.style.cssText='align-self:flex-end;max-width:78%;';
@@ -412,7 +414,7 @@
         w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:${tp} 4px 6px 4px;">${quoteHtml}${gridWrapped}${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
       }
     }else{
-      w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${esc(txt)}</p><div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
+      w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${renderRichText(txt)}</p><div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     }
     msgs.insertBefore(w,anchor);
     /* ── Анимация загрузки (как в Telegram) ── */
@@ -434,6 +436,8 @@
     bindBubble(newBubble);
     bindMsgRow(w);
     newBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+    bindRichTextInteractions(newBubble);
+    enrichLinkPreviews(w);
   }
 
   function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1984,25 +1988,7 @@
         reactionsData.set(bubble,reactionState);
         renderReactions(bubble);
       });
-      wrap.querySelectorAll('.mention-link').forEach(el=>{
-        el.addEventListener('click',async e=>{
-          e.preventDefault();
-          const username=el.dataset.username;
-          try{
-            const r=await api(`/users/search?q=${encodeURIComponent(username)}`);
-            const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
-            if(!user){ alert('Пользователь не найден'); return; }
-            usersMap.set(user.id,user);
-            openUserProfileView(user);
-          }catch(_){ alert('Пользователь не найден'); }
-        });
-      });
-      wrap.querySelectorAll('.ext-link').forEach(el=>{
-        el.addEventListener('click',e=>{
-          e.preventDefault();
-          openExternalLinkModal(el.dataset.url||'');
-        });
-      });
+      bindRichTextInteractions(wrap);
       const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
@@ -2022,6 +2008,31 @@
         return `<a href="#" class="ext-link" data-url="${esc(href)}" style="color:#60a5fa;text-decoration:none;">${raw}</a>`;
       });
       return withLinks.replace(/(^|\\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
+    }
+    function bindRichTextInteractions(root){
+      root.querySelectorAll('.mention-link').forEach(el=>{
+        if(el.dataset.bound==='1') return;
+        el.dataset.bound='1';
+        el.addEventListener('click',async e=>{
+          e.preventDefault();
+          const username=el.dataset.username;
+          try{
+            const r=await api(`/users/search?q=${encodeURIComponent(username)}`);
+            const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
+            if(!user){ alert('Пользователь не найден'); return; }
+            usersMap.set(user.id,user);
+            openUserProfileView(user);
+          }catch(_){ alert('Пользователь не найден'); }
+        });
+      });
+      root.querySelectorAll('.ext-link').forEach(el=>{
+        if(el.dataset.bound==='1') return;
+        el.dataset.bound='1';
+        el.addEventListener('click',e=>{
+          e.preventDefault();
+          openExternalLinkModal(el.dataset.url||'');
+        });
+      });
     }
     function openExternalLinkModal(url){
       if(!url) return;
@@ -2058,7 +2069,9 @@
         p.innerHTML=`<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
         p.addEventListener('click',e=>{ e.preventDefault(); openExternalLinkModal(url); });
         const meta=bubble.querySelector('.msg-meta');
-        if(meta) bubble.insertBefore(p,meta);
+        const react=bubble.querySelector('.msg-reactions');
+        if(react) bubble.insertBefore(p,react);
+        else if(meta) bubble.insertBefore(p,meta);
         else bubble.appendChild(p);
         try{
           const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
