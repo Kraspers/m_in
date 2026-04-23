@@ -27,6 +27,7 @@
         SIDEBAR_OVERLAY.forEach(sid=>resetScreen(document.getElementById(sid)));
         RIGHT_PANEL.forEach(sid=>resetScreen(document.getElementById(sid)));
         document.body.classList.remove('has-right-screen');
+        if(window.reloadChatsWithSkeleton) window.reloadChatsWithSkeleton();
         return;
       }
       if(SIDEBAR_OVERLAY.includes(id)){
@@ -48,6 +49,7 @@
     /* Мобильное поведение */
     document.querySelectorAll('.screen').forEach(s=>resetScreen(s));
     document.getElementById(id).classList.add('active');
+    if(id==='screen-list'&&window.reloadChatsWithSkeleton) window.reloadChatsWithSkeleton();
     if(id==='screen-chat') setTimeout(()=>document.getElementById('chat-bottom').scrollIntoView({behavior:'smooth'}),50);
     if(id==='screen-favorites') setTimeout(()=>document.getElementById('fav-bottom').scrollIntoView({behavior:'smooth'}),50);
     if(id==='screen-search') setTimeout(()=>{doSearch('');document.getElementById('search-input').focus();},80);
@@ -451,6 +453,20 @@
   }
   function bindRichTextInteractions(root){
     if(!root) return;
+    root.querySelectorAll('.mention-link').forEach(el=>{
+      if(el.dataset.bound==='1') return;
+      el.dataset.bound='1';
+      el.addEventListener('click',async e=>{
+        e.preventDefault();
+        const username=el.dataset.username||'';
+        try{
+          const r=await backendApi(`/users/search?q=${encodeURIComponent(username)}`);
+          const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
+          if(!user){ alert('Пользователь не найден'); return; }
+          openUserProfileView(user);
+        }catch(_){ alert('Пользователь не найден'); }
+      });
+    });
     root.querySelectorAll('.ext-link').forEach(el=>{
       if(el.dataset.bound==='1') return;
       el.dataset.bound='1';
@@ -462,7 +478,37 @@
       });
     });
   }
-  function enrichLinkPreviews(){ /* для локального избранного без backend-превью */ }
+  async function enrichLinkPreviews(wrap){
+    if(!wrap) return;
+    const links=Array.from(wrap.querySelectorAll('.ext-link')).slice(0,20);
+    for(const a of links){
+      const bubble=a.closest('.msg-bubble');
+      const url=a.dataset.url||'';
+      if(!bubble||!url||bubble.querySelector(`.link-preview[data-url="${url}"]`)) continue;
+      const p=document.createElement('a');
+      p.className='link-preview';
+      p.dataset.url=url;
+      p.href='#';
+      p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
+      p.innerHTML=`<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
+      p.addEventListener('click',e=>{
+        e.preventDefault();
+        if(window.openExternalLinkModal) window.openExternalLinkModal(url);
+        else window.open(url,'_blank','noopener,noreferrer');
+      });
+      const meta=bubble.querySelector('.msg-meta');
+      const react=bubble.querySelector('.msg-reactions');
+      if(react) bubble.insertBefore(p,react);
+      else if(meta) bubble.insertBefore(p,meta);
+      else bubble.appendChild(p);
+      try{
+        const data=await backendApi(`/link-preview?url=${encodeURIComponent(url)}`);
+        p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
+      }catch(_){
+        p.innerHTML=`<div style="font-size:12px;opacity:.7;">Ссылка</div><div style="font-size:13px;">${url}</div>`;
+      }
+    }
+  }
 
   /* ── Контекстное меню ── */
   const overlay=document.getElementById('ctx-overlay');
@@ -485,6 +531,20 @@
   let favPinnedBubble=null;
   let forwardingBubble=null;
   let forwardingSenderName='';
+  const pinSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg>`;
+  const unpinSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M73 39.1C63.6 29.7 48.4 29.7 39.1 39.1C29.8 48.5 29.7 63.7 39 73.1L567 601.1C576.4 610.5 591.6 610.5 600.9 601.1C610.2 591.7 610.3 576.5 600.9 567.2L449.8 416L480 416C490 416 499.5 411.3 505.5 403.3C511.5 395.3 513.5 384.9 510.7 375.2L507 361.8C494.6 318.5 466 283.3 428.8 262.1L418.5 128L448 128C465.7 128 480 113.7 480 96C480 78.3 465.7 64 448 64L192 64C184.6 64 177.9 66.5 172.5 70.6L222.1 120.3L217.3 183.4L73 39.1zM314.2 416L181.7 283.6C159 304.1 141.9 331 133 361.9L129.2 375.3C126.4 385 128.4 395.3 134.4 403.4C140.4 411.5 150 416 160 416L314.2 416zM288 576C288 593.7 302.3 608 320 608C337.7 608 352 593.7 352 576L352 464L288 464L288 576z"/></svg>`;
+  function updatePinActionUI(isPinned){
+    const lbl=document.getElementById('ctx-pin-label');
+    if(lbl) lbl.textContent=isPinned?'Открепить':'Закрепить';
+    const ico=document.getElementById('ctx-pin-icon');
+    if(ico) ico.innerHTML=isPinned?unpinSvg:pinSvg;
+  }
+  function updateChatPinActionUI(isPinned){
+    const lbl=document.getElementById('chatlist-pin-label');
+    if(lbl) lbl.textContent=isPinned?'Открепить':'Закрепить';
+    const ico=document.getElementById('chatlist-pin-icon');
+    if(ico) ico.innerHTML=isPinned?unpinSvg:pinSvg;
+  }
   let authToken='';
   let currentChatUserId='';
   const usersMap=new Map();
@@ -556,7 +616,7 @@
     /* Закрепить/Открепить */
     const inFavCtx=!!el.closest('#fav-messages');
     const isPinned=inFavCtx?(favPinnedBubble&&favPinnedBubble===el):(pinnedBubble&&pinnedBubble===el);
-    document.getElementById('ctx-pin-label').textContent=isPinned?'Открепить':'Закрепить';
+    updatePinActionUI(!!isPinned);
 
     const clone=el.cloneNode(true);
     clone.style.display='inline-flex';
@@ -851,7 +911,7 @@
       else if(hasMedia) preview='📷 Медиа';
       document.getElementById('fav-pinned-bar-preview').textContent=preview||'Сообщение';
       document.getElementById('fav-pinned-bar').classList.add('show');
-      document.getElementById('ctx-pin-label').textContent='Открепить';
+      updatePinActionUI(true);
       closeCtxClean();
       return;
     }
@@ -904,7 +964,7 @@
   }
 
   /* ── Переслать ── */
-  function doForward(){
+  async function doForward(){
     if(!currentBubble)return closeCtxClean();
     forwardingBubble=currentBubble;
     /* Получаем имя отправителя */
@@ -923,7 +983,15 @@
     }
     const list=document.getElementById('forward-chat-list');
     if(list){
-      const items=Array.from(usersMap.values()).filter(u=>u&&u.id&&u.id!==currentChatUserId);
+      let items=Array.from(usersMap.values()).filter(u=>u&&u.id&&u.id!==currentChatUserId);
+      if(!items.length){
+        try{
+          const data=await backendApi('/chats?q=');
+          const chats=data.items||[];
+          chats.forEach(c=>usersMap.set(c.id,c));
+          items=chats.filter(u=>u&&u.id&&u.id!==currentChatUserId);
+        }catch(_){}
+      }
       list.innerHTML='';
       if(!items.length){
         list.innerHTML='<div style="color:#8E8E93;font-size:14px;padding:12px 16px;">Нет доступных чатов</div>';
@@ -1334,7 +1402,7 @@
 
   function openChatListCtx(el){
     currentChatListEl=el;
-    document.getElementById('chatlist-pin-label').textContent=el.classList.contains('chat-pinned')?'Открепить':'Закрепить';
+    updateChatPinActionUI(el.classList.contains('chat-pinned'));
     if(clCloseTimer){clearTimeout(clCloseTimer);clCloseTimer=null;}
     clOverlay.classList.remove('open');
 
@@ -1509,7 +1577,7 @@
       if(!el.querySelector('.chat-pin-icon')){
         const pi=document.createElement('div');
         pi.className='chat-pin-icon';
-        pi.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>';
+        pi.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg>';
         el.insertBefore(pi,el.firstChild);
       }
       list.prepend(el);
@@ -1935,6 +2003,7 @@
         if(!holder.querySelector('.chat-row-item')) holder.innerHTML=prevHtml;
       }
     }
+    window.reloadChatsWithSkeleton=()=>loadChats('',{showSkeleton:true});
     async function openChatWith(userId){
       currentChatUserId=userId;
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
@@ -2187,7 +2256,7 @@
 
     window.saveProfileEdit=async function(){
       const saveBtn=document.getElementById('profile-save-btn');
-      const avWrap=document.getElementById('pe-avatar-wrap');
+      const avWrap=document.getElementById('pe-avatar-circle');
       const bWrap=document.getElementById('pe-banner');
       try{
         if(saveBtn) saveBtn.classList.add('loading');
@@ -2249,7 +2318,6 @@
       try{
         const dataUrl=await fileToDataUrl(input.files[0]);
         pendingAvatarDataUrl=dataUrl;
-        setAvatarNode(document.getElementById('pe-avatar-circle'),dataUrl,'U');
       }catch(e){ alert(e.message); }
       applyPeMediaScale();
       input.value='';
