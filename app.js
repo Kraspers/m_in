@@ -2128,6 +2128,7 @@
         requestAnimationFrame(()=>m.classList.add('open'));
       }
     }
+    window.openExternalLinkModal=openExternalLinkModal;
     window.closeExternalLinkModal=function(){
       const m=document.getElementById('ext-link-modal');
       if(m){
