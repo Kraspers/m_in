@@ -1657,8 +1657,8 @@
   }
   function deviceIconSvg(name){
     const n=String(name||'').toLowerCase();
-    if(n.includes('android')) return `<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M7 9h10v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9zm1.2-3.6 1.4 1.4m4.8-1.4-1.4 1.4M9 21v2m6-2v2M3 10v6m18-6v6"/></svg>`;
-    if(n.includes('iphone')||n.includes('ipad')||n.includes('mac')) return `<svg width="16" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M16.7 13.2c0-2.2 1.8-3.3 1.9-3.4-1-1.5-2.7-1.7-3.3-1.7-1.4-.1-2.7.8-3.4.8-.7 0-1.7-.8-2.8-.8-1.4 0-2.8.8-3.5 2-.8 1.4-.2 3.6.6 4.8.8 1.2 1.7 2.6 2.9 2.5 1.1-.1 1.6-.7 3-.7 1.4 0 1.8.7 3 .7 1.3 0 2.1-1.1 2.9-2.3.9-1.3 1.2-2.6 1.2-2.7 0 0-2.3-.9-2.3-3.2zM14.4 6.8c.6-.7 1-1.7.9-2.8-.9 0-2 .6-2.6 1.3-.6.6-1.1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z"/></svg>`;
+    if(n.includes('android')) return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M452.5 317.9C465.8 317.9 476.5 328.6 476.5 341.9C476.5 355.2 465.8 365.9 452.5 365.9C439.2 365.9 428.5 355.2 428.5 341.9C428.5 328.6 439.2 317.9 452.5 317.9zM187.4 317.9C200.7 317.9 211.4 328.6 211.4 341.9C211.4 355.2 200.7 365.9 187.4 365.9C174.1 365.9 163.4 355.2 163.4 341.9C163.4 328.6 174.1 317.9 187.4 317.9zM461.1 221.4L509 138.4C509.8 137.3 510.3 136 510.5 134.6C510.7 133.2 510.7 131.9 510.4 130.5C510.1 129.1 509.5 127.9 508.7 126.8C507.9 125.7 506.9 124.8 505.7 124.1C504.5 123.4 503.2 123 501.8 122.8C500.4 122.6 499.1 122.8 497.8 123.2C496.5 123.6 495.3 124.3 494.2 125.1C493.1 125.9 492.3 127.1 491.7 128.3L443.2 212.4C404.4 195 362.4 186 319.9 186C277.4 186 235.4 195 196.6 212.4L148.2 128.4C147.6 127.2 146.7 126.1 145.7 125.2C144.7 124.3 143.4 123.7 142.1 123.3C140.8 122.9 139.4 122.8 138.1 122.9C136.8 123 135.4 123.5 134.2 124.2C133 124.9 132 125.8 131.2 126.9C130.4 128 129.8 129.3 129.5 130.6C129.2 131.9 129.2 133.3 129.4 134.7C129.6 136.1 130.2 137.3 130.9 138.5L178.8 221.5C96.5 266.2 40.2 349.5 32 448L608 448C599.8 349.5 543.5 266.2 461.1 221.4z"/></svg>`;
+    if(n.includes('iphone')||n.includes('ipad')||n.includes('mac')) return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M447.1 332.7C446.9 296 463.5 268.3 497.1 247.9C478.3 221 449.9 206.2 412.4 203.3C376.9 200.5 338.1 224 323.9 224C308.9 224 274.5 204.3 247.5 204.3C191.7 205.2 132.4 248.8 132.4 337.5C132.4 363.7 137.2 390.8 146.8 418.7C159.6 455.4 205.8 545.4 254 543.9C279.2 543.3 297 526 329.8 526C361.6 526 378.1 543.9 406.2 543.9C454.8 543.2 496.6 461.4 508.8 424.6C443.6 393.9 447.1 334.6 447.1 332.7zM390.5 168.5C417.8 136.1 415.3 106.6 414.5 96C390.4 97.4 362.5 112.4 346.6 130.9C329.1 150.7 318.8 175.2 321 202.8C347.1 204.8 370.9 191.4 390.5 168.5z"/></svg>`;
     if(n.includes('windows')) return `<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M2 4l9-1v9H2V4zm11-1 9-1v10h-9V3zM2 13h9v9l-9-1v-8zm11 0h9v10l-9-1v-9z"/></svg>`;
     return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><circle cx="12" cy="18" r="1.4" fill="#fff" stroke="none"/></svg>`;
   }
@@ -2079,16 +2079,23 @@
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
         const hasMediaAndText=mediaArr.length&&!!m.text;
-        const hasPureMedia=mediaArr.length&&!m.text;
+        const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml;
+        const rowMax=replyHtml?'calc(100% - 24px)':'78%';
+        const mediaRadiusBase=mine
+          ?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)'
+          :'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0';
+        const mediaTopRadius=replyHtml?'0':'calc(1.4rem - 3px)';
         const mediaHtml=mediaArr.length
-          ? (m.text
-            ? `<div style="overflow:hidden;margin-bottom:4px;">${buildMediaGrid(mediaArr,m.id,'12px 12px 0 0',false)}</div>`
-            : `<div style="position:relative;overflow:hidden;margin:2px -10px 0;">${buildMediaGrid(mediaArr,m.id,mine?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)':'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0',false)}${mine?`<div class="media-time-ovl"><span class="msg-time-out">${t}</span>${tick}</div>`:''}</div>`)
+          ? (hasPureMedia
+            ? `<div style="position:relative;line-height:0;">${buildMediaGrid(mediaArr,m.id,mediaRadiusBase,false)}<div class="media-time-ovl"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div>`
+            : `<div style="overflow:hidden;margin-bottom:${m.text?'4px':'0'};">${buildMediaGrid(mediaArr,m.id,`${mediaTopRadius} ${mediaTopRadius} 0 0`,false)}</div>`)
           : '';
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}"${hasMediaAndText?' style="padding:4px 8px 0;margin:0;"':''}>${renderRichText(m.text)}</p>`:'';
-        const bubbleStyle=hasMediaAndText?' style="padding:3px 4px 6px 4px;"':'';
-        const metaClass=hasPureMedia&&mine?'msg-meta media-meta-foot':'msg-meta';
-        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${hasPureMedia&&mine?tick:''}</div></div></div>`;
+        const bubblePad=hasPureMedia?'3px':(mediaArr.length?'3px 4px 6px 4px':'');
+        const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
+        const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
+        const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
+        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
