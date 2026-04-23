@@ -1813,11 +1813,15 @@
     }
     function setAvatarNode(el,avatarUrl,fallback){
       if(!el)return;
+      el.innerHTML='';
       if(avatarUrl){
-        el.innerHTML=`<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">`;
+        const img=document.createElement('img');
+        img.src=avatarUrl;
+        img.style.cssText='width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;';
+        el.appendChild(img);
         el.style.background='none';
       }else{
-        el.innerHTML=initials(fallback);
+        el.textContent=initials(fallback);
       }
     }
     function applyProfileUI(profile){
