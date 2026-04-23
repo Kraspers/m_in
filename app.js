@@ -54,6 +54,18 @@
     if(id==='screen-favorites') setTimeout(()=>document.getElementById('fav-bottom').scrollIntoView({behavior:'smooth'}),50);
     if(id==='screen-search') setTimeout(()=>{doSearch('');document.getElementById('search-input').focus();},80);
   }
+  function updateChatBlockedUI(){
+    const bar=document.querySelector('#screen-chat > .input-bar');
+    const blocked=document.getElementById('chat-blocked-pill');
+    if(!bar||!blocked) return;
+    if(currentChatBlockedByPeer){
+      bar.style.display='none';
+      blocked.style.display='block';
+    }else{
+      bar.style.display='';
+      blocked.style.display='none';
+    }
+  }
 
   /* ── Избранное ── */
   function openFavorites(){ showScreen('screen-favorites'); }
@@ -547,6 +559,8 @@
   }
   let authToken='';
   let currentChatUserId='';
+  let currentChatBlockedByPeer=false;
+  let currentChatBlockedPeer=false;
   const usersMap=new Map();
   let api=()=>Promise.reject(new Error('API not initialized'));
 
@@ -983,13 +997,13 @@
     }
     const list=document.getElementById('forward-chat-list');
     if(list){
-      let items=Array.from(usersMap.values()).filter(u=>u&&u.id&&u.id!==currentChatUserId);
+      let items=Array.from(usersMap.values()).filter(u=>u&&u.id);
       if(!items.length){
         try{
           const data=await backendApi('/chats?q=');
           const chats=data.items||[];
           chats.forEach(c=>usersMap.set(c.id,c));
-          items=chats.filter(u=>u&&u.id&&u.id!==currentChatUserId);
+          items=chats.filter(u=>u&&u.id);
         }catch(_){}
       }
       list.innerHTML='';
@@ -2008,6 +2022,8 @@
       currentChatUserId=userId;
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       const peer=data.peer||usersMap.get(userId)||{};
+      currentChatBlockedByPeer=!!peer.blockedByPeer;
+      currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
       const title=document.getElementById('chat-contact-name');
       if(title) title.textContent=peer.name||'Чат';
@@ -2025,6 +2041,7 @@
         }
       }
       renderChatMessages(data.items||[]);
+      updateChatBlockedUI();
       showScreen('screen-chat');
     }
     window.openChatWith=openChatWith;
@@ -2194,6 +2211,17 @@
         try{
           const msg=JSON.parse(ev.data);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
+          scheduleChatsRefresh();
+        }catch(_){}
+      });
+      stream.addEventListener('block_update',ev=>{
+        try{
+          const b=JSON.parse(ev.data);
+          if(currentChatUserId&&b&&b.targetUserId===currentChatUserId){
+            if(String(b.byUserId||'')===currentChatUserId) currentChatBlockedByPeer=!!b.blocked;
+            if(me&&String(b.byUserId||'')===me.id) currentChatBlockedPeer=!!b.blocked;
+            updateChatBlockedUI();
+          }
           scheduleChatsRefresh();
         }catch(_){}
       });
@@ -2404,6 +2432,7 @@
     }
     window.sendMessage=async function(){
       if(!currentChatUserId) return;
+      if(currentChatBlockedByPeer){ showTopToast('Вы были заблокированы данным пользователем',true); return; }
       const input=document.getElementById('msg-input');
       const text=(input.value||'').trim();
       const media=(attachedMedia||[]);
@@ -2486,6 +2515,68 @@
         if(uid) await openChatWith(uid);
       });
     }
+    function upvFindChatRow(uid){
+      return Array.from(document.querySelectorAll('#chat-list .chat-row-item')).find(el=>el.dataset.chatId===uid)||null;
+    }
+    function setUpvPinUi(isPinned){
+      const lbl=document.getElementById('upv-pin-label');
+      const ico=document.getElementById('upv-pin-icon');
+      if(lbl) lbl.textContent=isPinned?'Открепить':'Закрепить';
+      if(ico) ico.innerHTML=isPinned?unpinSvg:pinSvg;
+    }
+    function openUpvCtx(){
+      const uid=window.__upvUserId||'';
+      if(!uid) return;
+      const row=upvFindChatRow(uid);
+      setUpvPinUi(!!(row&&row.classList.contains('chat-pinned')));
+      const blockedLbl=document.getElementById('upv-block-label');
+      if(blockedLbl) blockedLbl.textContent=currentChatBlockedPeer?'Разблокировать':'Заблокировать';
+      const ov=document.getElementById('upv-ctx-overlay');
+      if(!ov) return;
+      ov.style.display='block';
+      requestAnimationFrame(()=>ov.classList.add('open'));
+    }
+    window.closeUpvCtx=function(e){
+      const ov=document.getElementById('upv-ctx-overlay');
+      if(!ov) return;
+      if(e&&e.target!==document.getElementById('upv-ctx-bg')&&e.target!==ov) return;
+      ov.classList.remove('open');
+      setTimeout(()=>{ if(!ov.classList.contains('open')) ov.style.display='none'; },220);
+    };
+    window.upvPinChat=function(){
+      const uid=window.__upvUserId||'';
+      const row=upvFindChatRow(uid);
+      if(row){ currentChatListEl=row; pinChat(); setUpvPinUi(row.classList.contains('chat-pinned')); }
+      window.closeUpvCtx();
+    };
+    window.upvDeleteChat=async function(){
+      const uid=window.__upvUserId||'';
+      if(!uid) return;
+      window.closeUpvCtx();
+      closeUserProfileView();
+      await api(`/chats/${encodeURIComponent(uid)}`,{method:'DELETE'});
+      if(currentChatUserId===uid){ showScreen('screen-list'); currentChatUserId=''; }
+      await loadChats('',{showSkeleton:false});
+    };
+    window.upvToggleBlock=async function(){
+      const uid=window.__upvUserId||'';
+      if(!uid) return;
+      const action=currentChatBlockedPeer?'unblock':'block';
+      await api(`/users/${encodeURIComponent(uid)}/block`,{method:'PATCH',body:JSON.stringify({action})});
+      currentChatBlockedPeer=!currentChatBlockedPeer;
+      if(action==='block'){
+        window.closeUpvCtx();
+        closeUserProfileView();
+      }else{
+        const blockedLbl=document.getElementById('upv-block-label');
+        if(blockedLbl) blockedLbl.textContent='Заблокировать';
+        window.closeUpvCtx();
+      }
+      if(currentChatUserId===uid) await openChatWith(uid);
+      await loadChats('',{showSkeleton:false});
+    };
+    const upvMoreBtn=document.getElementById('upv-more-btn');
+    if(upvMoreBtn) upvMoreBtn.addEventListener('click',openUpvCtx);
     document.querySelectorAll('#profile-edit-sheet > div[style*="background:#1A1A1A"]').forEach(el=>{ el.style.flexShrink='0'; });
     const chatHeader=document.getElementById('chat-header-open-profile');
     if(chatHeader){
