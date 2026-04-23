@@ -2067,6 +2067,7 @@
         messageMap.set(m.id,m);
         const mine=me&&m.fromUserId===me.id;
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+        const tick='<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
         let replyHtml='';
         if(reply){
@@ -2077,15 +2078,17 @@
         }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const hasMediaAndText=mediaArr.length&&!!m.text;
+        const hasPureMedia=mediaArr.length&&!m.text;
         const mediaHtml=mediaArr.length
           ? (m.text
             ? `<div style="overflow:hidden;margin-bottom:4px;">${buildMediaGrid(mediaArr,m.id,'12px 12px 0 0',false)}</div>`
-            : `<div style="position:relative;overflow:hidden;margin:2px -10px 0;">${buildMediaGrid(mediaArr,m.id,mine?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)':'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0',false)}</div>`)
+            : `<div style="position:relative;overflow:hidden;margin:2px -10px 0;">${buildMediaGrid(mediaArr,m.id,mine?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)':'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0',false)}${mine?`<div class="media-time-ovl"><span class="msg-time-out">${t}</span>${tick}</div>`:''}</div>`)
           : '';
-        const hasMediaAndText=mediaArr.length&&!!m.text;
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}"${hasMediaAndText?' style="padding:4px 8px 0;margin:0;"':''}>${renderRichText(m.text)}</p>`:'';
         const bubbleStyle=hasMediaAndText?' style="padding:3px 4px 6px 4px;"':'';
-        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="msg-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span></div></div></div>`;
+        const metaClass=hasPureMedia&&mine?'msg-meta media-meta-foot':'msg-meta';
+        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${hasPureMedia&&mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
