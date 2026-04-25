@@ -1594,18 +1594,67 @@
     const pi=el.querySelector('.chat-pin-icon');
     if(pi) pi.remove();
   }
+  function animateChatRowsReorder(list){
+    if(!list) return;
+    const rows=Array.from(list.querySelectorAll('.chat-row-item'));
+    const firstPos=new Map(rows.map(r=>[r,r.getBoundingClientRect().top]));
+    requestAnimationFrame(()=>{
+      rows.forEach(r=>{
+        const last=firstPos.get(r);
+        if(typeof last!=='number') return;
+        const now=r.getBoundingClientRect().top;
+        const dy=last-now;
+        if(!dy) return;
+        r.style.transition='none';
+        r.style.transform=`translateY(${dy}px)`;
+        requestAnimationFrame(()=>{
+          r.style.transition='transform .28s cubic-bezier(.22,.61,.36,1), opacity .22s ease';
+          r.style.transform='';
+          setTimeout(()=>{ r.style.transition=''; },300);
+        });
+      });
+    });
+  }
   async function pinChat(){
     if(!currentChatListEl)return;
     const el=currentChatListEl;
+    const list=document.getElementById('chat-list');
     const isPinned=el.classList.contains('chat-pinned');
+    const pinnedRows=list?Array.from(list.querySelectorAll('.chat-row-item.chat-pinned')):[];
+    const wasPinned=isPinned;
     el.classList.add('chat-pin-anim');
     setTimeout(()=>el.classList.remove('chat-pin-anim'),260);
-    decorateChatPinnedUi(el,!isPinned);
+    if(isPinned){
+      decorateChatPinnedUi(el,false);
+      if(list){
+        const pinnedLeft=Array.from(list.querySelectorAll('.chat-row-item.chat-pinned'));
+        const anchor=pinnedLeft.length?pinnedLeft[pinnedLeft.length-1].nextSibling:list.firstChild;
+        list.insertBefore(el,anchor);
+        animateChatRowsReorder(list);
+      }
+    }else{
+      decorateChatPinnedUi(el,true);
+      if(list){
+        const firstRow=list.querySelector('.chat-row-item');
+        if(firstRow) list.insertBefore(el,firstRow);
+        else list.appendChild(el);
+        animateChatRowsReorder(list);
+      }
+    }
     try{
       await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
-      await loadChats('',{showSkeleton:false});
     }catch(_){
-      decorateChatPinnedUi(el,isPinned);
+      decorateChatPinnedUi(el,wasPinned);
+      if(list){
+        if(wasPinned){
+          const firstPinned=list.querySelector('.chat-row-item.chat-pinned');
+          if(firstPinned) list.insertBefore(el,firstPinned);
+        }else{
+          const afterPinned=pinnedRows.length?pinnedRows[pinnedRows.length-1].nextSibling:list.firstChild;
+          list.insertBefore(el,afterPinned);
+        }
+        animateChatRowsReorder(list);
+      }
     }
   }
 
@@ -1978,7 +2027,7 @@
     function scheduleOpenCurrentChat(){
       if(!currentChatUserId) return;
       if(openChatRefreshTimer) clearTimeout(openChatRefreshTimer);
-      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId); },80);
+      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId,{showSkeleton:false,keepScreen:true}); },80);
     }
     function scheduleChatsRefresh(){
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
@@ -2041,10 +2090,12 @@
           el.addEventListener('click',openProfile);
           el.addEventListener('touchend',openProfile,{passive:false});
         });
-      }catch(_){
+      }catch(err){
         const stillHasChats=holder.querySelectorAll('.chat-row-item').length>0||hadChats;
         holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
-        if(stillHasChats){
+        const netMsg=String(err&&err.message||'');
+        const networkDown=!navigator.onLine||/failed to fetch|networkerror|network request failed|load failed/i.test(netMsg);
+        if(stillHasChats&&networkDown){
           holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
         }else if(!holder.querySelector('.chat-row-item')){
           holder.innerHTML=prevHtml;
@@ -2070,14 +2121,16 @@
       <div class="msg-skel-row out"><div class="msg-skel-bubble"><div class="msg-skel-line w2"></div><div class="msg-skel-line w4"></div></div></div>`;
       bottom.insertAdjacentHTML('beforebegin',rows);
     }
-    async function openChatWith(userId){
+    async function openChatWith(userId,opts={}){
+      const showSkeleton=opts.showSkeleton!==false;
+      const keepScreen=opts.keepScreen===true;
       currentChatUserId=userId;
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
       if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
-      renderChatLoadingSkeleton();
-      showScreen('screen-chat');
+      if(showSkeleton) renderChatLoadingSkeleton();
+      if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
       const peer=data.peer||usersMap.get(userId)||{};
