@@ -1871,6 +1871,7 @@
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
+    let skipOwnMessageRefreshUntil=0;
     const localLinkPreviewCache=new Map();
     const messageMap=new Map();
     const favoriteMessageMap=new Map();
@@ -2357,7 +2358,10 @@
       stream.addEventListener('message',ev=>{
         try{
           const msg=JSON.parse(ev.data);
-          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)){
+            const mine=!!(me&&msg.fromUserId===me.id);
+            if(!(mine&&Date.now()<skipOwnMessageRefreshUntil)) scheduleOpenCurrentChat();
+          }
           scheduleChatsRefresh();
         }catch(_){}
       });
@@ -2376,7 +2380,12 @@
               });
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
-              if(msg.editedAt||Array.isArray(msg.media)||typeof msg.text==='string'){
+              const bubbleText=(bubble.querySelector('.msg-text-out,.msg-text-in')?.innerText||'').trim();
+              const bubbleMedia=Array.from(bubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(el=>el.getAttribute('src')||'');
+              const nextMedia=Array.isArray(msg.media)?msg.media:[];
+              const mediaChanged=bubbleMedia.length!==nextMedia.length||bubbleMedia.some((src,i)=>src!==String(nextMedia[i]||''));
+              const textChanged=bubbleText!==String(msg.text||'').trim();
+              if(msg.editedAt||mediaChanged||textChanged){
                 scheduleOpenCurrentChat();
               }
             }else{
@@ -2660,7 +2669,7 @@
       }
       msgs.insertBefore(w,anchor);
       w.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
-      anchor.scrollIntoView({behavior:'smooth'});
+      anchor.scrollIntoView({behavior:'auto'});
       return w;
     }
     function favoriteItemsSorted(){
@@ -2672,7 +2681,7 @@
       if(!wrap||!bottom) return;
       favoriteMessageMap.clear();
       (items||[]).forEach(m=>favoriteMessageMap.set(m.id,m));
-      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='fav-bottom') node.remove(); });
+      wrap.querySelectorAll(':scope > .rt-msg').forEach(node=>node.remove());
       const rows=favoriteItemsSorted().map(m=>{
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         const tick='<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -2799,7 +2808,18 @@
         for(const m of media){
           if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
         }
-        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
+        const sent=await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
+        if(pendingBubble){
+          const bubble=pendingBubble.querySelector('.msg-bubble');
+          if(bubble&&sent&&sent.message&&sent.message.id){
+            bubble.dataset.mid=sent.message.id;
+            bubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
+            pendingBubble.classList.remove('pending-rt-msg');
+            bindBubble(bubble);
+            bindMsgRow(pendingBubble);
+          }
+        }
+        skipOwnMessageRefreshUntil=Date.now()+1200;
       }catch(e){
         if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
         throw e;
