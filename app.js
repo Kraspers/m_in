@@ -471,6 +471,10 @@
       el.addEventListener('click',async e=>{
         e.preventDefault();
         const username=el.dataset.username||'';
+        if(me&&String(me.username||'').toLowerCase()===String(username||'').toLowerCase()){
+          openFavorites();
+          return;
+        }
         try{
           const r=await backendApi(`/users/search?q=${encodeURIComponent(username)}`);
           const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
@@ -723,6 +727,14 @@
       setTimeout(()=>{ctxMsgWrap.innerHTML='';closeTimer=null;},100);
     },310);
   }
+  function closeCtxNow(){
+    if(closeTimer){clearTimeout(closeTimer);closeTimer=null;}
+    overlay.classList.remove('open');
+    overlay.style.transition='';overlay.style.opacity='';overlay.style.pointerEvents='';
+    ctxMsgWrap.style.transition='';ctxMsgWrap.style.transform='';
+    ctxMenu.style.transition='';ctxMenu.style.transform='';ctxMenu.style.opacity='';
+    ctxMsgWrap.innerHTML='';
+  }
 
   /* ── Ответить ── */
   function doReply(){
@@ -773,7 +785,7 @@
       document.getElementById('reply-island').classList.add('show');
       document.getElementById('msg-input').focus();
     }
-    closeCtxClean();
+    closeCtxNow();
   }
 
   function dismissReply(){
@@ -1100,17 +1112,20 @@
 
     if(grid){
       /* Пересланное сообщение с медиа — медиа растягивается на всю ширину (как в Telegram) */
-      const textPart=txt?`<p class="msg-text-out" style="padding:4px 14px 0;margin:0;">${esc(txt)}</p>`:'';
+      const textPart=txt?`<p class="msg-text-out" style="padding:4px 14px 0;margin:0;">${renderRichText(txt)}</p>`:'';
       const metaStyle=txt?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
       w.innerHTML=`<div class="bubble-out msg-bubble msg-fwd" style="padding:0;overflow:hidden;"><div style="padding:8px 14px 6px;">${fwdHeader}</div>${mediaClone}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     } else {
-      const textPart=txt?`<p class="msg-text-out">${esc(txt)}</p>`:'';
+      const textPart=txt?`<p class="msg-text-out">${renderRichText(txt)}</p>`:'';
       w.innerHTML=`<div class="bubble-out msg-bubble msg-fwd">${fwdHeader}${textPart}<div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     }
     if(dest==='favorites'){
       msgs.insertBefore(w,anchor);
-      bindBubble(w.querySelector('.msg-bubble'));
+      const b=w.querySelector('.msg-bubble');
+      bindBubble(b);
       bindMsgRow(w);
+      bindRichTextInteractions(b);
+      enrichLinkPreviews(w);
     }
     if(dest!=='favorites'&&authToken){
       const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
@@ -1856,6 +1871,7 @@
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
+    const localLinkPreviewCache=new Map();
     const messageMap=new Map();
 
     api=function(path,opts={}){
@@ -2237,6 +2253,10 @@
         el.addEventListener('click',async e=>{
           e.preventDefault();
           const username=el.dataset.username;
+          if(me&&String(me.username||'').toLowerCase()===String(username||'').toLowerCase()){
+            openFavorites();
+            return;
+          }
           try{
             const r=await api(`/users/search?q=${encodeURIComponent(username)}`);
             const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
@@ -2283,22 +2303,28 @@
         const bubble=a.closest('.msg-bubble');
         const url=a.dataset.url||'';
         if(!bubble||!url||bubble.querySelector(`.link-preview[data-url="${url}"]`)) continue;
+        const fromCache=localLinkPreviewCache.get(url);
         const p=document.createElement('a');
         p.className='link-preview';
         p.dataset.url=url;
         p.href='#';
         p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
-        p.innerHTML=`<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
+        p.innerHTML=fromCache
+          ? `<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`
+          : `<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
         p.addEventListener('click',e=>{ e.preventDefault(); openExternalLinkModal(url); });
         const meta=bubble.querySelector('.msg-meta');
         const react=bubble.querySelector('.msg-reactions');
         if(react) bubble.insertBefore(p,react);
         else if(meta) bubble.insertBefore(p,meta);
         else bubble.appendChild(p);
+        if(fromCache) continue;
         try{
           const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
+          localLinkPreviewCache.set(url,data||{});
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
         }catch(_){
+          localLinkPreviewCache.set(url,{url,site:'Ссылка',title:url,description:''});
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">Ссылка</div><div style="font-size:13px;">${url}</div>`;
         }
       }
