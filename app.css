@@ -1,5 +1,6 @@
   *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;-webkit-user-select:none;user-select:none;}
-  body{background:#111;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;margin:0;overflow:hidden;height:100dvh;}
+  html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#111;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;height:100dvh;}
   .screen{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .22s ease;}
   .screen.active{opacity:1;pointer-events:all;}
   .scroll-area{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0;}
