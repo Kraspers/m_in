@@ -424,7 +424,7 @@ function handleApi(req, res, urlObj) {
         }
         user.name = String(body.name || user.name || '').trim() || user.name;
         if (nextUsername) user.username = nextUsername;
-        user.bio = String(body.bio || '').slice(0, 120);
+        user.bio = String(body.bio || '').slice(0, 110);
         writeDb(db);
         broadcastProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
@@ -552,6 +552,8 @@ function handleApi(req, res, urlObj) {
         return {
           id: uid,
           name,
+          username,
+          bio: u ? (u.bio || '') : '',
           preview,
           lastCreatedAt: last ? last.createdAt : '',
           avatarDataUrl: u ? (u.avatarDataUrl || '') : '',
@@ -649,6 +651,7 @@ function handleApi(req, res, urlObj) {
         id: u.id,
         name: u.name || u.username,
         username: u.username,
+        bio: u.bio || '',
         avatarDataUrl: u.avatarDataUrl || '',
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
         color: colorForId(u.id)
@@ -695,8 +698,8 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, {
       items: items.map(normalizeMessage),
       peer: peer
-        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', blockedByPeer, blockedPeer }
-        : { id: withUserId, name: 'Пользователь удалён', username: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', blockedByPeer, blockedPeer }
+        : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
     });
   }
 

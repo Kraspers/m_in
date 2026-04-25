@@ -1598,6 +1598,8 @@
     if(!currentChatListEl)return;
     const el=currentChatListEl;
     const isPinned=el.classList.contains('chat-pinned');
+    el.classList.add('chat-pin-anim');
+    setTimeout(()=>el.classList.remove('chat-pin-anim'),260);
     decorateChatPinnedUi(el,!isPinned);
     try{
       await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
@@ -1624,7 +1626,7 @@
     avOver.style.background='transparent';avCam.style.opacity='0';
     pendingAvatarDataUrl='';
     pendingBannerDataUrl='';
-    if(me) applyProfileUI(me);
+    if(me&&typeof window.applyProfileUI==='function') window.applyProfileUI(me);
   }
   function setPeBanner(input){
     if(!input.files||!input.files[0])return;
@@ -1777,7 +1779,7 @@
     document.getElementById('upv-name').textContent=p.name||'Профиль';
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
     const bioEl=document.getElementById('upv-bio');
-    if(bioEl) bioEl.textContent=(p.bio||'').slice(0,120);
+    if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
     const banner=document.getElementById('upv-banner');
     banner.style.backgroundImage=p.bannerDataUrl?`url('${p.bannerDataUrl}')`:'none';
     banner.style.backgroundColor=p.bannerDataUrl?'transparent':'#2C2C2E';
@@ -1877,6 +1879,7 @@
       }
       applyPeMediaScale();
     }
+    window.applyProfileUI=applyProfileUI;
     function showLoginScreen(){ document.getElementById('login-screen').classList.remove('hidden'); }
     function hideLoginScreen(){ document.getElementById('login-screen').classList.add('hidden'); }
     window.showMainPanel=function(){
@@ -1969,6 +1972,9 @@
     };
     let chatsRefreshTimer=null;
     let openChatRefreshTimer=null;
+    let chatsLoadInFlight=false;
+    let queuedChatsRefresh=false;
+    let openChatReqSeq=0;
     function scheduleOpenCurrentChat(){
       if(!currentChatUserId) return;
       if(openChatRefreshTimer) clearTimeout(openChatRefreshTimer);
@@ -1978,24 +1984,31 @@
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
       chatsRefreshTimer=setTimeout(()=>{ loadChats('',{showSkeleton:false}); },120);
     }
-    async function loadChats(query='',opts={}){
-      const showSkeleton=opts.showSkeleton!==false;
-      const holder=document.getElementById('chat-list');
-      if(!holder) return;
-      const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
-      const prevHtml=holder.innerHTML;
-      holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
-      const emptyPre=document.getElementById('chat-list-empty');
-      if(emptyPre) emptyPre.style.display='none';
-      if(showSkeleton){
-        const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
+    function renderChatSkeletonRows(count=5){
+      return Array.from({length:count}).map(()=>`<div class="chat-row-skeleton">
         <div class="chat-row-skeleton-avatar"></div>
         <div class="chat-row-skeleton-lines">
           <div class="chat-row-skeleton-line w1"></div>
           <div class="chat-row-skeleton-line w2"></div>
         </div>
       </div>`).join('');
-        holder.insertAdjacentHTML('beforeend',skel);
+    }
+    async function loadChats(query='',opts={}){
+      const showSkeleton=opts.showSkeleton!==false;
+      const holder=document.getElementById('chat-list');
+      if(!holder) return;
+      if(chatsLoadInFlight){
+        queuedChatsRefresh=true;
+        return;
+      }
+      chatsLoadInFlight=true;
+      const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
+      const prevHtml=holder.innerHTML;
+      holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
+      const emptyPre=document.getElementById('chat-list-empty');
+      if(emptyPre) emptyPre.style.display='none';
+      if(showSkeleton&&hadChats){
+        holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
       }
       try{
         const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
@@ -2029,14 +2042,44 @@
           el.addEventListener('touchend',openProfile,{passive:false});
         });
       }catch(_){
+        const stillHasChats=holder.querySelectorAll('.chat-row-item').length>0||hadChats;
         holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
-        if(!holder.querySelector('.chat-row-item')) holder.innerHTML=prevHtml;
+        if(stillHasChats){
+          holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
+        }else if(!holder.querySelector('.chat-row-item')){
+          holder.innerHTML=prevHtml;
+        }
+      }finally{
+        chatsLoadInFlight=false;
+        if(queuedChatsRefresh){
+          queuedChatsRefresh=false;
+          setTimeout(()=>loadChats('',{showSkeleton:false}),80);
+        }
       }
     }
     window.reloadChatsWithSkeleton=()=>loadChats('',{showSkeleton:true});
+    function renderChatLoadingSkeleton(){
+      const wrap=document.getElementById('chat-messages');
+      const bottom=document.getElementById('chat-bottom');
+      if(!wrap||!bottom) return;
+      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
+      const rows=`
+      <div class="msg-skel-row in"><div class="msg-skel-bubble"><div class="msg-skel-line w3"></div><div class="msg-skel-line w2"></div></div></div>
+      <div class="msg-skel-row out"><div class="msg-skel-bubble"><div class="msg-skel-line w1"></div></div></div>
+      <div class="msg-skel-row in"><div class="msg-skel-bubble media"><div class="msg-skel-media"></div></div></div>
+      <div class="msg-skel-row out"><div class="msg-skel-bubble"><div class="msg-skel-line w2"></div><div class="msg-skel-line w4"></div></div></div>`;
+      bottom.insertAdjacentHTML('beforebegin',rows);
+    }
     async function openChatWith(userId){
       currentChatUserId=userId;
+      const reqSeq=++openChatReqSeq;
+      const optimisticPeer=usersMap.get(userId)||{};
+      const titleFast=document.getElementById('chat-contact-name');
+      if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
+      renderChatLoadingSkeleton();
+      showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
+      if(reqSeq!==openChatReqSeq) return;
       const peer=data.peer||usersMap.get(userId)||{};
       currentChatBlockedByPeer=!!peer.blockedByPeer;
       currentChatBlockedPeer=!!peer.blockedPeer;
@@ -2058,7 +2101,6 @@
       }
       renderChatMessages(data.items||[]);
       updateChatBlockedUI();
-      showScreen('screen-chat');
     }
     window.openChatWith=openChatWith;
     function displayNameForMessageUser(uid){
@@ -2226,7 +2268,12 @@
       if(!authToken) return;
       stream=new EventSource(`${API_BASE}/stream?token=${encodeURIComponent(authToken)}`);
       stream.addEventListener('profile',ev=>{
-        try{ applyProfileUI(JSON.parse(ev.data)); }catch(_){}
+        try{
+          const p=JSON.parse(ev.data);
+          if(me&&p&&p.id===me.id) applyProfileUI(p);
+          if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
+          if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
+        }catch(_){}
       });
       stream.addEventListener('message',ev=>{
         try{
@@ -2326,7 +2373,7 @@
         const payload={
           name,
           username,
-          bio:document.getElementById('pe-bio').value.trim().slice(0,120)
+          bio:document.getElementById('pe-bio').value.trim().slice(0,110)
         };
         const res=await api('/me',{method:'PATCH',body:JSON.stringify(payload)});
         let user=res.user;
@@ -2334,11 +2381,15 @@
           const avRes=await api('/me/avatar',{method:'POST',body:JSON.stringify({dataUrl:pendingAvatarDataUrl})});
           user=avRes.user||user;
           pendingAvatarDataUrl='';
+          const avWrapNow=document.getElementById('pe-avatar-circle');
+          if(avWrapNow) setAvatarNode(avWrapNow,user.avatarDataUrl||'',user.name||name);
         }
         if(pendingBannerDataUrl){
           const bRes=await api('/me/banner',{method:'POST',body:JSON.stringify({dataUrl:pendingBannerDataUrl})});
           user=bRes.user||user;
           pendingBannerDataUrl='';
+          const bImgNow=document.getElementById('pe-banner-img');
+          if(bImgNow&&user.bannerDataUrl){ bImgNow.src=user.bannerDataUrl; bImgNow.style.display='block'; }
         }
         applyProfileUI(user);
         closeProfileEdit();
@@ -2626,6 +2677,8 @@
       const row=upvFindChatRow(uid);
       if(row){
         currentChatListEl=row;
+        row.classList.add('chat-pin-anim');
+        setTimeout(()=>row.classList.remove('chat-pin-anim'),260);
         await pinChat();
         const rowAfter=upvFindChatRow(uid);
         setUpvPinUi(!!(rowAfter&&rowAfter.classList.contains('chat-pinned')));
