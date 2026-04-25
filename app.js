@@ -461,7 +461,7 @@
       const href=/^https?:\/\//i.test(raw)?raw:`https://${raw}`;
       return `<a href="#" class="ext-link" data-url="${esc(href)}" style="color:#60a5fa;text-decoration:none;">${raw}</a>`;
     });
-    return withLinks.replace(/(^|\s)@([a-zA-Z0-9_.-]{2,32})/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
+    return withLinks.replace(/(^|[^a-zA-Z0-9_.@])@([a-zA-Z0-9_.-]{2,32})\b/g,(m,p,u)=>`${p}<a href="#" class="mention-link" data-username="${u}" style="color:#60a5fa;text-decoration:none;">@${u}</a>`);
   }
   function bindRichTextInteractions(root){
     if(!root) return;
@@ -471,6 +471,10 @@
       el.addEventListener('click',async e=>{
         e.preventDefault();
         const username=el.dataset.username||'';
+        if(me&&String(me.username||'').toLowerCase()===String(username||'').toLowerCase()){
+          openFavorites();
+          return;
+        }
         try{
           const r=await backendApi(`/users/search?q=${encodeURIComponent(username)}`);
           const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
@@ -723,6 +727,14 @@
       setTimeout(()=>{ctxMsgWrap.innerHTML='';closeTimer=null;},100);
     },310);
   }
+  function closeCtxNow(){
+    if(closeTimer){clearTimeout(closeTimer);closeTimer=null;}
+    overlay.classList.remove('open');
+    overlay.style.transition='';overlay.style.opacity='';overlay.style.pointerEvents='';
+    ctxMsgWrap.style.transition='';ctxMsgWrap.style.transform='';
+    ctxMenu.style.transition='';ctxMenu.style.transform='';ctxMenu.style.opacity='';
+    ctxMsgWrap.innerHTML='';
+  }
 
   /* ── Ответить ── */
   function doReply(){
@@ -773,7 +785,7 @@
       document.getElementById('reply-island').classList.add('show');
       document.getElementById('msg-input').focus();
     }
-    closeCtxClean();
+    closeCtxNow();
   }
 
   function dismissReply(){
@@ -997,15 +1009,16 @@
     }
     const list=document.getElementById('forward-chat-list');
     if(list){
-      let items=Array.from(usersMap.values()).filter(u=>u&&u.id);
-      if(!items.length){
-        try{
-          const data=await backendApi('/chats?q=');
-          const chats=data.items||[];
-          chats.forEach(c=>usersMap.set(c.id,c));
-          items=chats.filter(u=>u&&u.id);
-        }catch(_){}
+      let items=[];
+      try{
+        const data=await backendApi('/chats?q=');
+        const chats=data.items||[];
+        chats.forEach(c=>usersMap.set(c.id,c));
+        items=chats.filter(u=>u&&u.id);
+      }catch(_){
+        items=Array.from(usersMap.values()).filter(u=>u&&u.id);
       }
+      items=items.filter(u=>u.id!==(me&&me.id)&&!u.deleted);
       list.innerHTML='';
       if(!items.length){
         list.innerHTML='<div style="color:#8E8E93;font-size:14px;padding:12px 16px;">Нет доступных чатов</div>';
@@ -1099,17 +1112,20 @@
 
     if(grid){
       /* Пересланное сообщение с медиа — медиа растягивается на всю ширину (как в Telegram) */
-      const textPart=txt?`<p class="msg-text-out" style="padding:4px 14px 0;margin:0;">${esc(txt)}</p>`:'';
+      const textPart=txt?`<p class="msg-text-out" style="padding:4px 14px 0;margin:0;">${renderRichText(txt)}</p>`:'';
       const metaStyle=txt?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
       w.innerHTML=`<div class="bubble-out msg-bubble msg-fwd" style="padding:0;overflow:hidden;"><div style="padding:8px 14px 6px;">${fwdHeader}</div>${mediaClone}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     } else {
-      const textPart=txt?`<p class="msg-text-out">${esc(txt)}</p>`:'';
+      const textPart=txt?`<p class="msg-text-out">${renderRichText(txt)}</p>`:'';
       w.innerHTML=`<div class="bubble-out msg-bubble msg-fwd">${fwdHeader}${textPart}<div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
     }
     if(dest==='favorites'){
       msgs.insertBefore(w,anchor);
-      bindBubble(w.querySelector('.msg-bubble'));
+      const b=w.querySelector('.msg-bubble');
+      bindBubble(b);
       bindMsgRow(w);
+      bindRichTextInteractions(b);
+      enrichLinkPreviews(w);
     }
     if(dest!=='favorites'&&authToken){
       const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
@@ -1123,7 +1139,7 @@
     closeForward();
     if(dest==='favorites') showScreen('screen-favorites');
     else if(dest&&dest!=='favorites'&&window.openChatWith) await openChatWith(dest);
-    else showScreen('screen-chat');
+    else showScreen('screen-list');
     setTimeout(()=>anchor.scrollIntoView({behavior:'smooth'}),80);
   }
 
@@ -1478,7 +1494,7 @@
       if(!isDesktop()) return;
       const uid=el.dataset.chatId;
       if(uid&&window.openChatWith) window.openChatWith(uid);
-      else showScreen('screen-chat');
+      else showScreen('screen-list');
     });
 
     /* Десктоп: правая кнопка мыши → контекстное меню */
@@ -1512,7 +1528,7 @@
       if(!crLongPressed&&!crMoved){
         const uid=el.dataset.chatId;
         if(uid&&window.openChatWith) window.openChatWith(uid);
-        else showScreen('screen-chat');
+        else showScreen('screen-list');
       }
     });
   }
@@ -1578,15 +1594,9 @@
   document.querySelectorAll('.msg-quote-out,.msg-quote-in').forEach(bindQuoteTap);
 
   /* ── Закрепить чат ── */
-  function pinChat(){
-    if(!currentChatListEl)return;
-    const list=document.querySelector('#screen-list .scroll-area');
-    const el=currentChatListEl;
-    const isPinned=el.classList.contains('chat-pinned');
+  function decorateChatPinnedUi(el,isPinned){
+    if(!el) return;
     if(isPinned){
-      el.classList.remove('chat-pinned');
-      const pi=el.querySelector('.chat-pin-icon');if(pi)pi.remove();
-    } else {
       el.classList.add('chat-pinned');
       if(!el.querySelector('.chat-pin-icon')){
         const pi=document.createElement('div');
@@ -1594,7 +1604,73 @@
         pi.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg>';
         el.insertBefore(pi,el.firstChild);
       }
-      list.prepend(el);
+      return;
+    }
+    el.classList.remove('chat-pinned');
+    const pi=el.querySelector('.chat-pin-icon');
+    if(pi) pi.remove();
+  }
+  function animateChatRowsReorder(list){
+    if(!list) return;
+    const rows=Array.from(list.querySelectorAll('.chat-row-item'));
+    const firstPos=new Map(rows.map(r=>[r,r.getBoundingClientRect().top]));
+    requestAnimationFrame(()=>{
+      rows.forEach(r=>{
+        const last=firstPos.get(r);
+        if(typeof last!=='number') return;
+        const now=r.getBoundingClientRect().top;
+        const dy=last-now;
+        if(!dy) return;
+        r.style.transition='none';
+        r.style.transform=`translateY(${dy}px)`;
+        requestAnimationFrame(()=>{
+          r.style.transition='transform .28s cubic-bezier(.22,.61,.36,1), opacity .22s ease';
+          r.style.transform='';
+          setTimeout(()=>{ r.style.transition=''; },300);
+        });
+      });
+    });
+  }
+  async function pinChat(){
+    if(!currentChatListEl)return;
+    const el=currentChatListEl;
+    const list=document.getElementById('chat-list');
+    const isPinned=el.classList.contains('chat-pinned');
+    const pinnedRows=list?Array.from(list.querySelectorAll('.chat-row-item.chat-pinned')):[];
+    const wasPinned=isPinned;
+    el.classList.add('chat-pin-anim');
+    setTimeout(()=>el.classList.remove('chat-pin-anim'),260);
+    if(isPinned){
+      decorateChatPinnedUi(el,false);
+      if(list){
+        const pinnedLeft=Array.from(list.querySelectorAll('.chat-row-item.chat-pinned'));
+        const anchor=pinnedLeft.length?pinnedLeft[pinnedLeft.length-1].nextSibling:list.firstChild;
+        list.insertBefore(el,anchor);
+        animateChatRowsReorder(list);
+      }
+    }else{
+      decorateChatPinnedUi(el,true);
+      if(list){
+        const firstRow=list.querySelector('.chat-row-item');
+        if(firstRow) list.insertBefore(el,firstRow);
+        else list.appendChild(el);
+        animateChatRowsReorder(list);
+      }
+    }
+    try{
+      await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
+    }catch(_){
+      decorateChatPinnedUi(el,wasPinned);
+      if(list){
+        if(wasPinned){
+          const firstPinned=list.querySelector('.chat-row-item.chat-pinned');
+          if(firstPinned) list.insertBefore(el,firstPinned);
+        }else{
+          const afterPinned=pinnedRows.length?pinnedRows[pinnedRows.length-1].nextSibling:list.firstChild;
+          list.insertBefore(el,afterPinned);
+        }
+        animateChatRowsReorder(list);
+      }
     }
   }
 
@@ -1615,7 +1691,7 @@
     avOver.style.background='transparent';avCam.style.opacity='0';
     pendingAvatarDataUrl='';
     pendingBannerDataUrl='';
-    if(me) applyProfileUI(me);
+    if(me&&typeof window.applyProfileUI==='function') window.applyProfileUI(me);
   }
   function setPeBanner(input){
     if(!input.files||!input.files[0])return;
@@ -1768,7 +1844,7 @@
     document.getElementById('upv-name').textContent=p.name||'Профиль';
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
     const bioEl=document.getElementById('upv-bio');
-    if(bioEl) bioEl.textContent=(p.bio||'').slice(0,120);
+    if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
     const banner=document.getElementById('upv-banner');
     banner.style.backgroundImage=p.bannerDataUrl?`url('${p.bannerDataUrl}')`:'none';
     banner.style.backgroundColor=p.bannerDataUrl?'transparent':'#2C2C2E';
@@ -1795,6 +1871,7 @@
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
+    const localLinkPreviewCache=new Map();
     const messageMap=new Map();
 
     api=function(path,opts={}){
@@ -1813,6 +1890,7 @@
     }
     function setAvatarNode(el,avatarUrl,fallback){
       if(!el)return;
+      if(!el.dataset.defaultBg) el.dataset.defaultBg=el.style.background||'';
       el.innerHTML='';
       if(avatarUrl){
         const img=document.createElement('img');
@@ -1822,6 +1900,7 @@
         el.style.background='none';
       }else{
         el.textContent=initials(fallback);
+        el.style.background=el.dataset.defaultBg;
       }
     }
     function applyProfileUI(profile){
@@ -1866,6 +1945,7 @@
       }
       applyPeMediaScale();
     }
+    window.applyProfileUI=applyProfileUI;
     function showLoginScreen(){ document.getElementById('login-screen').classList.remove('hidden'); }
     function hideLoginScreen(){ document.getElementById('login-screen').classList.add('hidden'); }
     window.showMainPanel=function(){
@@ -1958,33 +2038,43 @@
     };
     let chatsRefreshTimer=null;
     let openChatRefreshTimer=null;
+    let chatsLoadInFlight=false;
+    let queuedChatsRefresh=false;
+    let openChatReqSeq=0;
     function scheduleOpenCurrentChat(){
       if(!currentChatUserId) return;
       if(openChatRefreshTimer) clearTimeout(openChatRefreshTimer);
-      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId); },80);
+      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId,{keepScreen:true}); },80);
     }
     function scheduleChatsRefresh(){
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
       chatsRefreshTimer=setTimeout(()=>{ loadChats('',{showSkeleton:false}); },120);
     }
-    async function loadChats(query='',opts={}){
-      const showSkeleton=opts.showSkeleton!==false;
-      const holder=document.getElementById('chat-list');
-      if(!holder) return;
-      const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
-      const prevHtml=holder.innerHTML;
-      holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
-      const emptyPre=document.getElementById('chat-list-empty');
-      if(emptyPre) emptyPre.style.display='none';
-      if(showSkeleton){
-        const skel=Array.from({length:6}).map(()=>`<div class="chat-row-skeleton">
+    function renderChatSkeletonRows(count=5){
+      return Array.from({length:count}).map(()=>`<div class="chat-row-skeleton">
         <div class="chat-row-skeleton-avatar"></div>
         <div class="chat-row-skeleton-lines">
           <div class="chat-row-skeleton-line w1"></div>
           <div class="chat-row-skeleton-line w2"></div>
         </div>
       </div>`).join('');
-        holder.insertAdjacentHTML('beforeend',skel);
+    }
+    async function loadChats(query='',opts={}){
+      const showSkeleton=opts.showSkeleton!==false;
+      const holder=document.getElementById('chat-list');
+      if(!holder) return;
+      if(chatsLoadInFlight){
+        queuedChatsRefresh=true;
+        return;
+      }
+      chatsLoadInFlight=true;
+      const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
+      const prevHtml=holder.innerHTML;
+      holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
+      const emptyPre=document.getElementById('chat-list-empty');
+      if(emptyPre) emptyPre.style.display='none';
+      if(showSkeleton&&hadChats){
+        holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
       }
       try{
         const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
@@ -1995,7 +2085,8 @@
         items.forEach(c=>usersMap.set(c.id,c));
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
-          return `<button class="chat-row chat-row-item" data-chat-id="${esc(c.id||'')}">
+          return `<button class="chat-row chat-row-item ${c.isPinned?'chat-pinned':''}" data-chat-id="${esc(c.id||'')}">
+          ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
@@ -2016,15 +2107,35 @@
           el.addEventListener('click',openProfile);
           el.addEventListener('touchend',openProfile,{passive:false});
         });
-      }catch(_){
+      }catch(err){
+        const stillHasChats=holder.querySelectorAll('.chat-row-item').length>0||hadChats;
         holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
-        if(!holder.querySelector('.chat-row-item')) holder.innerHTML=prevHtml;
+        const netMsg=String(err&&err.message||'');
+        const networkDown=!navigator.onLine||/failed to fetch|networkerror|network request failed|load failed/i.test(netMsg);
+        if(stillHasChats&&networkDown){
+          holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
+        }else if(!holder.querySelector('.chat-row-item')){
+          holder.innerHTML=prevHtml;
+        }
+      }finally{
+        chatsLoadInFlight=false;
+        if(queuedChatsRefresh){
+          queuedChatsRefresh=false;
+          setTimeout(()=>loadChats('',{showSkeleton:false}),80);
+        }
       }
     }
     window.reloadChatsWithSkeleton=()=>loadChats('',{showSkeleton:true});
-    async function openChatWith(userId){
+    async function openChatWith(userId,opts={}){
+      const keepScreen=opts.keepScreen===true;
       currentChatUserId=userId;
+      const reqSeq=++openChatReqSeq;
+      const optimisticPeer=usersMap.get(userId)||{};
+      const titleFast=document.getElementById('chat-contact-name');
+      if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
+      if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
+      if(reqSeq!==openChatReqSeq) return;
       const peer=data.peer||usersMap.get(userId)||{};
       currentChatBlockedByPeer=!!peer.blockedByPeer;
       currentChatBlockedPeer=!!peer.blockedPeer;
@@ -2046,7 +2157,6 @@
       }
       renderChatMessages(data.items||[]);
       updateChatBlockedUI();
-      showScreen('screen-chat');
     }
     window.openChatWith=openChatWith;
     function displayNameForMessageUser(uid){
@@ -2078,9 +2188,18 @@
         }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const hasForwardedMedia=!!m.forwardedFromName&&mediaArr.length>0;
         const hasMediaAndText=mediaArr.length&&!!m.text;
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
+        if(hasForwardedMedia){
+          const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">Переслано</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">от <b>${esc(m.forwardedFromName)}</b></div>`;
+          const textPart=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}" style="padding:4px 14px 0;margin:0;">${renderRichText(m.text)}</p>`:'';
+          const gridHtml=buildMediaGrid(mediaArr,m.id,'0 0 0 0',false);
+          const mediaWrap=`<div style="margin:0 3px;overflow:hidden;">${gridHtml}</div>`;
+          const metaStyle=m.text?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
+          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div></div>`;
+        }
         const mediaRadiusBase=mine
           ?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)'
           :'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0';
@@ -2134,6 +2253,10 @@
         el.addEventListener('click',async e=>{
           e.preventDefault();
           const username=el.dataset.username;
+          if(me&&String(me.username||'').toLowerCase()===String(username||'').toLowerCase()){
+            openFavorites();
+            return;
+          }
           try{
             const r=await api(`/users/search?q=${encodeURIComponent(username)}`);
             const user=(r.items||[]).find(u=>String(u.username||'').toLowerCase()===username.toLowerCase());
@@ -2180,22 +2303,28 @@
         const bubble=a.closest('.msg-bubble');
         const url=a.dataset.url||'';
         if(!bubble||!url||bubble.querySelector(`.link-preview[data-url="${url}"]`)) continue;
+        const fromCache=localLinkPreviewCache.get(url);
         const p=document.createElement('a');
         p.className='link-preview';
         p.dataset.url=url;
         p.href='#';
         p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
-        p.innerHTML=`<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
+        p.innerHTML=fromCache
+          ? `<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`
+          : `<div style="font-size:12px;opacity:.7;">Загрузка предпросмотра…</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
         p.addEventListener('click',e=>{ e.preventDefault(); openExternalLinkModal(url); });
         const meta=bubble.querySelector('.msg-meta');
         const react=bubble.querySelector('.msg-reactions');
         if(react) bubble.insertBefore(p,react);
         else if(meta) bubble.insertBefore(p,meta);
         else bubble.appendChild(p);
+        if(fromCache) continue;
         try{
           const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
+          localLinkPreviewCache.set(url,data||{});
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||'Ссылка')}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
         }catch(_){
+          localLinkPreviewCache.set(url,{url,site:'Ссылка',title:url,description:''});
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">Ссылка</div><div style="font-size:13px;">${url}</div>`;
         }
       }
@@ -2214,7 +2343,12 @@
       if(!authToken) return;
       stream=new EventSource(`${API_BASE}/stream?token=${encodeURIComponent(authToken)}`);
       stream.addEventListener('profile',ev=>{
-        try{ applyProfileUI(JSON.parse(ev.data)); }catch(_){}
+        try{
+          const p=JSON.parse(ev.data);
+          if(me&&p&&p.id===me.id) applyProfileUI(p);
+          if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
+          if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
+        }catch(_){}
       });
       stream.addEventListener('message',ev=>{
         try{
@@ -2226,7 +2360,22 @@
       stream.addEventListener('message_update',ev=>{
         try{
           const msg=JSON.parse(ev.data);
-          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)){
+            const bubble=msg&&msg.id?document.querySelector(`#chat-messages .msg-bubble[data-mid="${msg.id}"]`):null;
+            if(bubble&&!msg.deleted){
+              const reactionState={};
+              const source=msg.reactions||{};
+              Object.entries(source).forEach(([emoji,userIds])=>{
+                const count=Array.isArray(userIds)?userIds.length:0;
+                if(!count) return;
+                reactionState[emoji]={count,active:!!(me&&Array.isArray(userIds)&&userIds.includes(me.id))};
+              });
+              reactionsData.set(bubble,reactionState);
+              renderReactions(bubble);
+            }else{
+              scheduleOpenCurrentChat();
+            }
+          }
           scheduleChatsRefresh();
         }catch(_){}
       });
@@ -2246,6 +2395,7 @@
         const dw=document.getElementById('devices-wrap');
         if(dw&&dw.classList.contains('open')) openDevicesSheet();
       });
+      stream.addEventListener('chat_pin_update',()=>{ scheduleChatsRefresh(); });
       stream.addEventListener('force_logout',()=>{
         authToken='';
         localStorage.removeItem('auth_token');
@@ -2266,6 +2416,10 @@
     function applyRoute(){
       const h=(location.hash||'#/list').replace(/^#\//,'');
       const target=`screen-${h}`;
+      if(target==='screen-chat'&&!currentChatUserId){
+        window.showScreen('screen-list',true);
+        return;
+      }
       if(document.getElementById(target)) window.showScreen(target,true);
     }
     window.addEventListener('hashchange',applyRoute);
@@ -2313,7 +2467,7 @@
         const payload={
           name,
           username,
-          bio:document.getElementById('pe-bio').value.trim().slice(0,120)
+          bio:document.getElementById('pe-bio').value.trim().slice(0,110)
         };
         const res=await api('/me',{method:'PATCH',body:JSON.stringify(payload)});
         let user=res.user;
@@ -2321,11 +2475,15 @@
           const avRes=await api('/me/avatar',{method:'POST',body:JSON.stringify({dataUrl:pendingAvatarDataUrl})});
           user=avRes.user||user;
           pendingAvatarDataUrl='';
+          const avWrapNow=document.getElementById('pe-avatar-circle');
+          if(avWrapNow) setAvatarNode(avWrapNow,user.avatarDataUrl||'',user.name||name);
         }
         if(pendingBannerDataUrl){
           const bRes=await api('/me/banner',{method:'POST',body:JSON.stringify({dataUrl:pendingBannerDataUrl})});
           user=bRes.user||user;
           pendingBannerDataUrl='';
+          const bImgNow=document.getElementById('pe-banner-img');
+          if(bImgNow&&user.bannerDataUrl){ bImgNow.src=user.bannerDataUrl; bImgNow.style.display='block'; }
         }
         applyProfileUI(user);
         closeProfileEdit();
@@ -2363,6 +2521,11 @@
       try{
         const dataUrl=await fileToDataUrl(input.files[0]);
         pendingAvatarDataUrl=dataUrl;
+        const av=document.getElementById('pe-avatar-circle');
+        if(av){
+          setAvatarNode(av,dataUrl,me?me.name:'');
+          av.style.background='none';
+        }
       }catch(e){ alert(e.message); }
       applyPeMediaScale();
       input.value='';
@@ -2482,7 +2645,7 @@
       const input=document.getElementById('msg-input');
       const sendBtn=document.getElementById('send-btn');
       const text=(input.value||'').trim();
-      const media=(attachedMedia||[]);
+      const media=(attachedMedia||[]).slice();
       if(editingBubble&&editingBubble.dataset&&editingBubble.dataset.mid){
         const payload={action:'edit',text};
         if(media.length){
@@ -2499,28 +2662,25 @@
         dismissReply();
         clearMedia();
         dismissEdit();
-        await openChatWith(currentChatUserId);
-        await loadChats('',{showSkeleton:false});
         return;
       }
       if(!text&&!media.length) return;
       let pendingBubble=null;
+      const replyIdToSend=replyToMessageId;
       if(sendBtn) sendBtn.disabled=true;
       markMediaPreviewUploading(true);
       if(media.length||text){
         pendingBubble=renderPendingOutgoingMessage({text,media:media.slice()});
       }
+      input.value='';
+      dismissReply();
+      clearMedia();
       try{
         const mediaData=[];
         for(const m of media){
           if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
         }
-        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyToMessageId})});
-        input.value='';
-        dismissReply();
-        clearMedia();
-        await openChatWith(currentChatUserId);
-        await loadChats('',{showSkeleton:false});
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
       }finally{
         markMediaPreviewUploading(false);
         if(sendBtn) sendBtn.disabled=false;
@@ -2530,6 +2690,18 @@
     const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
     const doPinMessageLocal=doPinMessage;
+    const unpinMessageLocal=unpinMessage;
+
+    unpinMessage=async function(){
+      const bubble=pinnedBubble;
+      const mid=bubble&&bubble.dataset?bubble.dataset.mid:'';
+      unpinMessageLocal();
+      if(!mid) return;
+      try{
+        await api(`/messages/${encodeURIComponent(mid)}`,{method:'PATCH',body:JSON.stringify({action:'unpin'})});
+      }catch(_){}
+      if(currentChatUserId) await openChatWith(currentChatUserId,{keepScreen:true});
+    };
 
     doDeleteMessage=async function(){
       if(!currentBubble) return closeCtxClean();
@@ -2602,11 +2774,25 @@
       ov.classList.remove('open');
       setTimeout(()=>{ if(!ov.classList.contains('open')) ov.style.display='none'; },220);
     };
-    window.upvPinChat=function(){
+    window.upvPinChat=async function(){
       const uid=window.__upvUserId||'';
       const row=upvFindChatRow(uid);
-      if(row){ currentChatListEl=row; pinChat(); setUpvPinUi(row.classList.contains('chat-pinned')); }
+      if(row){
+        currentChatListEl=row;
+        row.classList.add('chat-pin-anim');
+        setTimeout(()=>row.classList.remove('chat-pin-anim'),260);
+        await pinChat();
+        const rowAfter=upvFindChatRow(uid);
+        setUpvPinUi(!!(rowAfter&&rowAfter.classList.contains('chat-pinned')));
+      }else if(uid){
+        try{
+          await api(`/chats/${encodeURIComponent(uid)}`,{method:'PATCH',body:JSON.stringify({action:'pin'})});
+          await loadChats('',{showSkeleton:false});
+          setUpvPinUi(true);
+        }catch(_){}
+      }
       window.closeUpvCtx();
+      closeUserProfileView();
     };
     window.upvDeleteChat=async function(){
       const uid=window.__upvUserId||'';
