@@ -997,15 +997,16 @@
     }
     const list=document.getElementById('forward-chat-list');
     if(list){
-      let items=Array.from(usersMap.values()).filter(u=>u&&u.id);
-      if(!items.length){
-        try{
-          const data=await backendApi('/chats?q=');
-          const chats=data.items||[];
-          chats.forEach(c=>usersMap.set(c.id,c));
-          items=chats.filter(u=>u&&u.id);
-        }catch(_){}
+      let items=[];
+      try{
+        const data=await backendApi('/chats?q=');
+        const chats=data.items||[];
+        chats.forEach(c=>usersMap.set(c.id,c));
+        items=chats.filter(u=>u&&u.id);
+      }catch(_){
+        items=Array.from(usersMap.values()).filter(u=>u&&u.id);
       }
+      items=items.filter(u=>u.id!==(me&&me.id)&&!u.deleted);
       list.innerHTML='';
       if(!items.length){
         list.innerHTML='<div style="color:#8E8E93;font-size:14px;padding:12px 16px;">Нет доступных чатов</div>';
