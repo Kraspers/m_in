@@ -174,6 +174,12 @@ function publicUser(user) {
   };
 }
 
+function ensurePinnedChats(user) {
+  if (!user || !Array.isArray(user.pinnedChatUserIds)) user.pinnedChatUserIds = [];
+  user.pinnedChatUserIds = user.pinnedChatUserIds.filter(Boolean);
+  return user.pinnedChatUserIds;
+}
+
 function colorForId(id) {
   const palette = [
     'linear-gradient(135deg,#0078FF,#005fcc)',
@@ -273,6 +279,7 @@ function handleApi(req, res, urlObj) {
           passwordHash: hashPassword(password),
           vpscCode: makeUniqueVpscCode(db),
           blockedUsers: [],
+          pinnedChatUserIds: [],
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
@@ -520,6 +527,8 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
+    const pinnedChatUserIds = ensurePinnedChats(user);
+    const pinOrder = new Map(pinnedChatUserIds.map((uid, idx) => [uid, idx]));
     const messages = db.messages || [];
     const dialogUserIds = new Set(
       messages
@@ -549,6 +558,8 @@ function handleApi(req, res, urlObj) {
           bannerDataUrl: u ? (u.bannerDataUrl || '') : '',
           avatar: u ? (u.name || u.username || 'U').charAt(0).toUpperCase() : '⌧',
           color: u ? colorForId(u.id) : 'linear-gradient(135deg,#4B5563,#1F2937)',
+          isPinned: pinOrder.has(uid),
+          pinIndex: pinOrder.has(uid) ? pinOrder.get(uid) : Number.MAX_SAFE_INTEGER,
           deleted: !u
         };
       })
@@ -556,11 +567,44 @@ function handleApi(req, res, urlObj) {
         const n = String(u.name || '').toLowerCase();
         const un = String((u.username || '')).toLowerCase();
         return !q || n.includes(q) || un.includes(q);
-      });
+      })
+      .sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+        if (a.isPinned && b.isPinned) return a.pinIndex - b.pinIndex;
+        return new Date(b.lastCreatedAt || 0).getTime() - new Date(a.lastCreatedAt || 0).getTime();
+      })
+      .map(({ pinIndex, ...rest }) => rest);
     return sendJson(res, 200, { items });
   }
 
   const chatMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
+  if (chatMatch && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const peerId = String(chatMatch[1] || '');
+        if (!peerId || peerId === user.id) return sendJson(res, 400, { error: 'Некорректный чат' });
+        const action = String(body.action || '').toLowerCase();
+        const pinnedChatUserIds = ensurePinnedChats(user);
+        const withoutPeer = pinnedChatUserIds.filter(id => id !== peerId);
+        if (action === 'pin') user.pinnedChatUserIds = [peerId, ...withoutPeer];
+        else if (action === 'unpin') user.pinnedChatUserIds = withoutPeer;
+        else return sendJson(res, 400, { error: 'Unknown action' });
+        writeDb(db);
+        sendEventToUser(user.id, 'chat_pin_update', {
+          peerId,
+          pinned: action === 'pin'
+        });
+        return sendJson(res, 200, {
+          ok: true,
+          peerId,
+          pinned: action === 'pin'
+        });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
   if (chatMatch && method === 'DELETE') {
     const db = readDb();
     const user = getUserByToken(req, db);

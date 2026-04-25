@@ -110,6 +110,7 @@
   .bubble-in:has(.msg-reactions.visible),.bubble-out:has(.msg-reactions.visible){padding-bottom:2px;}
   .bubble-out:has(.msg-media-grid) .msg-reactions,.bubble-in:has(.msg-media-grid) .msg-reactions{margin-left:10px;margin-right:10px;}
   .media-time-ovl{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:999px;padding:3px 8px;display:inline-flex;align-items:center;gap:3px;pointer-events:none;}
+  .media-time-spacer{display:inline-block;width:10px;height:10px;opacity:0;}
   .media-meta-foot{display:none;padding:4px 4px 0;justify-content:flex-end;}
   .bubble-out:has(.msg-reactions.visible) .media-time-ovl{display:none;}
   .bubble-out:has(.msg-reactions.visible) .media-meta-foot{display:flex;}
