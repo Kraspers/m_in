@@ -2360,7 +2360,22 @@
       stream.addEventListener('message_update',ev=>{
         try{
           const msg=JSON.parse(ev.data);
-          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
+          if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)){
+            const bubble=msg&&msg.id?document.querySelector(`#chat-messages .msg-bubble[data-mid="${msg.id}"]`):null;
+            if(bubble&&!msg.deleted){
+              const reactionState={};
+              const source=msg.reactions||{};
+              Object.entries(source).forEach(([emoji,userIds])=>{
+                const count=Array.isArray(userIds)?userIds.length:0;
+                if(!count) return;
+                reactionState[emoji]={count,active:!!(me&&Array.isArray(userIds)&&userIds.includes(me.id))};
+              });
+              reactionsData.set(bubble,reactionState);
+              renderReactions(bubble);
+            }else{
+              scheduleOpenCurrentChat();
+            }
+          }
           scheduleChatsRefresh();
         }catch(_){}
       });
@@ -2647,8 +2662,6 @@
         dismissReply();
         clearMedia();
         dismissEdit();
-        await openChatWith(currentChatUserId);
-        await loadChats('',{showSkeleton:false});
         return;
       }
       if(!text&&!media.length) return;
@@ -2668,8 +2681,6 @@
           if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
         }
         await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
-        await openChatWith(currentChatUserId);
-        await loadChats('',{showSkeleton:false});
       }finally{
         markMediaPreviewUploading(false);
         if(sendBtn) sendBtn.disabled=false;
