@@ -232,6 +232,22 @@ function normalizeMessage(msg) {
     createdAt: msg.createdAt
   };
 }
+function normalizeFavoriteMessage(msg) {
+  return {
+    id: msg.id,
+    text: msg.text || '',
+    media: Array.isArray(msg.media) ? msg.media : [],
+    replyToName: msg.replyToName || '',
+    replyToText: msg.replyToText || '',
+    replyToMediaSrc: msg.replyToMediaSrc || '',
+    replyToMediaMid: msg.replyToMediaMid || '',
+    replyToMessageId: msg.replyToMessageId || '',
+    reactions: msg.reactions || {},
+    pinned: !!msg.pinned,
+    editedAt: msg.editedAt || '',
+    createdAt: msg.createdAt
+  };
+}
 
 async function fetchLinkPreview(urlStr) {
   const key = String(urlStr || '').trim();
@@ -280,6 +296,7 @@ function handleApi(req, res, urlObj) {
           vpscCode: makeUniqueVpscCode(db),
           blockedUsers: [],
           pinnedChatUserIds: [],
+          favoriteMessages: [],
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: ''
@@ -701,6 +718,100 @@ function handleApi(req, res, urlObj) {
         ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', blockedByPeer, blockedPeer }
         : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
     });
+  }
+
+  if (pathname === '/api/favorites' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (!Array.isArray(user.favoriteMessages)) user.favoriteMessages = [];
+    return sendJson(res, 200, { items: user.favoriteMessages.map(normalizeFavoriteMessage) });
+  }
+
+  if (pathname === '/api/favorites' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const text = String(body.text || '').trim();
+        const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        const msg = {
+          id: crypto.randomUUID(),
+          text: text.slice(0, 4000),
+          media,
+          replyToName: String(body.replyToName || '').slice(0, 200),
+          replyToText: String(body.replyToText || '').slice(0, 400),
+          replyToMediaSrc: String(body.replyToMediaSrc || ''),
+          replyToMediaMid: String(body.replyToMediaMid || ''),
+          replyToMessageId: String(body.replyToMessageId || ''),
+          reactions: {},
+          pinned: false,
+          createdAt: new Date().toISOString()
+        };
+        if (!Array.isArray(user.favoriteMessages)) user.favoriteMessages = [];
+        user.favoriteMessages.push(msg);
+        writeDb(db);
+        return sendJson(res, 201, { message: normalizeFavoriteMessage(msg) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  const favMatch = pathname.match(/^\/api\/favorites\/([^/]+)$/);
+  if (favMatch && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        if (!Array.isArray(user.favoriteMessages)) user.favoriteMessages = [];
+        const favId = favMatch[1];
+        const msg = user.favoriteMessages.find(m => m.id === favId);
+        if (!msg) return sendJson(res, 404, { error: 'Сообщение не найдено' });
+        const action = String(body.action || '');
+        if (action === 'react') {
+          const emoji = String(body.emoji || '').trim().slice(0, 8);
+          if (!emoji) return sendJson(res, 400, { error: 'emoji required' });
+          if (!msg.reactions || typeof msg.reactions !== 'object') msg.reactions = {};
+          if (!Array.isArray(msg.reactions[emoji])) msg.reactions[emoji] = [];
+          const idx = msg.reactions[emoji].indexOf(user.id);
+          if (idx >= 0) msg.reactions[emoji].splice(idx, 1);
+          else msg.reactions[emoji].push(user.id);
+          if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
+        } else if (action === 'pin') {
+          user.favoriteMessages.forEach(m => { m.pinned = false; });
+          msg.pinned = true;
+        } else if (action === 'unpin') {
+          msg.pinned = false;
+        } else if (action === 'edit') {
+          const text = String(body.text || '').trim();
+          const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
+          const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
+          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          msg.text = text.slice(0, 4000);
+          if (Array.isArray(media)) msg.media = media;
+          msg.editedAt = new Date().toISOString();
+        } else {
+          return sendJson(res, 400, { error: 'Unknown action' });
+        }
+        writeDb(db);
+        return sendJson(res, 200, { message: normalizeFavoriteMessage(msg) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  if (favMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (!Array.isArray(user.favoriteMessages)) user.favoriteMessages = [];
+    const favId = favMatch[1];
+    const exists = user.favoriteMessages.some(m => m.id === favId);
+    if (!exists) return sendJson(res, 404, { error: 'Сообщение не найдено' });
+    user.favoriteMessages = user.favoriteMessages.filter(m => m.id !== favId);
+    writeDb(db);
+    return sendJson(res, 200, { ok: true });
   }
 
   if (pathname === '/api/messages' && method === 'POST') {

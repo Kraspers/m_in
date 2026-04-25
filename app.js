@@ -89,7 +89,7 @@
     btn.style.pointerEvents=active?'all':'none';
   }
 
-  function sendFavMessage(){
+  async function sendFavMessage(){
     const inp=document.getElementById('fav-input');
     const txt=inp.value.trim();
     const hasMedia=attachedFavMedia.length>0;
@@ -131,11 +131,35 @@
         }
         favEditingBubble.style.padding='3px';
       }
+      const favId=favEditingBubble&&favEditingBubble.dataset?favEditingBubble.dataset.favid:'';
+      const mediaGrid=favEditingBubble?favEditingBubble.querySelector('.msg-media-grid') : null;
+      const mediaToSave=mediaGrid
+        ? Array.from(mediaGrid.querySelectorAll('.mi img,.mi video')).map(n=>n.currentSrc||n.src).filter(Boolean)
+        : [];
+      for(let i=0;i<mediaToSave.length;i++){
+        const src=String(mediaToSave[i]||'');
+        if(src.startsWith('blob:')){
+          try{ mediaToSave[i]=await blobUrlToDataUrlAny(src); }catch(_){}
+        }
+      }
+      if(favId){
+        try{
+          await backendApi(`/favorites/${encodeURIComponent(favId)}`,{method:'PATCH',body:JSON.stringify({action:'edit',text:txt,media:mediaToSave})});
+        }catch(_){}
+      }
       inp.value='';
       dismissFavEdit();
       return;
     }
     if(!txt&&!hasMedia)return;
+    const replyPayload={
+      replyToName,
+      replyToText,
+      replyToMediaSrc,
+      replyToMediaMid,
+      replyToMessageId
+    };
+    const favMediaToPersist=attachedFavMedia.slice();
     const msgs=document.getElementById('fav-messages');
     const anchor=document.getElementById('fav-bottom');
     const now=new Date();
@@ -147,8 +171,8 @@
       :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
-        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
-        :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div class="msg-quote-content"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        :`<div class="msg-quote-out"><div class="msg-quote-content"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     if(hasMedia){
@@ -181,6 +205,21 @@
     newFavBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
     bindRichTextInteractions(newFavBubble);
     enrichLinkPreviews(w);
+    try{
+      const mediaData=[];
+      for(const m of favMediaToPersist){
+        if(m&&m.src){
+          const src=String(m.src||'');
+          mediaData.push(src.startsWith('blob:')?await blobUrlToDataUrlAny(src):src);
+        }
+      }
+      const res=await backendApi('/favorites',{method:'POST',body:JSON.stringify({
+        text:txt,
+        media:mediaData,
+        ...replyPayload
+      })});
+      if(res&&res.message&&newFavBubble) newFavBubble.dataset.favid=res.message.id||'';
+    }catch(_){}
     setTimeout(()=>{
       newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
     },220);
@@ -206,6 +245,16 @@
   const MAX_MEDIA=10;
   let attachedMedia=[];
   let attachedFavMedia=[];
+  async function blobUrlToDataUrlAny(url){
+    const res=await fetch(url);
+    const blob=await res.blob();
+    return await new Promise((resolve,reject)=>{
+      const fr=new FileReader();
+      fr.onload=()=>resolve(fr.result);
+      fr.onerror=reject;
+      fr.readAsDataURL(blob);
+    });
+  }
   const msgMediaMap={};
   let msgIdCounter=0;
   let favEditingBubble=null;
@@ -404,8 +453,8 @@
       :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
-        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
-        :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div class="msg-quote-content"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        :`<div class="msg-quote-out"><div class="msg-quote-content"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     if(hasMedia){
@@ -1994,6 +2043,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
+        await loadFavorites();
       }catch(e){ document.getElementById('login-error').textContent=e.message; }
     };
     window.doRegister=async function(){
@@ -2013,6 +2063,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
+        await loadFavorites();
       }catch(e){ document.getElementById('reg-error').textContent=e.message; }
     };
     function updateVpscBoxes(code){
@@ -2034,6 +2085,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
+        await loadFavorites();
       }catch(e){ document.getElementById('vpsc-error').textContent=e.message; }
     };
     let chatsRefreshTimer=null;
@@ -2159,6 +2211,44 @@
       updateChatBlockedUI();
     }
     window.openChatWith=openChatWith;
+    function renderFavoriteMessages(items){
+      const wrap=document.getElementById('fav-messages');
+      const bottom=document.getElementById('fav-bottom');
+      if(!wrap||!bottom) return;
+      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='fav-bottom') node.remove(); });
+      const intro=wrap.querySelector('.fav-intro-wrap');
+      if(intro) intro.style.display=items.length?'none':'';
+      const rows=items.map(m=>{
+        const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+        const tick='<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const quoteHtml=m.replyToName?`<div class="msg-quote-out" style="display:flex;align-items:center;gap:${m.replyToMediaSrc?'7px':'0'};">${m.replyToMediaSrc?`<img src="${esc(m.replyToMediaSrc)}" style="width:34px;height:34px;border-radius:5px;object-fit:cover;flex-shrink:0;" />`:''}<div class="msg-quote-content"><div class="msg-quote-name">${esc(m.replyToName)}</div><div class="msg-quote-text">${esc(m.replyToText==='__media__'?'Медиа':(m.replyToText||''))}</div></div></div>`:'';
+        const textPart=m.text?`<p class="msg-text-out"${mediaArr.length?' style="padding:4px 8px 0;margin:0;"':''}>${renderRichText(m.text)}</p>`:'';
+        const mediaHtml=mediaArr.length?`<div style="overflow:hidden;margin-bottom:${m.text?'4px':'0'};">${buildMediaGrid(mediaArr,m.id,`${quoteHtml?'0':'calc(1.4rem - 3px)'} ${quoteHtml?'0':'calc(1.4rem - 3px)'} 0 0`,false)}</div>`:'';
+        const pad=mediaArr.length?'padding:3px 4px 6px 4px;':'';
+        const bStyle=pad?` style="${pad}"`:'';
+        return `<div style="align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};"><div data-favid="${esc(m.id)}" class="bubble-out msg-bubble"${bStyle}>${quoteHtml}${mediaHtml}${textPart}<div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div></div>`;
+      }).join('');
+      bottom.insertAdjacentHTML('beforebegin',rows);
+      wrap.querySelectorAll('.msg-bubble').forEach(bindBubble);
+      wrap.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+      bindRichTextInteractions(wrap);
+      const pinned=items.find(x=>x.pinned);
+      if(pinned){
+        favPinnedBubble=wrap.querySelector(`.msg-bubble[data-favid="${pinned.id}"]`)||null;
+        document.getElementById('fav-pinned-bar-preview').textContent=(pinned.text||'📷 Медиа').slice(0,60);
+        document.getElementById('fav-pinned-bar').classList.add('show');
+      }else{
+        unpinFavMessage();
+      }
+    }
+    async function loadFavorites(){
+      try{
+        const data=await api('/favorites');
+        renderFavoriteMessages(data.items||[]);
+      }catch(_){}
+    }
+    window.loadFavorites=loadFavorites;
     function displayNameForMessageUser(uid){
       if(me&&uid===me.id) return me.name||me.username||'Вы';
       const u=usersMap.get(uid);
@@ -2184,7 +2274,7 @@
           const replyMediaSrc=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
           const replyText=(reply.text||'').slice(0,80)||'Медиа';
           const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
-          replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
+          replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div class="msg-quote-content"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
         }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
@@ -2372,6 +2462,23 @@
               });
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
+              const textEl=bubble.querySelector('.msg-text-out,.msg-text-in');
+              if(textEl&&typeof msg.text==='string'){
+                textEl.innerHTML=renderRichText(msg.text);
+                bindRichTextInteractions(textEl.parentElement||bubble);
+              }
+              if(Array.isArray(msg.media)){
+                const mediaWrap=bubble.querySelector('.msg-media-grid')?.parentElement;
+                if(mediaWrap) mediaWrap.remove();
+                if(msg.media.length){
+                  const mediaArr=msg.media.map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+                  const grid=document.createElement('div');
+                  grid.style.cssText='overflow:hidden;margin-bottom:0;';
+                  grid.innerHTML=buildMediaGrid(mediaArr,msg.id,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',false);
+                  const anchor=bubble.querySelector('.msg-meta')||bubble.firstChild;
+                  bubble.insertBefore(grid,anchor);
+                }
+              }
             }else{
               scheduleOpenCurrentChat();
             }
@@ -2617,7 +2724,7 @@
         else el.classList.remove('uploading-media');
       });
     }
-    function renderPendingOutgoingMessage({ text='', media=[] }){
+    function renderPendingOutgoingMessage({ text='', media=[], quoteHtml='' }){
       const msgs=document.getElementById('chat-messages');
       const anchor=document.getElementById('chat-bottom');
       if(!msgs||!anchor) return null;
@@ -2630,10 +2737,12 @@
       const safeText=renderRichText(text||'');
       if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
-        const gridHtml=buildMediaGrid(media,tmpMid,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',true);
-        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:3px 4px 6px 4px;"><div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
+        const topRadius=quoteHtml?'0':'calc(1.4rem - 3px)';
+        const gridHtml=buildMediaGrid(media,tmpMid,`${topRadius} ${topRadius} 0 0`,true);
+        const pad=quoteHtml?'10px':'3px';
+        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:${pad} 4px 6px 4px;">${quoteHtml}<div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
       }else{
-        w.innerHTML=`<div class="bubble-out msg-bubble"><p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
+        w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
       }
       msgs.insertBefore(w,anchor);
       anchor.scrollIntoView({behavior:'smooth'});
@@ -2667,10 +2776,19 @@
       if(!text&&!media.length) return;
       let pendingBubble=null;
       const replyIdToSend=replyToMessageId;
+      const replySource=(replyIdToSend&&messageMap.get(replyIdToSend))||null;
+      const quoteHtml=replySource
+        ? (() => {
+            const replyMediaSrc=Array.isArray(replySource.media)&&replySource.media.length?String(replySource.media[0]):'';
+            const replyText=(replySource.text||'').slice(0,80)||'Медиа';
+            const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
+            return `<div class="msg-quote-out" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div class="msg-quote-content"><div class="msg-quote-name">${esc(displayNameForMessageUser(replySource.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
+          })()
+        : '';
       if(sendBtn) sendBtn.disabled=true;
       markMediaPreviewUploading(true);
       if(media.length||text){
-        pendingBubble=renderPendingOutgoingMessage({text,media:media.slice()});
+        pendingBubble=renderPendingOutgoingMessage({text,media:media.slice(),quoteHtml});
       }
       input.value='';
       dismissReply();
@@ -2684,7 +2802,9 @@
       }finally{
         markMediaPreviewUploading(false);
         if(sendBtn) sendBtn.disabled=false;
-        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        setTimeout(()=>{
+          if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        },1200);
       }
     };
     const doDeleteMessageLocal=doDeleteMessage;
@@ -2705,6 +2825,15 @@
 
     doDeleteMessage=async function(){
       if(!currentBubble) return closeCtxClean();
+      if(currentBubble.dataset&&currentBubble.dataset.favid){
+        const id=currentBubble.dataset.favid;
+        doDeleteMessageLocal();
+        try{
+          await api(`/favorites/${encodeURIComponent(id)}`,{method:'DELETE'});
+          await loadFavorites();
+        }catch(_){}
+        return;
+      }
       if(!currentBubble.dataset||!currentBubble.dataset.mid){
         doDeleteMessageLocal();
         return;
@@ -2717,6 +2846,14 @@
     };
     addReaction=async function(bubble,emoji){
       if(!bubble) return;
+      if(bubble.dataset&&bubble.dataset.favid){
+        addReactionLocal(bubble,emoji);
+        try{
+          await api(`/favorites/${encodeURIComponent(bubble.dataset.favid)}`,{method:'PATCH',body:JSON.stringify({action:'react',emoji})});
+          await loadFavorites();
+        }catch(_){}
+        return;
+      }
       if(!bubble.dataset||!bubble.dataset.mid){
         addReactionLocal(bubble,emoji);
         return;
@@ -2728,7 +2865,15 @@
     };
     doPinMessage=async function(){
       if(currentBubble&&currentBubble.closest('#fav-messages')){
+        const favId=currentBubble.dataset?currentBubble.dataset.favid:'';
+        const isPinned=favPinnedBubble===currentBubble;
         doPinMessageLocal();
+        if(favId){
+          try{
+            await api(`/favorites/${encodeURIComponent(favId)}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
+            await loadFavorites();
+          }catch(_){}
+        }
         return;
       }
       if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
@@ -2840,6 +2985,7 @@
         await refreshMe();
         startRealtime();
         await loadChats();
+        await loadFavorites();
         hideAppLoading();
       }catch(_){
         authToken='';
