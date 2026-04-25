@@ -2446,10 +2446,41 @@
         fr.readAsDataURL(blob);
       });
     }
+    function markMediaPreviewUploading(isUploading){
+      const strip=document.getElementById('media-preview');
+      if(!strip) return;
+      strip.querySelectorAll('.media-thumb').forEach(el=>{
+        if(isUploading) el.classList.add('uploading-media');
+        else el.classList.remove('uploading-media');
+      });
+    }
+    function renderPendingOutgoingMessage({ text='', media=[] }){
+      const msgs=document.getElementById('chat-messages');
+      const anchor=document.getElementById('chat-bottom');
+      if(!msgs||!anchor) return null;
+      const now=new Date();
+      const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+      const tmpMid=`pending-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      const w=document.createElement('div');
+      w.className='rt-msg pending-rt-msg';
+      w.style.cssText='align-self:flex-end;max-width:78%;';
+      const safeText=renderRichText(text||'');
+      if(media.length){
+        const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
+        const gridHtml=buildMediaGrid(media,tmpMid,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',true);
+        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:3px 4px 6px 4px;"><div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
+      }else{
+        w.innerHTML=`<div class="bubble-out msg-bubble"><p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
+      }
+      msgs.insertBefore(w,anchor);
+      anchor.scrollIntoView({behavior:'smooth'});
+      return w;
+    }
     window.sendMessage=async function(){
       if(!currentChatUserId) return;
       if(currentChatBlockedByPeer){ showTopToast('Вы были заблокированы данным пользователем',true); return; }
       const input=document.getElementById('msg-input');
+      const sendBtn=document.getElementById('send-btn');
       const text=(input.value||'').trim();
       const media=(attachedMedia||[]);
       if(editingBubble&&editingBubble.dataset&&editingBubble.dataset.mid){
@@ -2473,16 +2504,28 @@
         return;
       }
       if(!text&&!media.length) return;
-      const mediaData=[];
-      for(const m of media){
-        if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
+      let pendingBubble=null;
+      if(sendBtn) sendBtn.disabled=true;
+      markMediaPreviewUploading(true);
+      if(media.length||text){
+        pendingBubble=renderPendingOutgoingMessage({text,media:media.slice()});
       }
-      await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyToMessageId})});
-      input.value='';
-      dismissReply();
-      clearMedia();
-      await openChatWith(currentChatUserId);
-      await loadChats('',{showSkeleton:false});
+      try{
+        const mediaData=[];
+        for(const m of media){
+          if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
+        }
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyToMessageId})});
+        input.value='';
+        dismissReply();
+        clearMedia();
+        await openChatWith(currentChatUserId);
+        await loadChats('',{showSkeleton:false});
+      }finally{
+        markMediaPreviewUploading(false);
+        if(sendBtn) sendBtn.disabled=false;
+        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+      }
     };
     const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
