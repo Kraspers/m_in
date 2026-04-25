@@ -1124,7 +1124,7 @@
     closeForward();
     if(dest==='favorites') showScreen('screen-favorites');
     else if(dest&&dest!=='favorites'&&window.openChatWith) await openChatWith(dest);
-    else showScreen('screen-chat');
+    else showScreen('screen-list');
     setTimeout(()=>anchor.scrollIntoView({behavior:'smooth'}),80);
   }
 
@@ -1479,7 +1479,7 @@
       if(!isDesktop()) return;
       const uid=el.dataset.chatId;
       if(uid&&window.openChatWith) window.openChatWith(uid);
-      else showScreen('screen-chat');
+      else showScreen('screen-list');
     });
 
     /* Десктоп: правая кнопка мыши → контекстное меню */
@@ -1513,7 +1513,7 @@
       if(!crLongPressed&&!crMoved){
         const uid=el.dataset.chatId;
         if(uid&&window.openChatWith) window.openChatWith(uid);
-        else showScreen('screen-chat');
+        else showScreen('screen-list');
       }
     });
   }
@@ -2181,7 +2181,7 @@
         const mediaTopRadius=replyHtml?'0':'calc(1.4rem - 3px)';
         const mediaHtml=mediaArr.length
           ? (hasPureMedia
-            ? `<div style="position:relative;line-height:0;">${buildMediaGrid(mediaArr,m.id,mediaRadiusBase,false)}<div class="media-time-ovl"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:'<span class="media-time-spacer" aria-hidden="true"></span>'}</div></div>`
+            ? `<div style="position:relative;line-height:0;">${buildMediaGrid(mediaArr,m.id,mediaRadiusBase,false)}<div class="media-time-ovl"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div>`
             : `<div style="overflow:hidden;margin-bottom:${m.text?'4px':'0'};">${buildMediaGrid(mediaArr,m.id,`${mediaTopRadius} ${mediaTopRadius} 0 0`,false)}</div>`)
           : '';
         const textHtml=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}"${hasMediaAndText?' style="padding:4px 8px 0;margin:0;"':''}>${renderRichText(m.text)}</p>`:'';
@@ -2366,6 +2366,10 @@
     function applyRoute(){
       const h=(location.hash||'#/list').replace(/^#\//,'');
       const target=`screen-${h}`;
+      if(target==='screen-chat'&&!currentChatUserId){
+        window.showScreen('screen-list',true);
+        return;
+      }
       if(document.getElementById(target)) window.showScreen(target,true);
     }
     window.addEventListener('hashchange',applyRoute);
@@ -2640,6 +2644,18 @@
     const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
     const doPinMessageLocal=doPinMessage;
+    const unpinMessageLocal=unpinMessage;
+
+    unpinMessage=async function(){
+      const bubble=pinnedBubble;
+      const mid=bubble&&bubble.dataset?bubble.dataset.mid:'';
+      unpinMessageLocal();
+      if(!mid) return;
+      try{
+        await api(`/messages/${encodeURIComponent(mid)}`,{method:'PATCH',body:JSON.stringify({action:'unpin'})});
+      }catch(_){}
+      if(currentChatUserId) await openChatWith(currentChatUserId,{keepScreen:true});
+    };
 
     doDeleteMessage=async function(){
       if(!currentBubble) return closeCtxClean();
