@@ -9,13 +9,14 @@
   .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;}
   #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
-  .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
-  .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
+  .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
+  .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;min-width:0;max-width:100%;box-sizing:border-box;}
   .bubble-out:has(.msg-quote-out){min-width:200px;}
   .bubble-in:has(.msg-quote-out){min-width:200px;}
   .bubble-in:has(.msg-quote-in){min-width:200px;}
+  .msg-quote-content{min-width:0;max-width:100%;overflow:hidden;display:block;}
   .msg-quote-name{color:rgba(255,255,255,0.95);font-size:12px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .msg-quote-text{color:rgba(255,255,255,0.72);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .msg-quote-text{color:rgba(255,255,255,0.72);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%;}
   /* ── Медиа превью (над полем ввода) ── */
   #media-preview{display:none;flex-direction:row;gap:8px;overflow-x:auto;padding:0 10px 6px;scrollbar-width:none;}
   #media-preview.show{display:flex;}
@@ -339,7 +340,7 @@
 #upv-ctx-overlay{position:fixed;inset:0;z-index:360;display:none;opacity:0;pointer-events:none;transition:opacity .22s ease;}
 #upv-ctx-overlay.open{display:block;opacity:1;pointer-events:all;}
 #upv-ctx-bg{position:absolute;inset:0;background:rgba(0,0,0,0.0);}
-#upv-ctx-menu{position:absolute;left:50%;transform:translateX(-50%) scale(.9);width:min(92vw,480px);bottom:12px;background:#1A1A1A;border-radius:14px;overflow:hidden;opacity:0;transition:transform .22s ease,opacity .22s ease;}
+#upv-ctx-menu{position:absolute;left:50%;transform:translateX(-50%) scale(.9);width:min(92vw,480px);bottom:24px;background:#1A1A1A;border-radius:14px;overflow:hidden;opacity:0;transition:transform .22s ease,opacity .22s ease;}
 #upv-ctx-overlay.open #upv-ctx-menu{transform:translateX(-50%) scale(1);opacity:1;}
 #profile-save-btn.loading{position:relative;pointer-events:none;overflow:hidden;}
 #profile-save-btn.loading::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,rgba(180,180,180,.16) 8%,rgba(220,220,220,.38) 18%,rgba(180,180,180,.16) 33%);background-size:200% 100%;animation:saveShimmer 1s linear infinite;}
@@ -455,7 +456,7 @@
     }
     #profile-edit-close-row { display: flex !important; }
     #chat-blocked-pill .input-pill{justify-content:center !important;}
-    #upv-ctx-menu{bottom:20px;}
+    #upv-ctx-menu{bottom:32px;}
   }
 
 /* ── Upload progress animation ── */
