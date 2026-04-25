@@ -1873,6 +1873,7 @@
     let searchTimer=null;
     const localLinkPreviewCache=new Map();
     const messageMap=new Map();
+    const favoriteMessageMap=new Map();
 
     api=function(path,opts={}){
       const headers={ 'Content-Type':'application/json', ...(opts.headers||{}) };
@@ -1994,6 +1995,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
+        await loadFavorites();
       }catch(e){ document.getElementById('login-error').textContent=e.message; }
     };
     window.doRegister=async function(){
@@ -2013,6 +2015,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
+        await loadFavorites();
       }catch(e){ document.getElementById('reg-error').textContent=e.message; }
     };
     function updateVpscBoxes(code){
@@ -2034,6 +2037,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
+        await loadFavorites();
       }catch(e){ document.getElementById('vpsc-error').textContent=e.message; }
     };
     let chatsRefreshTimer=null;
@@ -2372,12 +2376,18 @@
               });
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
+              if(msg.editedAt||Array.isArray(msg.media)||typeof msg.text==='string'){
+                scheduleOpenCurrentChat();
+              }
             }else{
               scheduleOpenCurrentChat();
             }
           }
           scheduleChatsRefresh();
         }catch(_){}
+      });
+      stream.addEventListener('favorites_update',async ()=>{
+        try{ await loadFavorites(); }catch(_){}
       });
       stream.addEventListener('block_update',ev=>{
         try{
@@ -2617,7 +2627,17 @@
         else el.classList.remove('uploading-media');
       });
     }
-    function renderPendingOutgoingMessage({ text='', media=[] }){
+    function buildReplyQuoteHtml(reply){
+      if(!reply||!reply.name) return '';
+      const thumbHtml=reply.media
+        ? `<img src="${esc(reply.media)}" style="width:34px;height:34px;border-radius:5px;object-fit:cover;flex-shrink:0;" />`
+        : `<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
+      if(reply.text==='__media__'){
+        return `<div class="msg-quote-out" data-reply-id="${esc(reply.id||'')}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(reply.name)}</div><div class="msg-quote-text">Медиа</div></div></div>`;
+      }
+      return `<div class="msg-quote-out" data-reply-id="${esc(reply.id||'')}"><div class="msg-quote-name">${esc(reply.name)}</div><div class="msg-quote-text">${esc(reply.text||'')}</div></div>`;
+    }
+    function renderPendingOutgoingMessage({ text='', media=[], reply=null }){
       const msgs=document.getElementById('chat-messages');
       const anchor=document.getElementById('chat-bottom');
       if(!msgs||!anchor) return null;
@@ -2626,19 +2646,117 @@
       const tmpMid=`pending-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const w=document.createElement('div');
       w.className='rt-msg pending-rt-msg';
-      w.style.cssText='align-self:flex-end;max-width:78%;';
+      const quoteHtml=buildReplyQuoteHtml(reply);
+      w.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
       const safeText=renderRichText(text||'');
       if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
-        const gridHtml=buildMediaGrid(media,tmpMid,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',true);
-        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:3px 4px 6px 4px;"><div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
+        const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
+        const gridHtml=buildMediaGrid(media,tmpMid,`${topBr} ${topBr} 0 0`,true);
+        const tp=quoteHtml?'10px':'3px';
+        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:${tp} 4px 6px 4px;">${quoteHtml}<div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
       }else{
-        w.innerHTML=`<div class="bubble-out msg-bubble"><p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
+        w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
       }
       msgs.insertBefore(w,anchor);
+      w.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
       anchor.scrollIntoView({behavior:'smooth'});
       return w;
     }
+    function favoriteItemsSorted(){
+      return Array.from(favoriteMessageMap.values()).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+    }
+    function renderFavoritesMessages(items){
+      const wrap=document.getElementById('fav-messages');
+      const bottom=document.getElementById('fav-bottom');
+      if(!wrap||!bottom) return;
+      favoriteMessageMap.clear();
+      (items||[]).forEach(m=>favoriteMessageMap.set(m.id,m));
+      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='fav-bottom') node.remove(); });
+      const rows=favoriteItemsSorted().map(m=>{
+        const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+        const tick='<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        const reply=(m.replyToMessageId&&favoriteMessageMap.get(m.replyToMessageId))||null;
+        let replyHtml='';
+        if(reply||m.replyToText){
+          const replyText=(reply&&reply.text)?reply.text:(m.replyToText||'');
+          const replyMedia=(reply&&Array.isArray(reply.media)&&reply.media[0])?reply.media[0]:(m.replyToMedia||'');
+          const thumb=replyMedia?`<img src="${esc(replyMedia)}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;flex-shrink:0;">`:'';
+          replyHtml=`<div class="msg-quote-out" data-reply-id="${esc((reply&&reply.id)||m.replyToMessageId||'')}" style="display:flex;align-items:center;gap:${replyMedia?'7px':'0'};">${thumb}<div><div class="msg-quote-name">${esc(me?me.name||me.username||'Вы':'Вы')}</div><div class="msg-quote-text">${esc((replyText||'Медиа').slice(0,120))}</div></div></div>`;
+        }
+        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml;
+        const rowMax=replyHtml?'calc(100% - 24px)':'78%';
+        const mediaRadiusBase='calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)';
+        const mediaTopRadius=replyHtml?'0':'calc(1.4rem - 3px)';
+        const mediaHtml=mediaArr.length
+          ? (hasPureMedia
+            ? `<div style="position:relative;line-height:0;">${buildMediaGrid(mediaArr,m.id,mediaRadiusBase,false)}<div class="media-time-ovl"><span class="msg-time-out">${t}</span>${tick}</div></div>`
+            : `<div style="overflow:hidden;margin-bottom:${m.text?'4px':'0'};">${buildMediaGrid(mediaArr,m.id,`${mediaTopRadius} ${mediaTopRadius} 0 0`,false)}</div>`)
+          : '';
+        const textHtml=m.text?`<p class="msg-text-out"${mediaArr.length?' style="padding:4px 8px 0;margin:0;"':''}>${renderRichText(m.text)}</p>`:'';
+        const bubblePad=hasPureMedia?'3px':(mediaArr.length?'3px 4px 6px 4px':'');
+        const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
+        const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
+        const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
+        return `<div class="rt-msg" style="align-self:flex-end;max-width:${rowMax};"><div data-mid="${esc(m.id)}" class="bubble-out msg-bubble"${bubbleStyle}>${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="msg-time-out">${t}</span>${tick}</div></div></div>`;
+      }).join('');
+      bottom.insertAdjacentHTML('beforebegin',rows);
+      wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
+      wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
+      wrap.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+      bindRichTextInteractions(wrap);
+      enrichLinkPreviews(wrap);
+      const pinned=(items||[]).find(i=>i.pinned);
+      if(pinned){
+        favPinnedBubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`)||null;
+        document.getElementById('fav-pinned-bar-preview').textContent=(pinned.text||'📷 Медиа').slice(0,60);
+        document.getElementById('fav-pinned-bar').classList.add('show');
+      }else{
+        unpinFavMessage();
+      }
+      bottom.scrollIntoView({behavior:'auto'});
+    }
+    async function loadFavorites(){
+      if(!authToken) return;
+      const data=await api('/favorites/messages');
+      renderFavoritesMessages(data.items||[]);
+    }
+    window.sendFavMessage=async function(){
+      const inp=document.getElementById('fav-input');
+      const txt=(inp.value||'').trim();
+      const media=(attachedFavMedia||[]).slice();
+      if(!txt&&!media.length&&!favEditingBubble) return;
+      if(favEditingBubble&&favEditingBubble.dataset&&favEditingBubble.dataset.mid){
+        const payload={action:'edit',text:txt};
+        if(media.length){
+          const mediaData=[];
+          for(const m of media){
+            if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
+          }
+          payload.media=mediaData;
+        }else if(favEditMediaRemoved){
+          payload.media=[];
+        }
+        await api(`/favorites/messages/${encodeURIComponent(favEditingBubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify(payload)});
+        inp.value='';
+        dismissFavReply();
+        clearFavMedia();
+        dismissFavEdit();
+        return;
+      }
+      const replyId=replyToMessageId;
+      const replyText=replyToText==='__media__'?'Медиа':replyToText;
+      const replyMedia=replyToMediaSrc||'';
+      inp.value='';
+      dismissFavReply();
+      clearFavMedia();
+      const mediaData=[];
+      for(const m of media){
+        if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
+      }
+      await api('/favorites/messages',{method:'POST',body:JSON.stringify({text:txt,media:mediaData,replyToMessageId:replyId,replyToText:replyText,replyToMedia:replyMedia})});
+    };
     window.sendMessage=async function(){
       if(!currentChatUserId) return;
       if(currentChatBlockedByPeer){ showTopToast('Вы были заблокированы данным пользователем',true); return; }
@@ -2666,11 +2784,12 @@
       }
       if(!text&&!media.length) return;
       let pendingBubble=null;
+      const replySnapshot={ id:replyToMessageId,name:replyToName,text:replyToText,media:replyToMediaSrc };
       const replyIdToSend=replyToMessageId;
       if(sendBtn) sendBtn.disabled=true;
       markMediaPreviewUploading(true);
       if(media.length||text){
-        pendingBubble=renderPendingOutgoingMessage({text,media:media.slice()});
+        pendingBubble=renderPendingOutgoingMessage({text,media:media.slice(),reply:replySnapshot});
       }
       input.value='';
       dismissReply();
@@ -2681,10 +2800,12 @@
           if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
         }
         await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
+      }catch(e){
+        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        throw e;
       }finally{
         markMediaPreviewUploading(false);
         if(sendBtn) sendBtn.disabled=false;
-        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
       }
     };
     const doDeleteMessageLocal=doDeleteMessage;
@@ -2705,6 +2826,12 @@
 
     doDeleteMessage=async function(){
       if(!currentBubble) return closeCtxClean();
+      if(currentBubble.closest('#fav-messages')&&currentBubble.dataset&&currentBubble.dataset.mid){
+        const id=currentBubble.dataset.mid;
+        closeCtxClean();
+        await api(`/favorites/messages/${encodeURIComponent(id)}`,{method:'DELETE'});
+        return;
+      }
       if(!currentBubble.dataset||!currentBubble.dataset.mid){
         doDeleteMessageLocal();
         return;
@@ -2717,6 +2844,13 @@
     };
     addReaction=async function(bubble,emoji){
       if(!bubble) return;
+      if(bubble.closest('#fav-messages')&&bubble.dataset&&bubble.dataset.mid){
+        addReactionLocal(bubble,emoji);
+        try{
+          await api(`/favorites/messages/${encodeURIComponent(bubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify({action:'react',emoji})});
+        }catch(_){}
+        return;
+      }
       if(!bubble.dataset||!bubble.dataset.mid){
         addReactionLocal(bubble,emoji);
         return;
@@ -2728,7 +2862,13 @@
     };
     doPinMessage=async function(){
       if(currentBubble&&currentBubble.closest('#fav-messages')){
-        doPinMessageLocal();
+        if(currentBubble.dataset&&currentBubble.dataset.mid){
+          const isPinned=favPinnedBubble===currentBubble;
+          closeCtxClean();
+          await api(`/favorites/messages/${encodeURIComponent(currentBubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
+        }else{
+          doPinMessageLocal();
+        }
         return;
       }
       if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
@@ -2840,6 +2980,7 @@
         await refreshMe();
         startRealtime();
         await loadChats();
+        await loadFavorites();
         hideAppLoading();
       }catch(_){
         authToken='';
