@@ -147,7 +147,7 @@
       :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
-        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -404,7 +404,7 @@
       :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
-        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -2184,7 +2184,7 @@
           const replyMediaSrc=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
           const replyText=(reply.text||'').slice(0,80)||'Медиа';
           const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
-          replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
+          replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div style="min-width:0;"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
         }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
         const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
@@ -2372,6 +2372,7 @@
               });
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
+              if(msg.editedAt) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -2617,7 +2618,7 @@
         else el.classList.remove('uploading-media');
       });
     }
-    function renderPendingOutgoingMessage({ text='', media=[] }){
+    function renderPendingOutgoingMessage({ text='', media=[], replyName='', replyText='', replyMediaSrc='', replyToMessageId='' }){
       const msgs=document.getElementById('chat-messages');
       const anchor=document.getElementById('chat-bottom');
       if(!msgs||!anchor) return null;
@@ -2626,19 +2627,37 @@
       const tmpMid=`pending-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const w=document.createElement('div');
       w.className='rt-msg pending-rt-msg';
-      w.style.cssText='align-self:flex-end;max-width:78%;';
+      const thumbHtml=replyMediaSrc
+        ?`<img src="${replyMediaSrc}" style="width:34px;height:34px;border-radius:5px;object-fit:cover;flex-shrink:0;" />`
+        :`<div style="width:34px;height:34px;border-radius:5px;background:rgba(255,255,255,0.22);flex-shrink:0;"></div>`;
+      const quoteHtml=replyName
+        ?(replyText==='__media__'
+          ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+          :`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">${esc(replyText)}</div></div>`)
+        :'';
+      w.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
       const safeText=renderRichText(text||'');
       if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
-        const gridHtml=buildMediaGrid(media,tmpMid,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',true);
-        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:3px 4px 6px 4px;"><div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
+        const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
+        const gridHtml=buildMediaGrid(media,tmpMid,`${topBr} ${topBr} 0 0`,true);
+        const pad=quoteHtml?'10px 4px 6px 4px':'3px 4px 6px 4px';
+        w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:${pad};">${quoteHtml}<div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
       }else{
-        w.innerHTML=`<div class="bubble-out msg-bubble"><p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
+        w.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
       }
       msgs.insertBefore(w,anchor);
+      const bubble=w.querySelector('.msg-bubble');
+      if(bubble){
+        bindBubble(bubble);
+        bubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+        bindRichTextInteractions(bubble);
+      }
+      bindMsgRow(w);
       anchor.scrollIntoView({behavior:'smooth'});
       return w;
     }
+    const legacySendMessage=sendMessage;
     window.sendMessage=async function(){
       if(!currentChatUserId) return;
       if(currentChatBlockedByPeer){ showTopToast('Вы были заблокированы данным пользователем',true); return; }
@@ -2647,6 +2666,7 @@
       const text=(input.value||'').trim();
       const media=(attachedMedia||[]).slice();
       if(editingBubble&&editingBubble.dataset&&editingBubble.dataset.mid){
+        const editingId=editingBubble.dataset.mid;
         const payload={action:'edit',text};
         if(media.length){
           const mediaData=[];
@@ -2657,11 +2677,8 @@
         }else if(editMediaRemoved){
           payload.media=[];
         }
-        await api(`/messages/${encodeURIComponent(editingBubble.dataset.mid)}`,{method:'PATCH',body:JSON.stringify(payload)});
-        input.value='';
-        dismissReply();
-        clearMedia();
-        dismissEdit();
+        legacySendMessage();
+        await api(`/messages/${encodeURIComponent(editingId)}`,{method:'PATCH',body:JSON.stringify(payload)});
         return;
       }
       if(!text&&!media.length) return;
@@ -2670,7 +2687,14 @@
       if(sendBtn) sendBtn.disabled=true;
       markMediaPreviewUploading(true);
       if(media.length||text){
-        pendingBubble=renderPendingOutgoingMessage({text,media:media.slice()});
+        pendingBubble=renderPendingOutgoingMessage({
+          text,
+          media:media.slice(),
+          replyName:replyToName,
+          replyText:replyToText,
+          replyMediaSrc:replyToMediaSrc,
+          replyToMessageId:replyIdToSend
+        });
       }
       input.value='';
       dismissReply();
@@ -2681,10 +2705,12 @@
           if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
         }
         await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
+      }catch(e){
+        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        throw e;
       }finally{
         markMediaPreviewUploading(false);
         if(sendBtn) sendBtn.disabled=false;
-        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
       }
     };
     const doDeleteMessageLocal=doDeleteMessage;
