@@ -92,16 +92,6 @@
 #reply-island-title{color:#0078FF;font-size:12px;font-weight:600;margin-bottom:2px;}
 #reply-island-preview{color:rgba(255,255,255,0.7);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #reply-close{background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);padding:4px;flex-shrink:0;}
-.msg-skel-row{display:flex;margin:6px 0;}
-.msg-skel-row.in{justify-content:flex-start;}
-.msg-skel-row.out{justify-content:flex-end;}
-.msg-skel-bubble{max-width:78%;min-width:120px;background:#1f1f20;border-radius:1.4rem 1.4rem 1.4rem .3rem;padding:10px 14px 6px;display:flex;flex-direction:column;gap:7px;animation:pulseSkel 1.2s ease-in-out infinite;}
-.msg-skel-row.out .msg-skel-bubble{background:#255eab;border-radius:1.4rem 1.4rem .3rem 1.4rem;}
-.msg-skel-line{height:9px;border-radius:999px;background:rgba(255,255,255,.2);}
-.msg-skel-line.w1{width:148px;}.msg-skel-line.w2{width:118px;}.msg-skel-line.w3{width:170px;}.msg-skel-line.w4{width:98px;}
-.msg-skel-bubble.media{padding:3px;min-width:180px;}
-.msg-skel-media{width:220px;height:128px;border-radius:calc(1.4rem - 3px);background:rgba(255,255,255,.18);}
-@keyframes pulseSkel{0%,100%{opacity:.62;}50%{opacity:1;}}
 /* ── Просмотр медиа на весь экран ── */
 #media-viewer{position:fixed;inset:0;z-index:300;background:#000;opacity:0;pointer-events:none;transition:opacity 0.22s ease;display:flex;align-items:center;justify-content:center;touch-action:none;}
 #media-viewer.open{opacity:1;pointer-events:all;}

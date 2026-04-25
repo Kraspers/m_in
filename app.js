@@ -2027,7 +2027,7 @@
     function scheduleOpenCurrentChat(){
       if(!currentChatUserId) return;
       if(openChatRefreshTimer) clearTimeout(openChatRefreshTimer);
-      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId,{showSkeleton:false,keepScreen:true}); },80);
+      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId,{keepScreen:true}); },80);
     }
     function scheduleChatsRefresh(){
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
@@ -2109,27 +2109,13 @@
       }
     }
     window.reloadChatsWithSkeleton=()=>loadChats('',{showSkeleton:true});
-    function renderChatLoadingSkeleton(){
-      const wrap=document.getElementById('chat-messages');
-      const bottom=document.getElementById('chat-bottom');
-      if(!wrap||!bottom) return;
-      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
-      const rows=`
-      <div class="msg-skel-row in"><div class="msg-skel-bubble"><div class="msg-skel-line w3"></div><div class="msg-skel-line w2"></div></div></div>
-      <div class="msg-skel-row out"><div class="msg-skel-bubble"><div class="msg-skel-line w1"></div></div></div>
-      <div class="msg-skel-row in"><div class="msg-skel-bubble media"><div class="msg-skel-media"></div></div></div>
-      <div class="msg-skel-row out"><div class="msg-skel-bubble"><div class="msg-skel-line w2"></div><div class="msg-skel-line w4"></div></div></div>`;
-      bottom.insertAdjacentHTML('beforebegin',rows);
-    }
     async function openChatWith(userId,opts={}){
-      const showSkeleton=opts.showSkeleton!==false;
       const keepScreen=opts.keepScreen===true;
       currentChatUserId=userId;
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
       if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
-      if(showSkeleton) renderChatLoadingSkeleton();
       if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
