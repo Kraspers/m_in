@@ -2215,7 +2215,11 @@
       const wrap=document.getElementById('fav-messages');
       const bottom=document.getElementById('fav-bottom');
       if(!wrap||!bottom) return;
-      wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='fav-bottom') node.remove(); });
+      wrap.querySelectorAll(':scope > div').forEach(node=>{
+        if(node.id==='fav-bottom') return;
+        if(node.classList&&node.classList.contains('fav-intro-wrap')) return;
+        node.remove();
+      });
       const intro=wrap.querySelector('.fav-intro-wrap');
       if(intro) intro.style.display=items.length?'none':'';
       const rows=items.map(m=>{
@@ -2231,8 +2235,10 @@
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.msg-bubble').forEach(bindBubble);
+      wrap.querySelectorAll(':scope > div').forEach(bindMsgRow);
       wrap.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
       bindRichTextInteractions(wrap);
+      enrichLinkPreviews(wrap);
       const pinned=items.find(x=>x.pinned);
       if(pinned){
         favPinnedBubble=wrap.querySelector(`.msg-bubble[data-favid="${pinned.id}"]`)||null;
@@ -2453,6 +2459,11 @@
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)){
             const bubble=msg&&msg.id?document.querySelector(`#chat-messages .msg-bubble[data-mid="${msg.id}"]`):null;
             if(bubble&&!msg.deleted){
+              if(msg.editedAt){
+                scheduleOpenCurrentChat();
+                scheduleChatsRefresh();
+                return;
+              }
               const reactionState={};
               const source=msg.reactions||{};
               Object.entries(source).forEach(([emoji,userIds])=>{
@@ -2462,23 +2473,6 @@
               });
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
-              const textEl=bubble.querySelector('.msg-text-out,.msg-text-in');
-              if(textEl&&typeof msg.text==='string'){
-                textEl.innerHTML=renderRichText(msg.text);
-                bindRichTextInteractions(textEl.parentElement||bubble);
-              }
-              if(Array.isArray(msg.media)){
-                const mediaWrap=bubble.querySelector('.msg-media-grid')?.parentElement;
-                if(mediaWrap) mediaWrap.remove();
-                if(msg.media.length){
-                  const mediaArr=msg.media.map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
-                  const grid=document.createElement('div');
-                  grid.style.cssText='overflow:hidden;margin-bottom:0;';
-                  grid.innerHTML=buildMediaGrid(mediaArr,msg.id,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',false);
-                  const anchor=bubble.querySelector('.msg-meta')||bubble.firstChild;
-                  bubble.insertBefore(grid,anchor);
-                }
-              }
             }else{
               scheduleOpenCurrentChat();
             }
@@ -2733,7 +2727,7 @@
       const tmpMid=`pending-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const w=document.createElement('div');
       w.className='rt-msg pending-rt-msg';
-      w.style.cssText='align-self:flex-end;max-width:78%;';
+      w.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
       const safeText=renderRichText(text||'');
       if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
