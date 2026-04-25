@@ -1190,6 +1190,8 @@
     let rDiv=bubble.querySelector('.msg-reactions');
     const data=reactionsData.get(bubble)||{};
     const entries=Object.entries(data).filter(([,v])=>v.count>0);
+    const isPureMedia=!!(bubble.querySelector('.msg-media-grid')&&!bubble.querySelector('.msg-text-out,.msg-text-in')&&!bubble.querySelector('.msg-quote-out,.msg-quote-in')&&!bubble.classList.contains('msg-fwd'));
+    const row=bubble.closest('.rt-msg');
     if(!entries.length){
       if(rDiv){
         rDiv.classList.remove('visible');
@@ -1202,8 +1204,25 @@
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(metaEl)metaEl.before(rDiv);
+      if(isPureMedia&&row) row.appendChild(rDiv);
+      else if(metaEl) metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
+    }else if(isPureMedia&&row&&rDiv.parentElement!==row){
+      rDiv.remove();
+      row.appendChild(rDiv);
+    }else if(!isPureMedia&&rDiv.parentElement!==bubble){
+      rDiv.remove();
+      if(metaEl) metaEl.before(rDiv);
+      else bubble.appendChild(rDiv);
+    }
+    if(isPureMedia&&row){
+      rDiv.style.alignSelf=row.style.alignSelf||'flex-start';
+      rDiv.style.marginLeft='0';
+      rDiv.style.marginRight='0';
+    }else{
+      rDiv.style.alignSelf='';
+      rDiv.style.marginLeft='';
+      rDiv.style.marginRight='';
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
@@ -2673,7 +2692,11 @@
       return w;
     }
     function favoriteItemsSorted(){
-      return Array.from(favoriteMessageMap.values()).sort((a,b)=>new Date(a.createdAt||0)-new Date(b.createdAt||0));
+      return Array.from(favoriteMessageMap.values()).sort((a,b)=>{
+        const diff=new Date(a.createdAt||0)-new Date(b.createdAt||0);
+        if(diff!==0) return diff;
+        return String(a.id||'').localeCompare(String(b.id||''));
+      });
     }
     function renderFavoritesMessages(items){
       const wrap=document.getElementById('fav-messages');
@@ -2714,6 +2737,19 @@
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
       wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
       wrap.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+      (items||[]).forEach(m=>{
+        const bubble=wrap.querySelector(`.msg-bubble[data-mid="${m.id}"]`);
+        if(!bubble) return;
+        const reactionState={};
+        const source=m.reactions||{};
+        Object.entries(source).forEach(([emoji,userIds])=>{
+          const count=Array.isArray(userIds)?userIds.length:0;
+          if(!count) return;
+          reactionState[emoji]={count,active:!!(me&&Array.isArray(userIds)&&userIds.includes(me.id))};
+        });
+        reactionsData.set(bubble,reactionState);
+        renderReactions(bubble);
+      });
       bindRichTextInteractions(wrap);
       enrichLinkPreviews(wrap);
       const pinned=(items||[]).find(i=>i.pinned);
@@ -2730,6 +2766,32 @@
       if(!authToken) return;
       const data=await api('/favorites/messages');
       renderFavoritesMessages(data.items||[]);
+    }
+    function renderPendingFavoriteMessage({text='',media=[],reply=null}){
+      const msgs=document.getElementById('fav-messages');
+      const anchor=document.getElementById('fav-bottom');
+      if(!msgs||!anchor) return null;
+      const now=new Date();
+      const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+      const tmpMid=`pending-fav-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      const row=document.createElement('div');
+      row.className='rt-msg pending-rt-msg';
+      const quoteHtml=buildReplyQuoteHtml(reply);
+      row.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
+      const safeText=renderRichText(text||'');
+      if(media.length){
+        const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
+        const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
+        const gridHtml=buildMediaGrid(media,tmpMid,`${topBr} ${topBr} 0 0`,true);
+        const tp=quoteHtml?'10px':'3px';
+        row.innerHTML=`<div class="bubble-out msg-bubble" style="padding:${tp} 4px 6px 4px;">${quoteHtml}<div style="overflow:hidden;margin-bottom:${text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span></div></div>`;
+      }else{
+        row.innerHTML=`<div class="bubble-out msg-bubble">${quoteHtml}<p class="msg-text-out">${safeText}</p><div class="msg-meta"><span class="msg-time-out">${t}</span></div></div>`;
+      }
+      msgs.insertBefore(row,anchor);
+      row.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
+      anchor.scrollIntoView({behavior:'auto'});
+      return row;
     }
     window.sendFavMessage=async function(){
       const inp=document.getElementById('fav-input');
@@ -2757,14 +2819,34 @@
       const replyId=replyToMessageId;
       const replyText=replyToText==='__media__'?'Медиа':replyToText;
       const replyMedia=replyToMediaSrc||'';
+      const replySnapshot={id:replyId,name:replyToName||'Вы',text:replyToText,media:replyMedia};
+      let pendingBubble=null;
       inp.value='';
       dismissFavReply();
       clearFavMedia();
+      if(media.length||txt){
+        pendingBubble=renderPendingFavoriteMessage({text:txt,media:media.slice(),reply:replySnapshot});
+      }
       const mediaData=[];
       for(const m of media){
         if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
       }
-      await api('/favorites/messages',{method:'POST',body:JSON.stringify({text:txt,media:mediaData,replyToMessageId:replyId,replyToText:replyText,replyToMedia:replyMedia})});
+      try{
+        const sent=await api('/favorites/messages',{method:'POST',body:JSON.stringify({text:txt,media:mediaData,replyToMessageId:replyId,replyToText:replyText,replyToMedia:replyMedia})});
+        if(pendingBubble){
+          const bubble=pendingBubble.querySelector('.msg-bubble');
+          if(bubble&&sent&&sent.message&&sent.message.id){
+            bubble.dataset.mid=sent.message.id;
+            bubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
+            pendingBubble.classList.remove('pending-rt-msg');
+            bindBubble(bubble);
+            bindMsgRow(pendingBubble);
+          }
+        }
+      }catch(e){
+        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        throw e;
+      }
     };
     window.sendMessage=async function(){
       if(!currentChatUserId) return;
