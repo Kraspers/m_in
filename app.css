@@ -9,13 +9,13 @@
   .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;}
   #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
-  .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
-  .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:0;min-width:100%;}
+  .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;max-width:100%;min-width:0;}
+  .msg-quote-in{background:rgba(255,255,255,0.08);border-left:3px solid rgba(255,255,255,0.42);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;max-width:100%;min-width:0;}
   .bubble-out:has(.msg-quote-out){min-width:200px;}
   .bubble-in:has(.msg-quote-out){min-width:200px;}
   .bubble-in:has(.msg-quote-in){min-width:200px;}
   .msg-quote-name{color:rgba(255,255,255,0.95);font-size:12px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .msg-quote-text{color:rgba(255,255,255,0.72);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .msg-quote-text{color:rgba(255,255,255,0.72);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:break-word;}
   /* ── Медиа превью (над полем ввода) ── */
   #media-preview{display:none;flex-direction:row;gap:8px;overflow-x:auto;padding:0 10px 6px;scrollbar-width:none;}
   #media-preview.show{display:flex;}
