@@ -7,31 +7,31 @@
   .header-blur{backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);background:rgba(100,100,110,0.28);border-radius:0 0 2.2rem 2.2rem;flex-shrink:0;}
   .input-bar{padding:8px 10px 24px;flex-shrink:0;background:transparent;}
   .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;}
-  .input-pill.chat-recording{min-height:68px;border-radius:34px;padding:10px 10px 10px 14px;gap:12px;}
+  .input-pill.chat-recording{min-height:86px;border-radius:34px;padding:14px 10px 14px 14px;gap:12px;}
   .chat-voice-hidden{opacity:0;pointer-events:none;transform:scale(.95);width:0!important;padding:0!important;margin:0!important;overflow:hidden;transition:all .22s ease;}
   #recording-ui{display:none;align-items:center;gap:10px;flex:1;min-width:0;opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease;}
   .input-pill.chat-recording #recording-ui{display:flex;opacity:1;transform:translateY(0);}
+  #fav-recording-ui{display:none;align-items:center;gap:10px;flex:1;min-width:0;opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease;}
+  #fav-input-pill.chat-recording #fav-recording-ui{display:flex;opacity:1;transform:translateY(0);}
   #record-dot{width:11px;height:11px;border-radius:50%;background:#ff4d4f;flex-shrink:0;animation:recordDotPulse 1.2s ease-in-out infinite;}
+  #fav-record-dot{width:11px;height:11px;border-radius:50%;background:#ff4d4f;flex-shrink:0;animation:recordDotPulse 1.2s ease-in-out infinite;}
   @keyframes recordDotPulse{0%,100%{opacity:.35;transform:scale(.9);}50%{opacity:1;transform:scale(1.08);}}
   #record-wave{display:flex;align-items:center;gap:3px;height:30px;flex:1;min-width:0;}
-  .record-bar{width:3px;border-radius:3px;background:rgba(255,255,255,.92);height:8px;transform-origin:center;animation:recordWave 0.8s ease-in-out infinite;}
-  .record-bar:nth-child(2n){animation-duration:.95s;}
-  .record-bar:nth-child(3n){animation-duration:.7s;}
-  @keyframes recordWave{0%,100%{height:8px;opacity:.6;}50%{height:26px;opacity:1;}}
+  #fav-record-wave{display:flex;align-items:center;gap:3px;height:30px;flex:1;min-width:0;}
+  .record-bar{width:3px;border-radius:3px;background:#fff;height:8px;transform-origin:center;transition:height .09s linear;}
   #record-time{color:rgba(255,255,255,.9);font-size:14px;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;}
+  #fav-record-time{color:rgba(255,255,255,.9);font-size:14px;font-variant-numeric:tabular-nums;min-width:44px;text-align:right;}
   #send-btn.voice-mode svg{width:20px;height:20px;}
-  #send-btn.record-hold{transform:scale(1.1);}
-  .voice-bubble{width:248px;max-width:248px;display:flex;align-items:center;gap:10px;padding:10px 12px 8px!important;}
+  #send-btn.record-hold,#fav-send-btn.record-hold{transform:scale(1.1);}
+  .voice-bubble{width:276px;max-width:276px;display:flex;align-items:center;gap:10px;padding:8px 10px 7px!important;}
   .voice-play-btn{width:40px;height:40px;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .bubble-out .voice-play-btn{background:rgba(255,255,255,.2);}
   .bubble-in .voice-play-btn{background:rgba(255,255,255,.1);}
-  .voice-wave-static{display:flex;align-items:center;gap:3px;flex:1;min-width:0;height:26px;}
-  .voice-wave-static span{display:block;width:3px;background:rgba(255,255,255,.86);border-radius:4px;}
-  .voice-wave-static.playing span{animation:voicePlayWave .9s ease-in-out infinite;}
-  .voice-wave-static.playing span:nth-child(2n){animation-duration:1.05s;}
-  .voice-wave-static.playing span:nth-child(3n){animation-duration:.78s;}
-  @keyframes voicePlayWave{0%,100%{opacity:.45;transform:scaleY(.7);}50%{opacity:1;transform:scaleY(1.2);}}
-  .voice-meta{display:flex;align-items:center;justify-content:space-between;margin-top:5px;gap:6px;}
+  .voice-wave-static{display:flex;align-items:center;gap:1.5px;flex:1;min-width:0;height:18px;}
+  .voice-wave-static span{display:block;width:2px;background:rgba(255,255,255,.88);border-radius:3px;height:var(--h,8px);}
+  .voice-meta{display:flex;align-items:center;gap:5px;margin-top:4px;}
+  .voice-time{margin-left:auto;}
+  .voice-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);}
   #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
   .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;max-width:100%;min-width:0;}

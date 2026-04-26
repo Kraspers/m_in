@@ -225,6 +225,7 @@ function normalizeMessage(msg) {
     text: msg.text || '',
     media: Array.isArray(msg.media) ? msg.media : [],
     voiceDurationMs: Number(msg.voiceDurationMs) || 0,
+    voiceWaveform: Array.isArray(msg.voiceWaveform) ? msg.voiceWaveform : [],
     replyToMessageId: msg.replyToMessageId || '',
     forwardedFromName: msg.forwardedFromName || '',
     reactions: msg.reactions || {},
@@ -716,6 +717,7 @@ function handleApi(req, res, urlObj) {
         const text = String(body.text || '').trim();
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
+        const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
         if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
@@ -729,6 +731,7 @@ function handleApi(req, res, urlObj) {
           text: text.slice(0, 4000),
           media,
           voiceDurationMs,
+          voiceWaveform,
           replyToMessageId: String(body.replyToMessageId || ''),
           forwardedFromName: String(body.forwardedFromName || '').slice(0, 200),
           reactions: {},
