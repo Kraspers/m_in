@@ -180,6 +180,7 @@
     bindMsgRow(w);
     newFavBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
     bindRichTextInteractions(newFavBubble);
+    initVoicePlayers(w);
     enrichLinkPreviews(w);
     setTimeout(()=>{
       newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
@@ -189,6 +190,19 @@
   /* ── Кнопка отправки ── */
   let editMediaRemoved=false;
   let favEditMediaRemoved=false;
+  const SEND_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M342.6 73.4C330.1 60.9 309.8 60.9 297.3 73.4L137.3 233.4C124.8 245.9 124.8 266.2 137.3 278.7C149.8 291.2 170.1 291.2 182.6 278.7L288 173.3L288 544C288 561.7 302.3 576 320 576C337.7 576 352 561.7 352 544L352 173.3L457.4 278.7C469.9 291.2 490.2 291.2 502.7 278.7C515.2 266.2 515.2 245.9 502.7 233.4L342.7 73.4z"/></svg>';
+  const MIC_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M320 64C267 64 224 107 224 160L224 288C224 341 267 384 320 384C373 384 416 341 416 288L416 160C416 107 373 64 320 64zM176 248C176 234.7 165.3 224 152 224C138.7 224 128 234.7 128 248L128 288C128 385.9 201.3 466.7 296 478.5L296 528L248 528C234.7 528 224 538.7 224 552C224 565.3 234.7 576 248 576L392 576C405.3 576 416 565.3 416 552C416 538.7 405.3 528 392 528L344 528L344 478.5C438.7 466.7 512 385.9 512 288L512 248C512 234.7 501.3 224 488 224C474.7 224 464 234.7 464 248L464 288C464 367.5 399.5 432 320 432C240.5 432 176 367.5 176 288L176 248z"/></svg>';
+  const PLAY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 640 640" fill="#fff"><path d="M187.2 100.9C174.8 94.1 159.8 94.4 147.6 101.6C135.4 108.8 128 121.9 128 136L128 504C128 518.1 135.5 531.2 147.6 538.4C159.7 545.6 174.8 545.9 187.2 539.1L523.2 355.1C536 348.1 544 334.6 544 320C544 305.4 536 291.9 523.2 284.9L187.2 100.9z"/></svg>';
+  const PAUSE_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 640 640" fill="#fff"><path d="M176 96C149.5 96 128 117.5 128 144L128 496C128 522.5 149.5 544 176 544L240 544C266.5 544 288 522.5 288 496L288 144C288 117.5 266.5 96 240 96L176 96zM400 96C373.5 96 352 117.5 352 144L352 496C352 522.5 373.5 544 400 544L464 544C490.5 544 512 522.5 512 496L512 144C512 117.5 490.5 96 464 96L400 96z"/></svg>';
+  let voiceHoldTimer=null;
+  let voiceRecordingMode=false;
+  let voiceRecorder=null;
+  let voiceStartTs=0;
+  let voiceTimerInt=null;
+  let voiceChunks=[];
+  let activeVoiceAudio=null;
+  let shouldSendVoiceOnStop=false;
+  let pendingVoiceSendFn=null;
 
   function updateSendBtn(){
     const btn=document.getElementById('send-btn');
@@ -198,8 +212,66 @@
     const hasMedia=attachedMedia.length>0;
     const editingMedia=editingBubble&&!editMediaRemoved&&!!editingBubble.querySelector('.msg-media-grid');
     const active=val||hasMedia||editingMedia;
-    btn.style.opacity=active?'1':'0.4';
-    btn.style.pointerEvents=active?'all':'none';
+    btn.style.opacity='1';
+    btn.style.pointerEvents='all';
+    btn.classList.toggle('voice-mode',!active);
+    btn.innerHTML=active?SEND_ICON_SVG:MIC_ICON_SVG;
+  }
+
+  function formatVoiceTime(ms){
+    const total=Math.max(0,Math.floor(ms/1000));
+    const mm=String(Math.floor(total/60)).padStart(2,'0');
+    const ss=String(total%60).padStart(2,'0');
+    return `${mm}:${ss}`;
+  }
+
+  function stopActiveVoicePlayback(){
+    if(!activeVoiceAudio)return;
+    try{ activeVoiceAudio.pause(); }catch(_){}
+    const btn=activeVoiceAudio.__btn;
+    const wave=activeVoiceAudio.__wave;
+    if(btn) btn.innerHTML=PLAY_ICON_SVG;
+    if(wave) wave.classList.remove('playing');
+    activeVoiceAudio=null;
+  }
+  function initVoicePlayers(root=document){
+    root.querySelectorAll('.voice-bubble').forEach(bubble=>{
+      if(bubble.dataset.voiceBound==='1') return;
+      bubble.dataset.voiceBound='1';
+      const btn=bubble.querySelector('.voice-play-btn');
+      const audio=bubble.querySelector('audio');
+      const wave=bubble.querySelector('.voice-wave-static');
+      if(!btn||!audio||!wave) return;
+      btn.innerHTML=PLAY_ICON_SVG;
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        if(activeVoiceAudio&&activeVoiceAudio!==audio) stopActiveVoicePlayback();
+        if(audio.paused){
+          audio.currentTime=0;
+          audio.play().catch(()=>{});
+          activeVoiceAudio=audio;
+          audio.__btn=btn;
+          audio.__wave=wave;
+          btn.innerHTML=PAUSE_ICON_SVG;
+          wave.classList.add('playing');
+        }else{
+          audio.pause();
+          btn.innerHTML=PLAY_ICON_SVG;
+          wave.classList.remove('playing');
+          if(activeVoiceAudio===audio) activeVoiceAudio=null;
+        }
+      });
+      audio.addEventListener('ended',()=>{
+        btn.innerHTML=PLAY_ICON_SVG;
+        wave.classList.remove('playing');
+        if(activeVoiceAudio===audio) activeVoiceAudio=null;
+      });
+      audio.addEventListener('pause',()=>{
+        if(audio.ended) return;
+        btn.innerHTML=PLAY_ICON_SVG;
+        wave.classList.remove('playing');
+      });
+    });
   }
 
   /* ── Медиа ── */
@@ -264,6 +336,82 @@
   }
 
   function clearMedia(){attachedMedia=[];renderMediaPreview();}
+
+  function ensureRecordingBars(){
+    const wave=document.getElementById('record-wave');
+    if(!wave||wave.childElementCount) return;
+    const heights=[7,10,14,20,27,16,11,18,24,12,8,15];
+    wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
+  }
+
+  function setRecordingUiActive(on){
+    const pill=document.querySelector('#screen-chat .input-pill');
+    const mediaBtn=document.getElementById('media-btn');
+    const input=document.getElementById('msg-input');
+    const sendBtn=document.getElementById('send-btn');
+    if(!pill||!mediaBtn||!input||!sendBtn)return;
+    if(on){
+      ensureRecordingBars();
+      pill.classList.add('chat-recording');
+      mediaBtn.classList.add('chat-voice-hidden');
+      input.classList.add('chat-voice-hidden');
+      sendBtn.classList.remove('voice-mode');
+      sendBtn.classList.add('record-hold');
+      sendBtn.innerHTML=MIC_ICON_SVG;
+    }else{
+      pill.classList.remove('chat-recording');
+      mediaBtn.classList.remove('chat-voice-hidden');
+      input.classList.remove('chat-voice-hidden');
+      sendBtn.classList.remove('record-hold');
+      updateSendBtn();
+    }
+  }
+
+  function renderVoiceWave(len=18){
+    return Array.from({length:len}).map((_,i)=>{
+      const h=8+((i*7)%16);
+      return `<span style="height:${h}px"></span>`;
+    }).join('');
+  }
+  async function beginVoiceRecording(){
+    if(voiceRecordingMode) return;
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    voiceChunks=[];
+    voiceRecorder=new MediaRecorder(stream);
+    voiceRecorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) voiceChunks.push(e.data); };
+    voiceRecorder.onstop=()=>{
+      const elapsed=Math.max(1000,Date.now()-voiceStartTs);
+      const blob=new Blob(voiceChunks,{type:voiceRecorder&&voiceRecorder.mimeType?voiceRecorder.mimeType:'audio/webm'});
+      if(voiceRecorder&&voiceRecorder.stream) voiceRecorder.stream.getTracks().forEach(t=>t.stop());
+      voiceRecorder=null;
+      setRecordingUiActive(false);
+      voiceRecordingMode=false;
+      clearInterval(voiceTimerInt);voiceTimerInt=null;
+      document.getElementById('record-time').textContent='00:00';
+      if(shouldSendVoiceOnStop&&pendingVoiceSendFn) pendingVoiceSendFn(blob,elapsed);
+      shouldSendVoiceOnStop=false;
+    };
+    voiceStartTs=Date.now();
+    document.getElementById('record-time').textContent='00:00';
+    voiceTimerInt=setInterval(()=>{
+      const el=document.getElementById('record-time');
+      if(el) el.textContent=formatVoiceTime(Date.now()-voiceStartTs);
+    },200);
+    voiceRecorder.start();
+    voiceRecordingMode=true;
+    setRecordingUiActive(true);
+  }
+
+  function finishVoiceRecording(sendNow){
+    shouldSendVoiceOnStop=!!sendNow;
+    if(voiceHoldTimer){clearTimeout(voiceHoldTimer);voiceHoldTimer=null;}
+    if(!voiceRecorder||voiceRecorder.state==='inactive'){
+      setRecordingUiActive(false);
+      voiceRecordingMode=false;
+      return;
+    }
+    voiceRecorder.stop();
+  }
 
   function buildMediaGrid(media,mid,br,showUpload=true){
     msgMediaMap[mid]=media;
@@ -451,6 +599,7 @@
     bindMsgRow(w);
     newBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
     bindRichTextInteractions(newBubble);
+    initVoicePlayers(w);
     enrichLinkPreviews(w);
   }
 
@@ -1858,8 +2007,26 @@
   /* ── Инициализация кнопки отправки ── */
   (function(){
     const btn=document.getElementById('send-btn');
-    btn.style.opacity='0.4';
-    btn.style.pointerEvents='none';
+    updateSendBtn();
+    const holdStart=(e)=>{
+      const input=document.getElementById('msg-input');
+      if(!btn.classList.contains('voice-mode')||!input||input.value.trim()||attachedMedia.length||voiceRecordingMode) return;
+      e.preventDefault();
+      voiceHoldTimer=setTimeout(async ()=>{
+        try{ await beginVoiceRecording(); }catch(_){ showTopToast('Нет доступа к микрофону',true); }
+      },1000);
+    };
+    const holdEnd=(e)=>{
+      if(voiceHoldTimer){ clearTimeout(voiceHoldTimer); voiceHoldTimer=null; }
+      if(voiceRecordingMode){
+        e.preventDefault();
+        finishVoiceRecording(true);
+      }
+    };
+    btn.addEventListener('pointerdown',holdStart);
+    btn.addEventListener('pointerup',holdEnd);
+    btn.addEventListener('pointercancel',holdEnd);
+    btn.addEventListener('pointerleave',holdEnd);
     const favBtn=document.getElementById('fav-send-btn');
     favBtn.style.opacity='0.4';
     favBtn.style.pointerEvents='none';
@@ -2187,11 +2354,19 @@
           replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div style="min-width:0;"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
         }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
-        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>{
+          const raw=String(src||'');
+          if(raw.startsWith('data:audio')) return {src:raw,type:'audio',durationMs:m.voiceDurationMs||0};
+          return {src:raw,type:raw.startsWith('data:video')?'video':'image'};
+        });
+        const isVoice=mediaArr.length===1&&mediaArr[0].type==='audio';
         const hasForwardedMedia=!!m.forwardedFromName&&mediaArr.length>0;
         const hasMediaAndText=mediaArr.length&&!!m.text;
-        const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml;
+        const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
+        if(isVoice){
+          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:248px;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave()}</div><div class="voice-meta"><span class="${mine?'msg-time-out':'msg-time-in'}">${formatVoiceTime(mediaArr[0].durationMs||0)}</span><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div><audio preload="metadata" src="${esc(mediaArr[0].src)}"></audio></div></div>`;
+        }
         if(hasForwardedMedia){
           const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">Переслано</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">от <b>${esc(m.forwardedFromName)}</b></div>`;
           const textPart=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}" style="padding:4px 14px 0;margin:0;">${renderRichText(m.text)}</p>`:'';
@@ -2234,6 +2409,7 @@
         renderReactions(bubble);
       });
       bindRichTextInteractions(wrap);
+      initVoicePlayers(wrap);
       const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
@@ -2637,7 +2813,12 @@
         :'';
       w.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
       const safeText=renderRichText(text||'');
-      if(media.length){
+      const isVoice=media.length===1&&media[0]&&media[0].type==='audio';
+      if(isVoice){
+        const dur=media[0].durationMs||0;
+        w.style.cssText='align-self:flex-end;max-width:248px;';
+        w.innerHTML=`<div class="bubble-out msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave()}</div><div class="voice-meta"><span class="msg-time-out">${formatVoiceTime(dur)}</span><span class="msg-time-out">${t}</span></div></div></div>`;
+      }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
         const gridHtml=buildMediaGrid(media,tmpMid,`${topBr} ${topBr} 0 0`,true);
@@ -2652,6 +2833,7 @@
         bindBubble(bubble);
         bubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
         bindRichTextInteractions(bubble);
+        initVoicePlayers(w);
       }
       bindMsgRow(w);
       anchor.scrollIntoView({behavior:'smooth'});
@@ -2713,6 +2895,23 @@
         if(sendBtn) sendBtn.disabled=false;
       }
     };
+    async function sendVoiceMessage(voiceBlob,durationMs){
+      if(!currentChatUserId||!voiceBlob) return;
+      const pendingBubble=renderPendingOutgoingMessage({media:[{type:'audio',durationMs}]});
+      try{
+        const mediaData=await new Promise((resolve,reject)=>{
+          const fr=new FileReader();
+          fr.onload=()=>resolve(fr.result);
+          fr.onerror=reject;
+          fr.readAsDataURL(voiceBlob);
+        });
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text:'',media:[mediaData],voiceDurationMs:durationMs})});
+      }catch(e){
+        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        showTopToast(e.message||'Ошибка отправки',true);
+      }
+    }
+    pendingVoiceSendFn=sendVoiceMessage;
     const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
     const doPinMessageLocal=doPinMessage;

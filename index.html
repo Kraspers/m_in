@@ -68,12 +68,17 @@
     <div class="input-pill">
       <div id="drag-hint"><div id="drag-hint-pill">Перетащите файл сюда</div></div>
       <input id="media-file" type="file" accept="image/*,video/*" multiple style="display:none" onchange="addMedia(this)" />
-      <button onclick="triggerMedia()" style="background:none;border:none;cursor:pointer;padding:5px 4px 3px;color:rgba(255,255,255,0.5);flex-shrink:0;">
+      <button id="media-btn" onclick="triggerMedia()" style="background:none;border:none;cursor:pointer;padding:5px 4px 3px;color:rgba(255,255,255,0.5);flex-shrink:0;transition:all .22s ease;">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 640 640" fill="currentColor"><path d="M288.6 76.8C344.8 20.6 436 20.6 492.2 76.8C548.4 133 548.4 224.2 492.2 280.4L328.2 444.4C293.8 478.8 238.1 478.8 203.7 444.4C169.3 410 169.3 354.3 203.7 319.9L356.5 167.3C369 154.8 389.3 154.8 401.8 167.3C414.3 179.8 414.3 200.1 401.8 212.6L249 365.3C239.6 374.7 239.6 389.9 249 399.2C258.4 408.5 273.6 408.6 282.9 399.2L446.9 235.2C478.1 204 478.1 153.3 446.9 122.1C415.7 90.9 365 90.9 333.8 122.1L169.8 286.1C116.7 339.2 116.7 425.3 169.8 478.4C222.9 531.5 309 531.5 362.1 478.4L492.3 348.3C504.8 335.8 525.1 335.8 537.6 348.3C550.1 360.8 550.1 381.1 537.6 393.6L407.4 523.6C329.3 601.7 202.7 601.7 124.6 523.6C46.5 445.5 46.5 318.9 124.6 240.8L288.6 76.8z"/></svg>
       </button>
       <input id="msg-input" type="text" placeholder="Напишите сообщение…"
         style="flex:1 1 0%;background:none;border:none;outline:none;color:#fff;font-size:15px;font-family:inherit;min-width:0;-webkit-user-select:text;user-select:text;"
         oninput="updateSendBtn()" onkeydown="if(event.key==='Enter')sendMessage()" />
+      <div id="recording-ui">
+        <div id="record-dot"></div>
+        <div id="record-wave"></div>
+        <div id="record-time">00:00</div>
+      </div>
       <button id="send-btn" onclick="sendMessage()"
         style="background:#0078FF;border:none;cursor:pointer;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:-2px;transition:opacity 0.18s ease;">
         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M342.6 73.4C330.1 60.9 309.8 60.9 297.3 73.4L137.3 233.4C124.8 245.9 124.8 266.2 137.3 278.7C149.8 291.2 170.1 291.2 182.6 278.7L288 173.3L288 544C288 561.7 302.3 576 320 576C337.7 576 352 561.7 352 544L352 173.3L457.4 278.7C469.9 291.2 490.2 291.2 502.7 278.7C515.2 266.2 515.2 245.9 502.7 233.4L342.7 73.4z"/></svg>

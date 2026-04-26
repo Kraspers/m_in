@@ -224,6 +224,7 @@ function normalizeMessage(msg) {
     toUserId: msg.toUserId,
     text: msg.text || '',
     media: Array.isArray(msg.media) ? msg.media : [],
+    voiceDurationMs: Number(msg.voiceDurationMs) || 0,
     replyToMessageId: msg.replyToMessageId || '',
     forwardedFromName: msg.forwardedFromName || '',
     reactions: msg.reactions || {},
@@ -547,7 +548,9 @@ function handleApi(req, res, urlObj) {
         const name = u ? (u.name || u.username) : 'Пользователь удалён';
         const username = u ? u.username : '';
         const preview = last
-          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length) ? '📷 Медиа' : ''))
+          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length)
+            ? (String(last.media[0]||'').startsWith('data:audio')?'🎤 Голосовое':'📷 Медиа')
+            : ''))
           : (username ? `@${username}` : '');
         return {
           id: uid,
@@ -712,6 +715,7 @@ function handleApi(req, res, urlObj) {
         const toUserId = String(body.toUserId || '');
         const text = String(body.text || '').trim();
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+        const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
@@ -724,6 +728,7 @@ function handleApi(req, res, urlObj) {
           toUserId,
           text: text.slice(0, 4000),
           media,
+          voiceDurationMs,
           replyToMessageId: String(body.replyToMessageId || ''),
           forwardedFromName: String(body.forwardedFromName || '').slice(0, 200),
           reactions: {},
