@@ -275,6 +275,32 @@
         const fill=Math.floor(p*bars.length);
         bars.forEach((bar,i)=>{ bar.style.opacity=i<=fill?'1':'0.42'; });
       };
+      const seekByClientX=(clientX)=>{
+        if(!audio.duration) return;
+        const rect=wave.getBoundingClientRect();
+        if(!rect.width) return;
+        const ratio=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width));
+        audio.currentTime=ratio*audio.duration;
+        paintProgress();
+      };
+      let dragging=false;
+      wave.addEventListener('pointerdown',e=>{
+        e.stopPropagation();
+        dragging=true;
+        seekByClientX(e.clientX);
+        try{ wave.setPointerCapture(e.pointerId); }catch(_){}
+      });
+      wave.addEventListener('pointermove',e=>{
+        if(!dragging) return;
+        seekByClientX(e.clientX);
+      });
+      const stopDrag=(e)=>{
+        if(!dragging) return;
+        dragging=false;
+        try{ wave.releasePointerCapture(e.pointerId); }catch(_){}
+      };
+      wave.addEventListener('pointerup',stopDrag);
+      wave.addEventListener('pointercancel',stopDrag);
       btn.addEventListener('click',e=>{
         e.stopPropagation();
         if(activeVoiceAudio&&activeVoiceAudio!==audio) stopActiveVoicePlayback();
@@ -1275,7 +1301,7 @@
     forwardingBubble=currentBubble;
     /* Получаем имя отправителя */
     const isOut=currentBubble.classList.contains('bubble-out');
-    forwardingSenderName='Вы';
+    forwardingSenderName=(me&&(me.name||me.username))||(document.getElementById('chat-contact-name')?.textContent.trim())||'Пользователь';
     if(!isOut){
       const wrap=currentBubble.closest('div[style*="flex-start"]');
       if(wrap){
@@ -1376,6 +1402,7 @@
     const anchorId=dest==='favorites'?'fav-bottom':'chat-bottom';
     const msgs=document.getElementById(msgsId);
     const anchor=document.getElementById(anchorId);
+    const localForwardMid='fav-'+(++msgIdCounter);
     const w=document.createElement('div');
     w.style.cssText='align-self:flex-end;max-width:78%;';
 
@@ -1387,7 +1414,7 @@
       try{ waveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
       const src=voiceAudio.currentSrc||voiceAudio.src||'';
       w.style.cssText='align-self:flex-end;max-width:276px;';
-      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true,text:txt,forwardedFromName:forwardingSenderName});
+      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:false,text:txt,forwardedFromName:forwardingSenderName});
     }else if(grid){
       const cloned=grid.cloneNode(true);
       cloned.style.borderRadius='0';
@@ -1412,6 +1439,7 @@
     if(dest==='favorites'){
       msgs.insertBefore(w,anchor);
       const b=w.querySelector('.msg-bubble');
+      if(b&&!b.dataset.mid) b.dataset.mid=localForwardMid;
       bindBubble(b);
       bindMsgRow(w);
       bindRichTextInteractions(b);
