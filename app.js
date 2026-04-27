@@ -407,12 +407,13 @@
       return `<span style="--h:${h}px"></span>`;
     }).join('');
   }
-  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text='',forwardedFromName=''}={}){
+  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text='',forwardedFromName='',quoteHtml=''}={}){
     const timeClass=mine?'msg-time-out':'msg-time-in';
     const textClass=mine?'msg-text-out':'msg-text-in';
     const caption=text?`<p class="${textClass} voice-caption">${renderRichText(text)}</p>`:'';
     const fwd=forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);line-height:1.25;margin-bottom:5px;flex-basis:100%;">Переслано от <b>${esc(forwardedFromName)}</b></div>`:'';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+    const quote=quoteHtml?`<div style="flex-basis:100%;margin-bottom:2px;">${quoteHtml}</div>`:'';
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -2513,7 +2514,7 @@
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
-          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||''});
+          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||'',quoteHtml:replyHtml||''});
           return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
@@ -2973,7 +2974,7 @@
       if(isVoice){
         const dur=media[0].durationMs||0;
         w.style.cssText='align-self:flex-end;max-width:276px;';
-        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true,text:text||''});
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true,text:text||'',quoteHtml});
       }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
