@@ -407,11 +407,12 @@
       return `<span style="--h:${h}px"></span>`;
     }).join('');
   }
-  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text=''}={}){
+  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text='',forwardedFromName=''}={}){
     const timeClass=mine?'msg-time-out':'msg-time-in';
     const textClass=mine?'msg-text-out':'msg-text-in';
     const caption=text?`<p class="${textClass} voice-caption">${renderRichText(text)}</p>`:'';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+    const fwd=forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);line-height:1.25;margin-bottom:5px;flex-basis:100%;">Переслано от <b>${esc(forwardedFromName)}</b></div>`:'';
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -1363,7 +1364,7 @@
       try{ waveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
       const src=voiceAudio.currentSrc||voiceAudio.src||'';
       w.style.cssText='align-self:flex-end;max-width:276px;';
-      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true,text:txt});
+      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true,text:txt,forwardedFromName:forwardingSenderName});
     }else if(grid){
       const cloned=grid.cloneNode(true);
       cloned.style.borderRadius='0';
@@ -1851,8 +1852,7 @@
           target=all.length?all[all.length-1]:null;
         }
       } else if(needle==='голосовое сообщение'){
-        const voices=Array.from(document.querySelectorAll('.msg-bubble.voice-bubble'));
-        target=voices.length?voices[voices.length-1]:null;
+        target=null;
       } else {
         document.querySelectorAll('.msg-bubble').forEach(b=>{
           const p=b.querySelector('p');
@@ -2501,7 +2501,7 @@
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
-          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||''});
+          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||''});
           return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
@@ -3041,7 +3041,16 @@
     };
     async function sendVoiceMessage(voiceBlob,durationMs,waveform=[]){
       if(!currentChatUserId||!voiceBlob) return;
-      const pendingBubble=renderPendingOutgoingMessage({media:[{type:'audio',durationMs,waveform}]});
+      const replyIdToSend=replyToMessageId;
+      const pendingBubble=renderPendingOutgoingMessage({
+        media:[{type:'audio',durationMs,waveform}],
+        replyName:replyToName,
+        replyText:replyToText,
+        replyMediaSrc:replyToMediaSrc,
+        replyToMessageId:replyIdToSend,
+        text:''
+      });
+      dismissReply();
       try{
         const mediaData=await new Promise((resolve,reject)=>{
           const fr=new FileReader();
@@ -3049,7 +3058,7 @@
           fr.onerror=reject;
           fr.readAsDataURL(voiceBlob);
         });
-        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text:'',media:[mediaData],voiceDurationMs:durationMs,voiceWaveform:waveform})});
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text:'',media:[mediaData],voiceDurationMs:durationMs,voiceWaveform:waveform,replyToMessageId:replyIdToSend})});
       }catch(e){
         if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
         showTopToast(e.message||'Ошибка отправки',true);
