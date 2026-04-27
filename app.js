@@ -85,8 +85,10 @@
     const hasMedia=attachedFavMedia.length>0;
     const editingMedia=favEditingBubble&&!favEditMediaRemoved&&!!favEditingBubble.querySelector('.msg-media-grid');
     const active=val||hasMedia||editingMedia;
-    btn.style.opacity=active?'1':'0.4';
-    btn.style.pointerEvents=active?'all':'none';
+    btn.style.opacity='1';
+    btn.style.pointerEvents='all';
+    btn.classList.toggle('voice-mode',!active);
+    btn.innerHTML=active?SEND_ICON_SVG:MIC_ICON_SVG;
   }
 
   function sendFavMessage(){
@@ -148,6 +150,8 @@
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
         ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        :replyToText==='__voice__'
+        ?`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -180,15 +184,43 @@
     bindMsgRow(w);
     newFavBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
     bindRichTextInteractions(newFavBubble);
+    initVoicePlayers(w);
     enrichLinkPreviews(w);
     setTimeout(()=>{
       newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
     },220);
   }
+  function sendFavVoiceMessage(blob,durationMs,waveform=[]){
+    const msgs=document.getElementById('fav-messages');
+    const anchor=document.getElementById('fav-bottom');
+    if(!msgs||!anchor||!blob) return;
+    const now=new Date();
+    const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    const url=URL.createObjectURL(blob);
+    const w=document.createElement('div');
+    w.style.cssText='align-self:flex-end;max-width:276px;';
+    w.innerHTML=renderVoiceBubbleHtml({mine:true,src:url,durationMs,timeText:t,waveform});
+    msgs.insertBefore(w,anchor);
+    const b=w.querySelector('.msg-bubble');
+    bindBubble(b);
+    bindMsgRow(w);
+    initVoicePlayers(w);
+    anchor.scrollIntoView({behavior:'smooth'});
+  }
 
   /* ── Кнопка отправки ── */
   let editMediaRemoved=false;
   let favEditMediaRemoved=false;
+  const SEND_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M342.6 73.4C330.1 60.9 309.8 60.9 297.3 73.4L137.3 233.4C124.8 245.9 124.8 266.2 137.3 278.7C149.8 291.2 170.1 291.2 182.6 278.7L288 173.3L288 544C288 561.7 302.3 576 320 576C337.7 576 352 561.7 352 544L352 173.3L457.4 278.7C469.9 291.2 490.2 291.2 502.7 278.7C515.2 266.2 515.2 245.9 502.7 233.4L342.7 73.4z"/></svg>';
+  const MIC_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M320 64C267 64 224 107 224 160L224 288C224 341 267 384 320 384C373 384 416 341 416 288L416 160C416 107 373 64 320 64zM176 248C176 234.7 165.3 224 152 224C138.7 224 128 234.7 128 248L128 288C128 385.9 201.3 466.7 296 478.5L296 528L248 528C234.7 528 224 538.7 224 552C224 565.3 234.7 576 248 576L392 576C405.3 576 416 565.3 416 552C416 538.7 405.3 528 392 528L344 528L344 478.5C438.7 466.7 512 385.9 512 288L512 248C512 234.7 501.3 224 488 224C474.7 224 464 234.7 464 248L464 288C464 367.5 399.5 432 320 432C240.5 432 176 367.5 176 288L176 248z"/></svg>';
+  const PLAY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 640 640" fill="#fff"><path d="M187.2 100.9C174.8 94.1 159.8 94.4 147.6 101.6C135.4 108.8 128 121.9 128 136L128 504C128 518.1 135.5 531.2 147.6 538.4C159.7 545.6 174.8 545.9 187.2 539.1L523.2 355.1C536 348.1 544 334.6 544 320C544 305.4 536 291.9 523.2 284.9L187.2 100.9z"/></svg>';
+  const PAUSE_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 640 640" fill="#fff"><path d="M176 96C149.5 96 128 117.5 128 144L128 496C128 522.5 149.5 544 176 544L240 544C266.5 544 288 522.5 288 496L288 144C288 117.5 266.5 96 240 96L176 96zM400 96C373.5 96 352 117.5 352 144L352 496C352 522.5 373.5 544 400 544L464 544C490.5 544 512 522.5 512 496L512 144C512 117.5 490.5 96 464 96L400 96z"/></svg>';
+  const recordStates={
+    chat:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'record-wave',timeId:'record-time',pillSel:'#screen-chat .input-pill',mediaBtnId:'media-btn',inputId:'msg-input',sendBtnId:'send-btn'},
+    fav:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'fav-record-wave',timeId:'fav-record-time',pillSel:'#fav-input-pill',mediaBtnId:'fav-media-btn',inputId:'fav-input',sendBtnId:'fav-send-btn'}
+  };
+  let activeVoiceAudio=null;
+  let pendingVoiceSendFn=null;
 
   function updateSendBtn(){
     const btn=document.getElementById('send-btn');
@@ -198,8 +230,78 @@
     const hasMedia=attachedMedia.length>0;
     const editingMedia=editingBubble&&!editMediaRemoved&&!!editingBubble.querySelector('.msg-media-grid');
     const active=val||hasMedia||editingMedia;
-    btn.style.opacity=active?'1':'0.4';
-    btn.style.pointerEvents=active?'all':'none';
+    btn.style.opacity='1';
+    btn.style.pointerEvents='all';
+    btn.classList.toggle('voice-mode',!active);
+    btn.innerHTML=active?SEND_ICON_SVG:MIC_ICON_SVG;
+  }
+
+  function formatVoiceTime(ms){
+    const total=Math.max(0,Math.floor(ms/1000));
+    const mm=String(Math.floor(total/60)).padStart(2,'0');
+    const ss=String(total%60).padStart(2,'0');
+    return `${mm}:${ss}`;
+  }
+
+  function stopActiveVoicePlayback(){
+    if(!activeVoiceAudio)return;
+    try{ activeVoiceAudio.pause(); }catch(_){}
+    const btn=activeVoiceAudio.__btn;
+    if(btn) btn.innerHTML=PLAY_ICON_SVG;
+    activeVoiceAudio=null;
+  }
+  function initVoicePlayers(root=document){
+    root.querySelectorAll('.voice-bubble').forEach(bubble=>{
+      if(bubble.dataset.voiceBound==='1') return;
+      bubble.dataset.voiceBound='1';
+      const btn=bubble.querySelector('.voice-play-btn');
+      const audio=bubble.querySelector('audio');
+      const wave=bubble.querySelector('.voice-wave-static');
+      if(!btn||!audio||!wave) return;
+      const bars=Array.from(wave.querySelectorAll('span'));
+      btn.innerHTML=PLAY_ICON_SVG;
+      const paintProgress=()=>{
+        const p=audio.duration?audio.currentTime/audio.duration:0;
+        const fill=Math.floor(p*bars.length);
+        bars.forEach((bar,i)=>{ bar.style.opacity=i<=fill?'1':'0.42'; });
+      };
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        if(activeVoiceAudio&&activeVoiceAudio!==audio) stopActiveVoicePlayback();
+        if(audio.paused){
+          audio.play().catch(()=>{});
+          activeVoiceAudio=audio;
+          audio.__btn=btn;
+          btn.innerHTML=PAUSE_ICON_SVG;
+          paintProgress();
+          const mid=bubble.dataset.mid||'';
+          const isIncoming=bubble.classList.contains('bubble-in');
+          const alreadyListened=bubble.dataset.listened==='1';
+          if(mid&&isIncoming&&!alreadyListened&&typeof window.__api==='function'){
+            window.__api(`/messages/${encodeURIComponent(mid)}`,{method:'PATCH',body:JSON.stringify({action:'listen'})}).catch(()=>{});
+            bubble.dataset.listened='1';
+            const dot=bubble.querySelector('.voice-dot');
+            if(dot) dot.remove();
+          }
+        }else{
+          audio.pause();
+          btn.innerHTML=PLAY_ICON_SVG;
+          if(activeVoiceAudio===audio) activeVoiceAudio=null;
+        }
+      });
+      audio.addEventListener('timeupdate',paintProgress);
+      audio.addEventListener('ended',()=>{
+        btn.innerHTML=PLAY_ICON_SVG;
+        paintProgress();
+        if(activeVoiceAudio===audio) activeVoiceAudio=null;
+      });
+      audio.addEventListener('pause',()=>{
+        if(audio.ended) return;
+        btn.innerHTML=PLAY_ICON_SVG;
+        paintProgress();
+      });
+      paintProgress();
+    });
   }
 
   /* ── Медиа ── */
@@ -264,6 +366,145 @@
   }
 
   function clearMedia(){attachedMedia=[];renderMediaPreview();}
+
+  function ensureRecordingBars(target='chat'){
+    const state=recordStates[target];
+    const wave=document.getElementById(state.waveId);
+    if(!wave||wave.childElementCount) return;
+    const heights=Array.from({length:30}).map(()=>8);
+    wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
+    state.levels=heights.slice();
+  }
+
+  function setRecordingUiActive(on,target='chat'){
+    const state=recordStates[target];
+    const pill=document.querySelector(state.pillSel);
+    const mediaBtn=document.getElementById(state.mediaBtnId);
+    const input=document.getElementById(state.inputId);
+    const sendBtn=document.getElementById(state.sendBtnId);
+    if(!pill||!mediaBtn||!input||!sendBtn)return;
+    if(on){
+      ensureRecordingBars(target);
+      pill.classList.add('chat-recording');
+      mediaBtn.classList.add('chat-voice-hidden');
+      input.classList.add('chat-voice-hidden');
+      sendBtn.classList.remove('voice-mode');
+      sendBtn.classList.add('record-hold');
+      sendBtn.innerHTML=SEND_ICON_SVG;
+    }else{
+      pill.classList.remove('chat-recording');
+      mediaBtn.classList.remove('chat-voice-hidden');
+      input.classList.remove('chat-voice-hidden');
+      sendBtn.classList.remove('record-hold');
+      target==='chat'?updateSendBtn():updateFavBtn();
+    }
+  }
+
+  function renderVoiceWave(waveform=[]){
+    const data=(Array.isArray(waveform)&&waveform.length?waveform:Array.from({length:46},()=>10));
+    return data.map(v=>{
+      const h=Math.max(4,Math.min(18,Number(v)||8));
+      return `<span style="--h:${h}px"></span>`;
+    }).join('');
+  }
+  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false}={}){
+    const timeClass=mine?'msg-time-out':'msg-time-in';
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div></div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+  }
+  async function extractWaveform(blob,bars=46){
+    const ab=await blob.arrayBuffer();
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const audioBuf=await ctx.decodeAudioData(ab.slice(0));
+    const raw=audioBuf.getChannelData(0);
+    const block=Math.max(1,Math.floor(raw.length/bars));
+    const out=[];
+    for(let i=0;i<bars;i++){
+      let sum=0;
+      const start=i*block;
+      const end=Math.min(raw.length,start+block);
+      for(let j=start;j<end;j++) sum+=raw[j]*raw[j];
+      const rms=Math.sqrt(sum/Math.max(1,end-start));
+      out.push(Math.round(5+Math.min(13,rms*70)));
+    }
+    await ctx.close();
+    return out;
+  }
+  function startRecordMeter(target){
+    const state=recordStates[target];
+    const wave=document.getElementById(state.waveId);
+    if(!state.analyser||!wave) return;
+    const bars=Array.from(wave.querySelectorAll('.record-bar'));
+    const buf=new Uint8Array(state.analyser.fftSize);
+    const tick=()=>{
+      if(!state.recording) return;
+      state.analyser.getByteTimeDomainData(buf);
+      let sum=0;
+      for(let i=0;i<buf.length;i++){
+        const n=(buf[i]-128)/128;
+        sum+=n*n;
+      }
+      const rms=Math.sqrt(sum/buf.length);
+      const h=Math.max(6,Math.min(28,Math.round(6+rms*62)));
+      state.levels.push(h);
+      if(state.levels.length>bars.length) state.levels.shift();
+      bars.forEach((bar,i)=>{ bar.style.height=`${state.levels[i]||8}px`; });
+      state.raf=requestAnimationFrame(tick);
+    };
+    state.raf=requestAnimationFrame(tick);
+  }
+  async function beginVoiceRecording(target='chat'){
+    const state=recordStates[target];
+    if(state.recording) return;
+    state.stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    state.chunks=[];
+    state.analyserCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const source=state.analyserCtx.createMediaStreamSource(state.stream);
+    state.analyser=state.analyserCtx.createAnalyser();
+    state.analyser.fftSize=256;
+    source.connect(state.analyser);
+    state.recorder=new MediaRecorder(state.stream);
+    state.recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) state.chunks.push(e.data); };
+    state.recorder.onstop=async ()=>{
+      const elapsed=Math.max(1000,Date.now()-state.startTs);
+      const blob=new Blob(state.chunks,{type:state.recorder&&state.recorder.mimeType?state.recorder.mimeType:'audio/webm'});
+      const waveform=await extractWaveform(blob).catch(()=>[]);
+      if(state.stream) state.stream.getTracks().forEach(t=>t.stop());
+      state.stream=null;state.recorder=null;state.recording=false;
+      if(state.raf) cancelAnimationFrame(state.raf);
+      state.raf=0;
+      if(state.analyserCtx) state.analyserCtx.close().catch(()=>{});
+      state.analyserCtx=null;state.analyser=null;
+      setRecordingUiActive(false,target);
+      clearInterval(state.timerInt);state.timerInt=null;
+      const tEl=document.getElementById(state.timeId);if(tEl) tEl.textContent='00:00';
+      if(state.sendOnStop){
+        if(target==='chat'&&pendingVoiceSendFn) pendingVoiceSendFn(blob,elapsed,waveform);
+        if(target==='fav') sendFavVoiceMessage(blob,elapsed,waveform);
+      }
+      state.sendOnStop=false;
+    };
+    state.startTs=Date.now();
+    const tel=document.getElementById(state.timeId); if(tel) tel.textContent='00:00';
+    state.timerInt=setInterval(()=>{
+      const el=document.getElementById(state.timeId);
+      if(el) el.textContent=formatVoiceTime(Date.now()-state.startTs);
+    },200);
+    state.recorder.start();
+    state.recording=true;
+    setRecordingUiActive(true,target);
+    startRecordMeter(target);
+  }
+  function finishVoiceRecording(sendNow,target='chat'){
+    const state=recordStates[target];
+    state.sendOnStop=!!sendNow;
+    if(state.holdTimer){clearTimeout(state.holdTimer);state.holdTimer=null;}
+    if(!state.recorder||state.recorder.state==='inactive'){
+      setRecordingUiActive(false,target);
+      state.recording=false;
+      return;
+    }
+    state.recorder.stop();
+  }
 
   function buildMediaGrid(media,mid,br,showUpload=true){
     msgMediaMap[mid]=media;
@@ -405,6 +646,8 @@
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
         ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        :replyToText==='__voice__'
+        ?`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -451,6 +694,7 @@
     bindMsgRow(w);
     newBubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
     bindRichTextInteractions(newBubble);
+    initVoicePlayers(w);
     enrichLinkPreviews(w);
   }
 
@@ -625,10 +869,11 @@
     overlay.classList.remove('open');
 
     const isOut=el.classList.contains('bubble-out');
+    const isVoice=el.classList.contains('voice-bubble');
 
     /* показываем/скрываем кнопки только для своих сообщений */
     const isForwarded=el.classList.contains('msg-fwd');
-    ctxEdit.style.display=(isOut&&!isForwarded)?'flex':'none';
+    ctxEdit.style.display=(isOut&&!isForwarded&&!isVoice)?'flex':'none';
     ctxDelete.style.display=isOut?'flex':'none';
 
     /* Закрепить/Открепить */
@@ -743,8 +988,9 @@
     const isOut=currentBubble.classList.contains('bubble-out');
     const msgText=currentBubble.querySelector('p');
     const hasMediaGrid=!!currentBubble.querySelector('.msg-media-grid');
+    const hasVoice=!!currentBubble.classList.contains('voice-bubble');
     const rawText=msgText?msgText.textContent.trim().slice(0,80):'';
-    const preview=rawText||(hasMediaGrid?'__media__':'');
+    const preview=rawText||(hasVoice?'__voice__':(hasMediaGrid?'__media__':''));
 
     let senderName='Вы';
     if(!isOut){
@@ -776,12 +1022,12 @@
 
     if(inFav){
       document.getElementById('fav-reply-island-title').textContent='В ответ '+senderName;
-      document.getElementById('fav-reply-island-preview').textContent=preview==='__media__'?'Медиа':preview;
+      document.getElementById('fav-reply-island-preview').textContent=preview==='__media__'?'Медиа':(preview==='__voice__'?'Голосовое сообщение':preview);
       document.getElementById('fav-reply-island').classList.add('show');
       document.getElementById('fav-input').focus();
     } else {
       document.getElementById('reply-island-title').textContent='В ответ '+senderName;
-      document.getElementById('reply-island-preview').textContent=preview==='__media__'?'Медиа':preview;
+      document.getElementById('reply-island-preview').textContent=preview==='__media__'?'Медиа':(preview==='__voice__'?'Голосовое сообщение':preview);
       document.getElementById('reply-island').classList.add('show');
       document.getElementById('msg-input').focus();
     }
@@ -841,7 +1087,8 @@
         mediaPrev.classList.add('show');
       }
     }
-    document.getElementById('edit-island-preview').textContent=txt||(grid?'Медиа':'');
+    const isVoice=!!currentBubble.classList.contains('voice-bubble');
+    document.getElementById('edit-island-preview').textContent=txt||(isVoice?'Голосовое сообщение':(grid?'Медиа':''));
     document.getElementById('edit-island').classList.add('show');
     const inp=document.getElementById('msg-input');
     inp.value=txt;
@@ -883,7 +1130,8 @@
         mediaPrev.classList.add('show');
       }
     }
-    document.getElementById('fav-edit-island-preview').textContent=txt||(grid?'Медиа':'');
+    const isVoice=!!currentBubble.classList.contains('voice-bubble');
+    document.getElementById('fav-edit-island-preview').textContent=txt||(isVoice?'Голосовое сообщение':(grid?'Медиа':''));
     document.getElementById('fav-edit-island').classList.add('show');
     const inp=document.getElementById('fav-input');
     inp.value=txt;
@@ -932,8 +1180,10 @@
       favPinnedBubble=currentBubble;
       const pEl=currentBubble.querySelector('p');
       const hasMedia=!!currentBubble.querySelector('.msg-media-grid');
+      const hasVoice=!!currentBubble.classList.contains('voice-bubble');
       let preview='';
       if(pEl&&pEl.textContent.trim()) preview=pEl.textContent.trim().slice(0,60);
+      else if(hasVoice) preview='Голосовое сообщение';
       else if(hasMedia) preview='📷 Медиа';
       document.getElementById('fav-pinned-bar-preview').textContent=preview||'Сообщение';
       document.getElementById('fav-pinned-bar').classList.add('show');
@@ -949,8 +1199,10 @@
     pinnedBubble=currentBubble;
     const pEl=currentBubble.querySelector('p');
     const hasMedia=!!currentBubble.querySelector('.msg-media-grid');
+    const hasVoice=!!currentBubble.classList.contains('voice-bubble');
     let preview='';
     if(pEl&&pEl.textContent.trim()) preview=pEl.textContent.trim().slice(0,60);
+    else if(hasVoice) preview='Голосовое сообщение';
     else if(hasMedia) preview='📷 Медиа';
     document.getElementById('pinned-bar-preview').textContent=preview||'Сообщение';
     document.getElementById('pinned-bar').classList.add('show');
@@ -1085,6 +1337,7 @@
     if(!forwardingBubble)return closeForward();
     const pEl=forwardingBubble.querySelector('p');
     const grid=forwardingBubble.querySelector('.msg-media-grid');
+    const voiceAudio=forwardingBubble.querySelector('audio[data-voice-duration]');
     const txt=pEl?pEl.textContent.trim():'';
     const now=new Date();
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
@@ -1100,7 +1353,14 @@
 
     /* Клонируем медиа-сетку если есть */
     let mediaClone='';
-    if(grid){
+    if(voiceAudio){
+      const dur=Number(voiceAudio.dataset.voiceDuration||0);
+      let waveform=[];
+      try{ waveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
+      const src=voiceAudio.currentSrc||voiceAudio.src||'';
+      w.style.cssText='align-self:flex-end;max-width:276px;';
+      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true});
+    }else if(grid){
       const cloned=grid.cloneNode(true);
       cloned.style.borderRadius='0';
       cloned.style.margin='0 3px';
@@ -1125,12 +1385,20 @@
       bindBubble(b);
       bindMsgRow(w);
       bindRichTextInteractions(b);
+      initVoicePlayers(w);
       enrichLinkPreviews(w);
     }
     if(dest!=='favorites'&&authToken){
-      const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
+      const localMedia=voiceAudio
+        ? [voiceAudio.currentSrc||voiceAudio.src].filter(Boolean)
+        : Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
+      const voiceDurationMs=voiceAudio?Number(voiceAudio.dataset.voiceDuration||0):0;
+      let voiceWaveform=[];
+      if(voiceAudio){
+        try{ voiceWaveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
+      }
       try{
-        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:dest,text:txt,media:localMedia,forwardedFromName:forwardingSenderName})});
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:dest,text:txt,media:localMedia,forwardedFromName:forwardingSenderName,voiceDurationMs,voiceWaveform})});
       }catch(e){
         alert(e.message||'Ошибка пересылки');
         return;
@@ -1858,11 +2126,33 @@
   /* ── Инициализация кнопки отправки ── */
   (function(){
     const btn=document.getElementById('send-btn');
-    btn.style.opacity='0.4';
-    btn.style.pointerEvents='none';
+    updateSendBtn();
+    const holdStart=async (e,target)=>{
+      const st=recordStates[target];
+      const sendBtn=target==='chat'?document.getElementById('send-btn'):document.getElementById('fav-send-btn');
+      const input=target==='chat'?document.getElementById('msg-input'):document.getElementById('fav-input');
+      const hasMedia=target==='chat'?attachedMedia.length:attachedFavMedia.length;
+      if(!sendBtn.classList.contains('voice-mode')||!input||input.value.trim()||hasMedia||st.recording) return;
+      e.preventDefault();
+      st.holdTimer=setTimeout(async ()=>{
+        try{ await beginVoiceRecording(target); }catch(_){ showTopToast('Нет доступа к микрофону',true); }
+      },1000);
+    };
+    const holdEnd=(e,target)=>{
+      const st=recordStates[target];
+      if(st.holdTimer){ clearTimeout(st.holdTimer); st.holdTimer=null; }
+      if(st.recording){ e.preventDefault(); finishVoiceRecording(true,target); }
+    };
+    btn.addEventListener('pointerdown',e=>holdStart(e,'chat'));
+    btn.addEventListener('pointerup',e=>holdEnd(e,'chat'));
+    btn.addEventListener('pointercancel',e=>holdEnd(e,'chat'));
+    btn.addEventListener('pointerleave',e=>holdEnd(e,'chat'));
     const favBtn=document.getElementById('fav-send-btn');
-    favBtn.style.opacity='0.4';
-    favBtn.style.pointerEvents='none';
+    updateFavBtn();
+    favBtn.addEventListener('pointerdown',e=>holdStart(e,'fav'));
+    favBtn.addEventListener('pointerup',e=>holdEnd(e,'fav'));
+    favBtn.addEventListener('pointercancel',e=>holdEnd(e,'fav'));
+    favBtn.addEventListener('pointerleave',e=>holdEnd(e,'fav'));
   })();
 
   /* ── Backend sync + auth + routes ── */
@@ -2182,16 +2472,27 @@
         let replyHtml='';
         if(reply){
           const replyMediaSrc=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
-          const replyText=(reply.text||'').slice(0,80)||'Медиа';
+          const replyText=(reply.text||'').slice(0,80)||((Array.isArray(reply.media)&&String(reply.media[0]||'').startsWith('data:audio'))?'Голосовое сообщение':'Медиа');
           const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
           replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div style="min-width:0;"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
         }
         const fwdHtml=m.forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);margin-bottom:4px;">Переслано от <b>${esc(m.forwardedFromName)}</b></div>`:'';
-        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>({src,type:String(src||'').startsWith('data:video')?'video':'image'}));
+        const mediaArr=(Array.isArray(m.media)?m.media:[]).map(src=>{
+          const raw=String(src||'');
+          if(raw.startsWith('data:audio')) return {src:raw,type:'audio',durationMs:m.voiceDurationMs||0,waveform:Array.isArray(m.voiceWaveform)?m.voiceWaveform:[]};
+          return {src:raw,type:raw.startsWith('data:video')?'video':'image'};
+        });
+        const isVoice=mediaArr.length===1&&mediaArr[0].type==='audio';
+        const listenedByMe=Array.isArray(m.listenedBy)&&me&&m.listenedBy.includes(me.id);
+        const showUnreadDot=!!mine&&(!Array.isArray(m.listenedBy)||m.listenedBy.length<2);
         const hasForwardedMedia=!!m.forwardedFromName&&mediaArr.length>0;
         const hasMediaAndText=mediaArr.length&&!!m.text;
-        const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml;
+        const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
+        if(isVoice){
+          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot});
+          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
+        }
         if(hasForwardedMedia){
           const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">Переслано</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">от <b>${esc(m.forwardedFromName)}</b></div>`;
           const textPart=m.text?`<p class="${mine?'msg-text-out':'msg-text-in'}" style="padding:4px 14px 0;margin:0;">${renderRichText(m.text)}</p>`:'';
@@ -2234,11 +2535,13 @@
         renderReactions(bubble);
       });
       bindRichTextInteractions(wrap);
+      initVoicePlayers(wrap);
       const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
         pinnedBubble=bubble||null;
-        document.getElementById('pinned-bar-preview').textContent=(pinned.text||'📷 Медиа').slice(0,60);
+        const pinPrev=(pinned.text||((Array.isArray(pinned.media)&&String(pinned.media[0]||'').startsWith('data:audio'))?'Голосовое сообщение':'📷 Медиа'));
+        document.getElementById('pinned-bar-preview').textContent=pinPrev.slice(0,60);
         document.getElementById('pinned-bar').classList.add('show');
       }else{
         unpinMessage();
@@ -2633,11 +2936,18 @@
       const quoteHtml=replyName
         ?(replyText==='__media__'
           ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+          :replyText==='__voice__'
+          ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
           :`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">${esc(replyText)}</div></div>`)
         :'';
       w.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
       const safeText=renderRichText(text||'');
-      if(media.length){
+      const isVoice=media.length===1&&media[0]&&media[0].type==='audio';
+      if(isVoice){
+        const dur=media[0].durationMs||0;
+        w.style.cssText='align-self:flex-end;max-width:276px;';
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true});
+      }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
         const gridHtml=buildMediaGrid(media,tmpMid,`${topBr} ${topBr} 0 0`,true);
@@ -2652,6 +2962,7 @@
         bindBubble(bubble);
         bubble.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
         bindRichTextInteractions(bubble);
+        initVoicePlayers(w);
       }
       bindMsgRow(w);
       anchor.scrollIntoView({behavior:'smooth'});
@@ -2713,6 +3024,23 @@
         if(sendBtn) sendBtn.disabled=false;
       }
     };
+    async function sendVoiceMessage(voiceBlob,durationMs,waveform=[]){
+      if(!currentChatUserId||!voiceBlob) return;
+      const pendingBubble=renderPendingOutgoingMessage({media:[{type:'audio',durationMs,waveform}]});
+      try{
+        const mediaData=await new Promise((resolve,reject)=>{
+          const fr=new FileReader();
+          fr.onload=()=>resolve(fr.result);
+          fr.onerror=reject;
+          fr.readAsDataURL(voiceBlob);
+        });
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text:'',media:[mediaData],voiceDurationMs:durationMs,voiceWaveform:waveform})});
+      }catch(e){
+        if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
+        showTopToast(e.message||'Ошибка отправки',true);
+      }
+    }
+    pendingVoiceSendFn=sendVoiceMessage;
     const doDeleteMessageLocal=doDeleteMessage;
     const addReactionLocal=addReaction;
     const doPinMessageLocal=doPinMessage;

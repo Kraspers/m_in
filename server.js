@@ -224,6 +224,9 @@ function normalizeMessage(msg) {
     toUserId: msg.toUserId,
     text: msg.text || '',
     media: Array.isArray(msg.media) ? msg.media : [],
+    voiceDurationMs: Number(msg.voiceDurationMs) || 0,
+    voiceWaveform: Array.isArray(msg.voiceWaveform) ? msg.voiceWaveform : [],
+    listenedBy: Array.isArray(msg.listenedBy) ? msg.listenedBy : [],
     replyToMessageId: msg.replyToMessageId || '',
     forwardedFromName: msg.forwardedFromName || '',
     reactions: msg.reactions || {},
@@ -547,7 +550,9 @@ function handleApi(req, res, urlObj) {
         const name = u ? (u.name || u.username) : 'Пользователь удалён';
         const username = u ? u.username : '';
         const preview = last
-          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length) ? '📷 Медиа' : ''))
+          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length)
+            ? (String(last.media[0]||'').startsWith('data:audio')?'🎤 Голосовое сообщение':'📷 Медиа')
+            : ''))
           : (username ? `@${username}` : '');
         return {
           id: uid,
@@ -712,6 +717,8 @@ function handleApi(req, res, urlObj) {
         const toUserId = String(body.toUserId || '');
         const text = String(body.text || '').trim();
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+        const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
+        const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
         if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
@@ -724,6 +731,9 @@ function handleApi(req, res, urlObj) {
           toUserId,
           text: text.slice(0, 4000),
           media,
+          voiceDurationMs,
+          voiceWaveform,
+          listenedBy: [user.id],
           replyToMessageId: String(body.replyToMessageId || ''),
           forwardedFromName: String(body.forwardedFromName || '').slice(0, 200),
           reactions: {},
@@ -768,6 +778,9 @@ function handleApi(req, res, urlObj) {
           msg.pinnedBy = [];
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
+          if (Array.isArray(msg.media) && msg.media.some(src=>String(src||'').startsWith('data:audio'))) {
+            return sendJson(res, 400, { error: 'Голосовое сообщение нельзя редактировать' });
+          }
           const text = String(body.text || '').trim();
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
@@ -775,6 +788,9 @@ function handleApi(req, res, urlObj) {
           msg.text = text.slice(0, 4000);
           if (Array.isArray(media)) msg.media = media;
           msg.editedAt = new Date().toISOString();
+        } else if (action === 'listen') {
+          if (!Array.isArray(msg.listenedBy)) msg.listenedBy = [];
+          if (!msg.listenedBy.includes(user.id)) msg.listenedBy.push(user.id);
         } else {
           return sendJson(res, 400, { error: 'Unknown action' });
         }
