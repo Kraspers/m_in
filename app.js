@@ -225,6 +225,10 @@
   const MIC_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M320 64C267 64 224 107 224 160L224 288C224 341 267 384 320 384C373 384 416 341 416 288L416 160C416 107 373 64 320 64zM176 248C176 234.7 165.3 224 152 224C138.7 224 128 234.7 128 248L128 288C128 385.9 201.3 466.7 296 478.5L296 528L248 528C234.7 528 224 538.7 224 552C224 565.3 234.7 576 248 576L392 576C405.3 576 416 565.3 416 552C416 538.7 405.3 528 392 528L344 528L344 478.5C438.7 466.7 512 385.9 512 288L512 248C512 234.7 501.3 224 488 224C474.7 224 464 234.7 464 248L464 288C464 367.5 399.5 432 320 432C240.5 432 176 367.5 176 288L176 248z"/></svg>';
   const PLAY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 640 640" fill="#fff"><path d="M187.2 100.9C174.8 94.1 159.8 94.4 147.6 101.6C135.4 108.8 128 121.9 128 136L128 504C128 518.1 135.5 531.2 147.6 538.4C159.7 545.6 174.8 545.9 187.2 539.1L523.2 355.1C536 348.1 544 334.6 544 320C544 305.4 536 291.9 523.2 284.9L187.2 100.9z"/></svg>';
   const PAUSE_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 640 640" fill="#fff"><path d="M176 96C149.5 96 128 117.5 128 144L128 496C128 522.5 149.5 544 176 544L240 544C266.5 544 288 522.5 288 496L288 144C288 117.5 266.5 96 240 96L176 96zM400 96C373.5 96 352 117.5 352 144L352 496C352 522.5 373.5 544 400 544L464 544C490.5 544 512 522.5 512 496L512 144C512 117.5 490.5 96 464 96L400 96z"/></svg>';
+  const GHOST_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="rgba(255,255,255,0.95)"><path d="M168.1 531.1L156.9 540.1C153.7 542.6 149.8 544 145.8 544C136 544 128 536 128 526.2L128 256C128 150 214 64 320 64C426 64 512 150 512 256L512 526.2C512 536 504 544 494.2 544C490.2 544 486.3 542.6 483.1 540.1L471.9 531.1C458.5 520.4 439.1 522.1 427.8 535L397.3 570C394 573.8 389.1 576 384 576C378.9 576 374.1 573.8 370.7 570L344.1 539.5C331.4 524.9 308.7 524.9 295.9 539.5L269.3 570C266 573.8 261.1 576 256 576C250.9 576 246.1 573.8 242.7 570L212.2 535C200.9 522.1 181.5 520.4 168.1 531.1zM288 256C288 238.3 273.7 224 256 224C238.3 224 224 238.3 224 256C224 273.7 238.3 288 256 288C273.7 288 288 273.7 288 256zM384 288C401.7 288 416 273.7 416 256C416 238.3 401.7 224 384 224C366.3 224 352 238.3 352 256C352 273.7 366.3 288 384 288z"/></svg>';
+  function deletedAvatarMarkup(size=24){
+    return `<span style="display:inline-flex;width:${size}px;height:${size}px;">${GHOST_ICON_SVG}</span>`;
+  }
   const recordStates={
     chat:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'record-wave',timeId:'record-time',pillSel:'#screen-chat .input-pill',mediaBtnId:'media-btn',inputId:'msg-input',sendBtnId:'send-btn'},
     fav:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'fav-record-wave',timeId:'fav-record-time',pillSel:'#fav-input-pill',mediaBtnId:'fav-media-btn',inputId:'fav-input',sendBtnId:'fav-send-btn'}
@@ -301,6 +305,10 @@
       };
       wave.addEventListener('pointerup',stopDrag);
       wave.addEventListener('pointercancel',stopDrag);
+      wave.addEventListener('mousedown',e=>e.stopPropagation());
+      wave.addEventListener('mouseup',e=>e.stopPropagation());
+      wave.addEventListener('click',e=>e.stopPropagation());
+      wave.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();});
       btn.addEventListener('click',e=>{
         e.stopPropagation();
         if(activeVoiceAudio&&activeVoiceAudio!==audio) stopActiveVoicePlayback();
@@ -2181,7 +2189,7 @@
     banner.style.backgroundColor=p.bannerDataUrl?'transparent':'#2C2C2E';
     const av=document.getElementById('upv-avatar');
     if(p.avatarDataUrl) av.innerHTML=`<img src="${p.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-    else av.textContent=p.deleted?'⌧':(p.name||p.username||'U').charAt(0).toUpperCase();
+    else av.innerHTML=p.deleted?deletedAvatarMarkup(34):esc((p.name||p.username||'U').charAt(0).toUpperCase());
     const view=document.getElementById('user-profile-view');
     view.style.display='flex';
     requestAnimationFrame(()=>view.classList.add('open'));
@@ -2438,7 +2446,7 @@
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
           return `<button class="chat-row chat-row-item ${c.isPinned?'chat-pinned':''}" data-chat-id="${esc(c.id||'')}">
           ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
-          <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
+          <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             <span class="chat-row-preview">${esc(c.preview||'')}</span>
@@ -2503,7 +2511,7 @@
         if(cardU) cardU.textContent=peer.username?`@${peer.username}`:'';
         if(cardA){
           if(peer.avatarDataUrl) cardA.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-          else cardA.textContent=String(peer.avatar||peer.name||'U').charAt(0).toUpperCase();
+          else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
       renderChatMessages(data.items||[]);
@@ -2804,7 +2812,7 @@
           const filtered=data.items||[];
           if(!filtered.length){res.innerHTML='<div style="color:#8E8E93;font-size:15px;text-align:center;padding:32px 0;">Ничего не найдено</div>';return;}
           res.innerHTML=filtered.map(c=>`<button class="chat-row chat-row-item search-row-item" data-chat-id="${esc(c.id||'')}" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
-            <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;flex-shrink:0;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(c.avatar||'U')}</div>
+            <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;flex-shrink:0;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
             <div style="flex:1;min-width:0;">
               <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span></div>
               <span style="color:#8E8E93;font-size:14px;">@${esc(c.username||'')}</span>
