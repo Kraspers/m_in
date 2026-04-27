@@ -778,9 +778,6 @@ function handleApi(req, res, urlObj) {
           msg.pinnedBy = [];
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
-          if (Array.isArray(msg.media) && msg.media.some(src=>String(src||'').startsWith('data:audio'))) {
-            return sendJson(res, 400, { error: 'Голосовое сообщение нельзя редактировать' });
-          }
           const text = String(body.text || '').trim();
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;

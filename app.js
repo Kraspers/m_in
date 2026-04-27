@@ -151,8 +151,8 @@
       ?(replyToText==='__media__'
         ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
         :replyToText==='__voice__'
-        ?`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
-        :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
+        :`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     if(hasMedia){
@@ -407,9 +407,11 @@
       return `<span style="--h:${h}px"></span>`;
     }).join('');
   }
-  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false}={}){
+  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text=''}={}){
     const timeClass=mine?'msg-time-out':'msg-time-in';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div></div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+    const textClass=mine?'msg-text-out':'msg-text-in';
+    const caption=text?`<p class="${textClass} voice-caption">${renderRichText(text)}</p>`:'';
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -505,6 +507,8 @@
     }
     state.recorder.stop();
   }
+  ensureRecordingBars('chat');
+  ensureRecordingBars('fav');
 
   function buildMediaGrid(media,mid,br,showUpload=true){
     msgMediaMap[mid]=media;
@@ -1359,7 +1363,7 @@
       try{ waveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
       const src=voiceAudio.currentSrc||voiceAudio.src||'';
       w.style.cssText='align-self:flex-end;max-width:276px;';
-      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true});
+      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true,text:txt});
     }else if(grid){
       const cloned=grid.cloneNode(true);
       cloned.style.borderRadius='0';
@@ -1370,7 +1374,9 @@
       mediaClone=tmp.innerHTML;
     }
 
-    if(grid){
+    if(voiceAudio){
+      /* для голосового уже собран bubble выше */
+    } else if(grid){
       /* Пересланное сообщение с медиа — медиа растягивается на всю ширину (как в Telegram) */
       const textPart=txt?`<p class="msg-text-out" style="padding:4px 14px 0;margin:0;">${renderRichText(txt)}</p>`:'';
       const metaStyle=txt?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
@@ -1466,11 +1472,13 @@
       return;
     }
     const metaEl=bubble.querySelector('.msg-meta');
+    const isVoice=!!bubble.classList.contains('voice-bubble');
     const isNew=!rDiv;
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(metaEl)metaEl.before(rDiv);
+      if(isVoice) bubble.appendChild(rDiv);
+      else if(metaEl)metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
@@ -1809,7 +1817,6 @@
     quoteEl.addEventListener('click',e=>{
       e.stopPropagation();
       const quotedText=quoteEl.querySelector('.msg-quote-text')?.textContent.trim();
-      if(!quotedText)return;
       const replyId=quoteEl.dataset.replyId;
       if(replyId){
         const byId=document.querySelector(`.msg-bubble[data-mid="${replyId}"]`);
@@ -1824,6 +1831,7 @@
           return;
         }
       }
+      if(!quotedText)return;
       const needle=quotedText.slice(0,40).toLowerCase();
       let target=null;
       if(needle==='медиа'){
@@ -1842,6 +1850,9 @@
           const all=Array.from(document.querySelectorAll('.msg-bubble')).filter(b=>b.querySelector('.msg-media-grid'));
           target=all.length?all[all.length-1]:null;
         }
+      } else if(needle==='голосовое сообщение'){
+        const voices=Array.from(document.querySelectorAll('.msg-bubble.voice-bubble'));
+        target=voices.length?voices[voices.length-1]:null;
       } else {
         document.querySelectorAll('.msg-bubble').forEach(b=>{
           const p=b.querySelector('p');
@@ -2490,7 +2501,7 @@
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
-          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot});
+          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||''});
           return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
@@ -2675,7 +2686,8 @@
               });
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
-              if(msg.editedAt) scheduleOpenCurrentChat();
+              const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
+              if(msg.editedAt||hasPinned||bubble.classList.contains('voice-bubble')) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -2699,7 +2711,10 @@
         const dw=document.getElementById('devices-wrap');
         if(dw&&dw.classList.contains('open')) openDevicesSheet();
       });
-      stream.addEventListener('chat_pin_update',()=>{ scheduleChatsRefresh(); });
+      stream.addEventListener('chat_pin_update',()=>{
+        scheduleChatsRefresh();
+        if(currentChatUserId) scheduleOpenCurrentChat();
+      });
       stream.addEventListener('force_logout',()=>{
         authToken='';
         localStorage.removeItem('auth_token');
@@ -2946,7 +2961,7 @@
       if(isVoice){
         const dur=media[0].durationMs||0;
         w.style.cssText='align-self:flex-end;max-width:276px;';
-        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true});
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true,text:text||''});
       }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
