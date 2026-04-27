@@ -150,6 +150,8 @@
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
         ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        :replyToText==='__voice__'
+        ?`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -272,6 +274,15 @@
           audio.__btn=btn;
           btn.innerHTML=PAUSE_ICON_SVG;
           paintProgress();
+          const mid=bubble.dataset.mid||'';
+          const isIncoming=bubble.classList.contains('bubble-in');
+          const alreadyListened=bubble.dataset.listened==='1';
+          if(mid&&isIncoming&&!alreadyListened&&typeof window.__api==='function'){
+            window.__api(`/messages/${encodeURIComponent(mid)}`,{method:'PATCH',body:JSON.stringify({action:'listen'})}).catch(()=>{});
+            bubble.dataset.listened='1';
+            const dot=bubble.querySelector('.voice-dot');
+            if(dot) dot.remove();
+          }
         }else{
           audio.pause();
           btn.innerHTML=PLAY_ICON_SVG;
@@ -396,9 +407,9 @@
       return `<span style="--h:${h}px"></span>`;
     }).join('');
   }
-  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[]}={}){
+  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false}={}){
     const timeClass=mine?'msg-time-out':'msg-time-in';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span><span class="voice-dot"></span><span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div></div>${src?`<audio preload="metadata" src="${esc(src)}"></audio>`:''}</div>`;
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble"><button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div></div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -635,6 +646,8 @@
     const quoteHtml=replyToName
       ?(replyToText==='__media__'
         ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+        :replyToText==='__voice__'
+        ?`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
         :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -975,8 +988,9 @@
     const isOut=currentBubble.classList.contains('bubble-out');
     const msgText=currentBubble.querySelector('p');
     const hasMediaGrid=!!currentBubble.querySelector('.msg-media-grid');
+    const hasVoice=!!currentBubble.classList.contains('voice-bubble');
     const rawText=msgText?msgText.textContent.trim().slice(0,80):'';
-    const preview=rawText||(hasMediaGrid?'__media__':'');
+    const preview=rawText||(hasVoice?'__voice__':(hasMediaGrid?'__media__':''));
 
     let senderName='Вы';
     if(!isOut){
@@ -1008,12 +1022,12 @@
 
     if(inFav){
       document.getElementById('fav-reply-island-title').textContent='В ответ '+senderName;
-      document.getElementById('fav-reply-island-preview').textContent=preview==='__media__'?'Медиа':preview;
+      document.getElementById('fav-reply-island-preview').textContent=preview==='__media__'?'Медиа':(preview==='__voice__'?'Голосовое сообщение':preview);
       document.getElementById('fav-reply-island').classList.add('show');
       document.getElementById('fav-input').focus();
     } else {
       document.getElementById('reply-island-title').textContent='В ответ '+senderName;
-      document.getElementById('reply-island-preview').textContent=preview==='__media__'?'Медиа':preview;
+      document.getElementById('reply-island-preview').textContent=preview==='__media__'?'Медиа':(preview==='__voice__'?'Голосовое сообщение':preview);
       document.getElementById('reply-island').classList.add('show');
       document.getElementById('msg-input').focus();
     }
@@ -1073,7 +1087,8 @@
         mediaPrev.classList.add('show');
       }
     }
-    document.getElementById('edit-island-preview').textContent=txt||(grid?'Медиа':'');
+    const isVoice=!!currentBubble.classList.contains('voice-bubble');
+    document.getElementById('edit-island-preview').textContent=txt||(isVoice?'Голосовое сообщение':(grid?'Медиа':''));
     document.getElementById('edit-island').classList.add('show');
     const inp=document.getElementById('msg-input');
     inp.value=txt;
@@ -1115,7 +1130,8 @@
         mediaPrev.classList.add('show');
       }
     }
-    document.getElementById('fav-edit-island-preview').textContent=txt||(grid?'Медиа':'');
+    const isVoice=!!currentBubble.classList.contains('voice-bubble');
+    document.getElementById('fav-edit-island-preview').textContent=txt||(isVoice?'Голосовое сообщение':(grid?'Медиа':''));
     document.getElementById('fav-edit-island').classList.add('show');
     const inp=document.getElementById('fav-input');
     inp.value=txt;
@@ -1164,8 +1180,10 @@
       favPinnedBubble=currentBubble;
       const pEl=currentBubble.querySelector('p');
       const hasMedia=!!currentBubble.querySelector('.msg-media-grid');
+      const hasVoice=!!currentBubble.classList.contains('voice-bubble');
       let preview='';
       if(pEl&&pEl.textContent.trim()) preview=pEl.textContent.trim().slice(0,60);
+      else if(hasVoice) preview='Голосовое сообщение';
       else if(hasMedia) preview='📷 Медиа';
       document.getElementById('fav-pinned-bar-preview').textContent=preview||'Сообщение';
       document.getElementById('fav-pinned-bar').classList.add('show');
@@ -1181,8 +1199,10 @@
     pinnedBubble=currentBubble;
     const pEl=currentBubble.querySelector('p');
     const hasMedia=!!currentBubble.querySelector('.msg-media-grid');
+    const hasVoice=!!currentBubble.classList.contains('voice-bubble');
     let preview='';
     if(pEl&&pEl.textContent.trim()) preview=pEl.textContent.trim().slice(0,60);
+    else if(hasVoice) preview='Голосовое сообщение';
     else if(hasMedia) preview='📷 Медиа';
     document.getElementById('pinned-bar-preview').textContent=preview||'Сообщение';
     document.getElementById('pinned-bar').classList.add('show');
@@ -1317,6 +1337,7 @@
     if(!forwardingBubble)return closeForward();
     const pEl=forwardingBubble.querySelector('p');
     const grid=forwardingBubble.querySelector('.msg-media-grid');
+    const voiceAudio=forwardingBubble.querySelector('audio[data-voice-duration]');
     const txt=pEl?pEl.textContent.trim():'';
     const now=new Date();
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
@@ -1332,7 +1353,14 @@
 
     /* Клонируем медиа-сетку если есть */
     let mediaClone='';
-    if(grid){
+    if(voiceAudio){
+      const dur=Number(voiceAudio.dataset.voiceDuration||0);
+      let waveform=[];
+      try{ waveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
+      const src=voiceAudio.currentSrc||voiceAudio.src||'';
+      w.style.cssText='align-self:flex-end;max-width:276px;';
+      w.innerHTML=renderVoiceBubbleHtml({mine:true,src,durationMs:dur,timeText:t,tickHtml:tick,waveform,showUnreadDot:true});
+    }else if(grid){
       const cloned=grid.cloneNode(true);
       cloned.style.borderRadius='0';
       cloned.style.margin='0 3px';
@@ -1357,12 +1385,20 @@
       bindBubble(b);
       bindMsgRow(w);
       bindRichTextInteractions(b);
+      initVoicePlayers(w);
       enrichLinkPreviews(w);
     }
     if(dest!=='favorites'&&authToken){
-      const localMedia=Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
+      const localMedia=voiceAudio
+        ? [voiceAudio.currentSrc||voiceAudio.src].filter(Boolean)
+        : Array.from(forwardingBubble.querySelectorAll('.msg-media-grid .mi img,.msg-media-grid .mi video')).map(n=>n.currentSrc||n.src).filter(Boolean);
+      const voiceDurationMs=voiceAudio?Number(voiceAudio.dataset.voiceDuration||0):0;
+      let voiceWaveform=[];
+      if(voiceAudio){
+        try{ voiceWaveform=JSON.parse(voiceAudio.dataset.voiceWave||'[]'); }catch(_){}
+      }
       try{
-        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:dest,text:txt,media:localMedia,forwardedFromName:forwardingSenderName})});
+        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:dest,text:txt,media:localMedia,forwardedFromName:forwardingSenderName,voiceDurationMs,voiceWaveform})});
       }catch(e){
         alert(e.message||'Ошибка пересылки');
         return;
@@ -2436,7 +2472,7 @@
         let replyHtml='';
         if(reply){
           const replyMediaSrc=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
-          const replyText=(reply.text||'').slice(0,80)||'Медиа';
+          const replyText=(reply.text||'').slice(0,80)||((Array.isArray(reply.media)&&String(reply.media[0]||'').startsWith('data:audio'))?'Голосовое сообщение':'Медиа');
           const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
           replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div style="min-width:0;"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
         }
@@ -2447,12 +2483,15 @@
           return {src:raw,type:raw.startsWith('data:video')?'video':'image'};
         });
         const isVoice=mediaArr.length===1&&mediaArr[0].type==='audio';
+        const listenedByMe=Array.isArray(m.listenedBy)&&me&&m.listenedBy.includes(me.id);
+        const showUnreadDot=!!mine&&(!Array.isArray(m.listenedBy)||m.listenedBy.length<2);
         const hasForwardedMedia=!!m.forwardedFromName&&mediaArr.length>0;
         const hasMediaAndText=mediaArr.length&&!!m.text;
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
-          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[]}).replace('class=\"','data-mid=\"'+esc(m.id)+'\" class=\"')}</div>`;
+          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot});
+          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
           const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">Переслано</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">от <b>${esc(m.forwardedFromName)}</b></div>`;
@@ -2501,7 +2540,8 @@
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
         pinnedBubble=bubble||null;
-        document.getElementById('pinned-bar-preview').textContent=(pinned.text||'📷 Медиа').slice(0,60);
+        const pinPrev=(pinned.text||((Array.isArray(pinned.media)&&String(pinned.media[0]||'').startsWith('data:audio'))?'Голосовое сообщение':'📷 Медиа'));
+        document.getElementById('pinned-bar-preview').textContent=pinPrev.slice(0,60);
         document.getElementById('pinned-bar').classList.add('show');
       }else{
         unpinMessage();
@@ -2896,6 +2936,8 @@
       const quoteHtml=replyName
         ?(replyText==='__media__'
           ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
+          :replyText==='__voice__'
+          ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
           :`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyName)}</div><div class="msg-quote-text">${esc(replyText)}</div></div>`)
         :'';
       w.style.cssText=`align-self:flex-end;max-width:${quoteHtml?'calc(100% - 24px)':'78%'};`;
@@ -2904,7 +2946,7 @@
       if(isVoice){
         const dur=media[0].durationMs||0;
         w.style.cssText='align-self:flex-end;max-width:276px;';
-        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[]});
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true});
       }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
