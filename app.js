@@ -427,6 +427,7 @@
     const input=document.getElementById(state.inputId);
     const sendBtn=document.getElementById(state.sendBtnId);
     if(!pill||!mediaBtn||!input||!sendBtn)return;
+    if(state.uiTimer){ clearTimeout(state.uiTimer); state.uiTimer=null; }
     if(on){
       ensureRecordingBars(target);
       pill.classList.add('chat-recording');
@@ -440,7 +441,10 @@
       mediaBtn.classList.remove('chat-voice-hidden');
       input.classList.remove('chat-voice-hidden');
       sendBtn.classList.remove('record-hold');
-      target==='chat'?updateSendBtn():updateFavBtn();
+      state.uiTimer=setTimeout(()=>{
+        target==='chat'?updateSendBtn():updateFavBtn();
+        state.uiTimer=null;
+      },180);
     }
   }
 
