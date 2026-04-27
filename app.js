@@ -198,13 +198,23 @@
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const url=URL.createObjectURL(blob);
     const w=document.createElement('div');
+    const favMid='fav-'+(++msgIdCounter);
     w.style.cssText='align-self:flex-end;max-width:276px;';
-    w.innerHTML=renderVoiceBubbleHtml({mine:true,src:url,durationMs,timeText:t,waveform});
+    const quoteHtml=replyToName
+      ?(replyToText==='__voice__'
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
+        :replyToText==='__media__'
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div>`
+        :`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
+      :'';
+    w.innerHTML=renderVoiceBubbleHtml({mine:true,src:url,durationMs,timeText:t,waveform,quoteHtml,showUnreadDot:false}).replace('class="','data-mid="'+esc(favMid)+'" class="');
     msgs.insertBefore(w,anchor);
     const b=w.querySelector('.msg-bubble');
     bindBubble(b);
     bindMsgRow(w);
+    b.querySelectorAll('.msg-quote-out').forEach(bindQuoteTap);
     initVoicePlayers(w);
+    dismissFavReply();
     anchor.scrollIntoView({behavior:'smooth'});
   }
 
@@ -1830,10 +1840,11 @@
     quoteEl.style.cursor='pointer';
     quoteEl.addEventListener('click',e=>{
       e.stopPropagation();
+      const scope=quoteEl.closest('#fav-messages,#chat-messages')||document;
       const quotedText=quoteEl.querySelector('.msg-quote-text')?.textContent.trim();
       const replyId=quoteEl.dataset.replyId;
       if(replyId){
-        const byId=document.querySelector(`.msg-bubble[data-mid="${replyId}"]`);
+        const byId=scope.querySelector(`.msg-bubble[data-mid="${replyId}"]`);
         if(byId){
           byId.scrollIntoView({behavior:'smooth',block:'center'});
           setTimeout(()=>{
@@ -1852,7 +1863,7 @@
         /* ищем конкретный пузырь по сохранённому mid, иначе последний */
         const replyMid=quoteEl.dataset.replyMid;
         if(replyMid){
-          const all=Array.from(document.querySelectorAll('.msg-bubble'));
+          const all=Array.from(scope.querySelectorAll('.msg-bubble'));
           target=all.find(b=>{
             const g=b.querySelector('.msg-media-grid');
             if(!g)return false;
@@ -1861,13 +1872,13 @@
           })||null;
         }
         if(!target){
-          const all=Array.from(document.querySelectorAll('.msg-bubble')).filter(b=>b.querySelector('.msg-media-grid'));
+          const all=Array.from(scope.querySelectorAll('.msg-bubble')).filter(b=>b.querySelector('.msg-media-grid'));
           target=all.length?all[all.length-1]:null;
         }
       } else if(needle==='голосовое сообщение'){
         target=null;
       } else {
-        document.querySelectorAll('.msg-bubble').forEach(b=>{
+        scope.querySelectorAll('.msg-bubble').forEach(b=>{
           const p=b.querySelector('p');
           if(p&&p.textContent.trim().toLowerCase().includes(needle)) target=b;
         });
@@ -2170,13 +2181,11 @@
     btn.addEventListener('pointerdown',e=>holdStart(e,'chat'));
     btn.addEventListener('pointerup',e=>holdEnd(e,'chat'));
     btn.addEventListener('pointercancel',e=>holdEnd(e,'chat'));
-    btn.addEventListener('pointerleave',e=>holdEnd(e,'chat'));
     const favBtn=document.getElementById('fav-send-btn');
     updateFavBtn();
     favBtn.addEventListener('pointerdown',e=>holdStart(e,'fav'));
     favBtn.addEventListener('pointerup',e=>holdEnd(e,'fav'));
     favBtn.addEventListener('pointercancel',e=>holdEnd(e,'fav'));
-    favBtn.addEventListener('pointerleave',e=>holdEnd(e,'fav'));
   })();
 
   /* ── Backend sync + auth + routes ── */
@@ -2495,7 +2504,8 @@
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
         let replyHtml='';
         if(reply){
-          const replyMediaSrc=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
+          const replyMediaRaw=Array.isArray(reply.media)&&reply.media.length?String(reply.media[0]):'';
+          const replyMediaSrc=(replyMediaRaw.startsWith('data:image')||replyMediaRaw.startsWith('data:video'))?replyMediaRaw:'';
           const replyText=(reply.text||'').slice(0,80)||((Array.isArray(reply.media)&&String(reply.media[0]||'').startsWith('data:audio'))?'Голосовое сообщение':'Медиа');
           const thumb=replyMediaSrc?`<div style="width:28px;height:28px;border-radius:6px;overflow:hidden;flex-shrink:0;background:#333;">${replyMediaSrc.startsWith('data:video')?'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">▶</div>':`<img src="${esc(replyMediaSrc)}" style="width:100%;height:100%;object-fit:cover;">`}</div>`:'';
           replyHtml=`<div class="${mine?'msg-quote-out':'msg-quote-in'}" data-reply-id="${esc(reply.id)}" style="display:flex;align-items:center;gap:${replyMediaSrc?'7px':'0'};">${thumb}<div style="min-width:0;"><div class="msg-quote-name">${esc(displayNameForMessageUser(reply.fromUserId))}</div><div class="msg-quote-text">${esc(replyText)}</div></div></div>`;
@@ -2508,7 +2518,7 @@
         });
         const isVoice=mediaArr.length===1&&mediaArr[0].type==='audio';
         const listenedByMe=Array.isArray(m.listenedBy)&&me&&m.listenedBy.includes(me.id);
-        const showUnreadDot=!!mine&&(!Array.isArray(m.listenedBy)||m.listenedBy.length<2);
+        const showUnreadDot=!mine&&!listenedByMe;
         const hasForwardedMedia=!!m.forwardedFromName&&mediaArr.length>0;
         const hasMediaAndText=mediaArr.length&&!!m.text;
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
@@ -2700,7 +2710,7 @@
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
               const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
-              if(msg.editedAt||hasPinned||bubble.classList.contains('voice-bubble')) scheduleOpenCurrentChat();
+              if(msg.editedAt||hasPinned) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
