@@ -652,8 +652,8 @@
       ?(replyToText==='__media__'
         ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}" data-reply-mid="${replyToMediaMid}" style="display:flex;align-items:center;gap:7px;">${thumbHtml}<div style="min-width:0;"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Медиа</div></div></div>`
         :replyToText==='__voice__'
-        ?`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
-        :`<div class="msg-quote-out"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
+        ?`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">Голосовое сообщение</div></div>`
+        :`<div class="msg-quote-out" data-reply-id="${esc(replyToMessageId)}"><div class="msg-quote-name">${esc(replyToName)}</div><div class="msg-quote-text">${esc(replyToText)}</div></div>`)
       :'';
     const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     if(hasMedia){
@@ -1093,6 +1093,12 @@
       }
     }
     const isVoice=!!currentBubble.classList.contains('voice-bubble');
+    const mediaBtn=document.getElementById('media-btn');
+    if(mediaBtn){
+      mediaBtn.disabled=isVoice;
+      mediaBtn.style.opacity=isVoice?'0.45':'';
+      mediaBtn.style.pointerEvents=isVoice?'none':'';
+    }
     document.getElementById('edit-island-preview').textContent=txt||(isVoice?'Голосовое сообщение':(grid?'Медиа':''));
     document.getElementById('edit-island').classList.add('show');
     const inp=document.getElementById('msg-input');
@@ -1109,6 +1115,12 @@
     document.querySelectorAll('.edit-media-thumb-wrap').forEach(e=>e.remove());
     const strip=document.getElementById('media-preview');
     if(!attachedMedia.length)strip.classList.remove('show');
+    const mediaBtn=document.getElementById('media-btn');
+    if(mediaBtn){
+      mediaBtn.disabled=false;
+      mediaBtn.style.opacity='';
+      mediaBtn.style.pointerEvents='';
+    }
     document.getElementById('msg-input').value='';
     updateSendBtn();
   }
