@@ -430,16 +430,32 @@
     if(state.uiTimer){ clearTimeout(state.uiTimer); state.uiTimer=null; }
     if(on){
       ensureRecordingBars(target);
+      pill.classList.remove('recording-exit');
+      pill.classList.add('recording-enter');
+      clearTimeout(state.pillAnimTimer);
+      state.pillAnimTimer=setTimeout(()=>{
+        pill.classList.remove('recording-enter');
+        state.pillAnimTimer=null;
+      },280);
       pill.classList.add('chat-recording');
       mediaBtn.classList.add('chat-voice-hidden');
       input.classList.add('chat-voice-hidden');
+      sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('voice-mode');
       sendBtn.classList.add('record-hold');
       sendBtn.innerHTML=SEND_ICON_SVG;
     }else{
+      clearTimeout(state.pillAnimTimer);
+      pill.classList.remove('recording-enter');
+      pill.classList.add('recording-exit');
+      state.pillAnimTimer=setTimeout(()=>{
+        pill.classList.remove('recording-exit');
+        state.pillAnimTimer=null;
+      },240);
       pill.classList.remove('chat-recording');
       mediaBtn.classList.remove('chat-voice-hidden');
       input.classList.remove('chat-voice-hidden');
+      sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('record-hold');
       state.uiTimer=setTimeout(()=>{
         target==='chat'?updateSendBtn():updateFavBtn();
@@ -2209,13 +2225,17 @@
       const hasMedia=target==='chat'?attachedMedia.length:attachedFavMedia.length;
       if(!sendBtn.classList.contains('voice-mode')||!input||input.value.trim()||hasMedia||st.recording) return;
       e.preventDefault();
+      sendBtn.classList.remove('record-hold');
+      sendBtn.classList.add('record-pressing');
       st.holdTimer=setTimeout(async ()=>{
         try{ await beginVoiceRecording(target); }catch(_){ showTopToast('Нет доступа к микрофону',true); }
       },1000);
     };
     const holdEnd=(e,target)=>{
       const st=recordStates[target];
+      const sendBtn=target==='chat'?document.getElementById('send-btn'):document.getElementById('fav-send-btn');
       if(st.holdTimer){ clearTimeout(st.holdTimer); st.holdTimer=null; }
+      if(sendBtn&&!st.recording) sendBtn.classList.remove('record-pressing');
       if(st.recording){ e.preventDefault(); finishVoiceRecording(true,target); }
     };
     btn.addEventListener('pointerdown',e=>holdStart(e,'chat'));
