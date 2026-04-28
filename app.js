@@ -446,7 +446,7 @@
       state.uiTimer=setTimeout(()=>{
         target==='chat'?updateSendBtn():updateFavBtn();
         state.uiTimer=null;
-      },180);
+      },320);
     }
   }
 
