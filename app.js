@@ -411,11 +411,25 @@
 
   function clearMedia(){attachedMedia=[];renderMediaPreview();}
 
+  function getRecordingBarsCount(target='chat'){
+    const state=recordStates[target];
+    const wave=state?document.getElementById(state.waveId):null;
+    const barW=isDesktop()?3:4;
+    const gap=3;
+    const waveWidth=wave?Math.floor(wave.clientWidth):0;
+    if(waveWidth>0){
+      return Math.max(18,Math.floor((waveWidth+gap)/(barW+gap)));
+    }
+    return isDesktop()?58:46;
+  }
+
   function ensureRecordingBars(target='chat'){
     const state=recordStates[target];
     const wave=document.getElementById(state.waveId);
-    if(!wave||wave.childElementCount) return;
-    const heights=Array.from({length:46}).map(()=>8);
+    if(!wave) return;
+    const barsCount=getRecordingBarsCount(target);
+    if(wave.childElementCount===barsCount) return;
+    const heights=Array.from({length:barsCount}).map(()=>8);
     wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
     state.levels=heights.slice();
   }
@@ -429,7 +443,6 @@
     if(!pill||!mediaBtn||!input||!sendBtn)return;
     if(state.uiTimer){ clearTimeout(state.uiTimer); state.uiTimer=null; }
     if(on){
-      ensureRecordingBars(target);
       pill.classList.remove('recording-stopping');
       pill.classList.add('chat-recording');
       mediaBtn.classList.add('chat-voice-hidden');
@@ -438,6 +451,13 @@
       sendBtn.classList.remove('voice-mode');
       sendBtn.classList.add('record-hold');
       sendBtn.innerHTML=SEND_ICON_SVG;
+      ensureRecordingBars(target);
+      requestAnimationFrame(()=>{
+        ensureRecordingBars(target);
+      });
+      setTimeout(()=>{
+        if(state.recording) ensureRecordingBars(target);
+      },260);
     }else{
       sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('record-hold');
@@ -1546,14 +1566,18 @@
       return;
     }
     const metaEl=bubble.querySelector('.msg-meta');
+    const voiceMetaEl=bubble.querySelector('.voice-meta');
+    const voiceMetaWrap=voiceMetaEl?voiceMetaEl.parentElement:null;
     const isVoice=!!bubble.classList.contains('voice-bubble');
     const isNew=!rDiv;
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(isVoice) bubble.appendChild(rDiv);
+      if(isVoice&&voiceMetaEl) voiceMetaEl.before(rDiv);
       else if(metaEl)metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
+    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.nextElementSibling!==voiceMetaEl){
+      voiceMetaEl.before(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
@@ -3046,7 +3070,7 @@
       if(isVoice){
         const dur=media[0].durationMs||0;
         w.style.cssText='align-self:flex-end;max-width:276px;';
-        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true,text:text||'',quoteHtml});
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:false,text:text||'',quoteHtml});
       }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
