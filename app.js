@@ -411,11 +411,17 @@
 
   function clearMedia(){attachedMedia=[];renderMediaPreview();}
 
+  function getRecordingBarsCount(){
+    return isDesktop()?58:46;
+  }
+
   function ensureRecordingBars(target='chat'){
     const state=recordStates[target];
     const wave=document.getElementById(state.waveId);
-    if(!wave||wave.childElementCount) return;
-    const heights=Array.from({length:46}).map(()=>8);
+    if(!wave) return;
+    const barsCount=getRecordingBarsCount();
+    if(wave.childElementCount===barsCount) return;
+    const heights=Array.from({length:barsCount}).map(()=>8);
     wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
     state.levels=heights.slice();
   }
