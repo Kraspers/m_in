@@ -1510,6 +1510,7 @@
 
   /* ── Реакции ── */
   const reactionsData=new WeakMap();
+  let suppressReactionAnimations=false;
 
   function addReaction(bubble,emoji){
     let data=reactionsData.get(bubble)||{};
@@ -1535,8 +1536,12 @@
     const entries=Object.entries(data).filter(([,v])=>v.count>0);
     if(!entries.length){
       if(rDiv){
-        rDiv.classList.remove('visible');
-        setTimeout(()=>{if(rDiv.parentElement)rDiv.remove();},340);
+        if(suppressReactionAnimations){
+          if(rDiv.parentElement) rDiv.remove();
+        }else{
+          rDiv.classList.remove('visible');
+          setTimeout(()=>{if(rDiv.parentElement)rDiv.remove();},340);
+        }
       }
       return;
     }
@@ -1554,10 +1559,14 @@
     /* Анимированное удаление исчезнувших пилюль */
     Array.from(rDiv.querySelectorAll('.reaction-pill[data-emoji]')).forEach(pill=>{
       if(!currentEmojis.has(pill.dataset.emoji)){
-        pill.style.transition='transform 0.2s cubic-bezier(0.36,0,0.66,0),opacity 0.16s ease';
-        pill.style.transform='scale(0.4)';
-        pill.style.opacity='0';
-        setTimeout(()=>{if(pill.parentElement)pill.remove();},220);
+        if(suppressReactionAnimations){
+          if(pill.parentElement) pill.remove();
+        }else{
+          pill.style.transition='transform 0.2s cubic-bezier(0.36,0,0.66,0),opacity 0.16s ease';
+          pill.style.transform='scale(0.4)';
+          pill.style.opacity='0';
+          setTimeout(()=>{if(pill.parentElement)pill.remove();},220);
+        }
       }
     });
     /* Добавление новых или обновление существующих пилюль */
@@ -1573,7 +1582,7 @@
         pill.dataset.emoji=emoji;
         pill.textContent=emoji+' '+v.count;
         pill.onclick=e=>{e.stopPropagation();addReaction(bubble,emoji);};
-        if(!isNew){
+        if(!isNew&&!suppressReactionAnimations){
           /* Контейнер уже visible — анимируем вход вручную */
           pill.style.transform='scale(0.4)';
           pill.style.opacity='0';
@@ -1588,8 +1597,10 @@
         }
       }
     });
-    if(isNew){
+    if(isNew&&!suppressReactionAnimations){
       requestAnimationFrame(()=>requestAnimationFrame(()=>rDiv.classList.add('visible')));
+    }else if(isNew){
+      rDiv.classList.add('visible');
     }
   }
 
@@ -2542,6 +2553,7 @@
     function renderChatMessages(items){
       const wrap=document.getElementById('chat-messages');
       const bottom=document.getElementById('chat-bottom');
+      suppressReactionAnimations=true;
       messageMap.clear();
       wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
@@ -2617,6 +2629,7 @@
         reactionsData.set(bubble,reactionState);
         renderReactions(bubble);
       });
+      suppressReactionAnimations=false;
       bindRichTextInteractions(wrap);
       initVoicePlayers(wrap);
       const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
