@@ -415,7 +415,7 @@
     const state=recordStates[target];
     const wave=document.getElementById(state.waveId);
     if(!wave||wave.childElementCount) return;
-    const heights=Array.from({length:30}).map(()=>8);
+    const heights=Array.from({length:46}).map(()=>8);
     wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
     state.levels=heights.slice();
   }
@@ -430,21 +430,26 @@
     if(state.uiTimer){ clearTimeout(state.uiTimer); state.uiTimer=null; }
     if(on){
       ensureRecordingBars(target);
+      pill.classList.remove('recording-stopping');
       pill.classList.add('chat-recording');
       mediaBtn.classList.add('chat-voice-hidden');
       input.classList.add('chat-voice-hidden');
+      sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('voice-mode');
       sendBtn.classList.add('record-hold');
       sendBtn.innerHTML=SEND_ICON_SVG;
     }else{
-      pill.classList.remove('chat-recording');
-      mediaBtn.classList.remove('chat-voice-hidden');
-      input.classList.remove('chat-voice-hidden');
+      sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('record-hold');
+      pill.classList.add('recording-stopping');
       state.uiTimer=setTimeout(()=>{
+        pill.classList.remove('recording-stopping');
+        pill.classList.remove('chat-recording');
+        mediaBtn.classList.remove('chat-voice-hidden');
+        input.classList.remove('chat-voice-hidden');
         target==='chat'?updateSendBtn():updateFavBtn();
         state.uiTimer=null;
-      },180);
+      },430);
     }
   }
 
@@ -1505,6 +1510,7 @@
 
   /* ── Реакции ── */
   const reactionsData=new WeakMap();
+  let suppressReactionAnimations=false;
 
   function addReaction(bubble,emoji){
     let data=reactionsData.get(bubble)||{};
@@ -1530,8 +1536,12 @@
     const entries=Object.entries(data).filter(([,v])=>v.count>0);
     if(!entries.length){
       if(rDiv){
-        rDiv.classList.remove('visible');
-        setTimeout(()=>{if(rDiv.parentElement)rDiv.remove();},340);
+        if(suppressReactionAnimations){
+          if(rDiv.parentElement) rDiv.remove();
+        }else{
+          rDiv.classList.remove('visible');
+          setTimeout(()=>{if(rDiv.parentElement)rDiv.remove();},340);
+        }
       }
       return;
     }
@@ -1549,10 +1559,14 @@
     /* Анимированное удаление исчезнувших пилюль */
     Array.from(rDiv.querySelectorAll('.reaction-pill[data-emoji]')).forEach(pill=>{
       if(!currentEmojis.has(pill.dataset.emoji)){
-        pill.style.transition='transform 0.2s cubic-bezier(0.36,0,0.66,0),opacity 0.16s ease';
-        pill.style.transform='scale(0.4)';
-        pill.style.opacity='0';
-        setTimeout(()=>{if(pill.parentElement)pill.remove();},220);
+        if(suppressReactionAnimations){
+          if(pill.parentElement) pill.remove();
+        }else{
+          pill.style.transition='transform 0.2s cubic-bezier(0.36,0,0.66,0),opacity 0.16s ease';
+          pill.style.transform='scale(0.4)';
+          pill.style.opacity='0';
+          setTimeout(()=>{if(pill.parentElement)pill.remove();},220);
+        }
       }
     });
     /* Добавление новых или обновление существующих пилюль */
@@ -1568,7 +1582,7 @@
         pill.dataset.emoji=emoji;
         pill.textContent=emoji+' '+v.count;
         pill.onclick=e=>{e.stopPropagation();addReaction(bubble,emoji);};
-        if(!isNew){
+        if(!isNew&&!suppressReactionAnimations){
           /* Контейнер уже visible — анимируем вход вручную */
           pill.style.transform='scale(0.4)';
           pill.style.opacity='0';
@@ -1583,8 +1597,10 @@
         }
       }
     });
-    if(isNew){
+    if(isNew&&!suppressReactionAnimations){
       requestAnimationFrame(()=>requestAnimationFrame(()=>rDiv.classList.add('visible')));
+    }else if(isNew){
+      rDiv.classList.add('visible');
     }
   }
 
@@ -2209,13 +2225,17 @@
       const hasMedia=target==='chat'?attachedMedia.length:attachedFavMedia.length;
       if(!sendBtn.classList.contains('voice-mode')||!input||input.value.trim()||hasMedia||st.recording) return;
       e.preventDefault();
+      sendBtn.classList.remove('record-hold');
+      sendBtn.classList.add('record-pressing');
       st.holdTimer=setTimeout(async ()=>{
         try{ await beginVoiceRecording(target); }catch(_){ showTopToast('Нет доступа к микрофону',true); }
       },1000);
     };
     const holdEnd=(e,target)=>{
       const st=recordStates[target];
+      const sendBtn=target==='chat'?document.getElementById('send-btn'):document.getElementById('fav-send-btn');
       if(st.holdTimer){ clearTimeout(st.holdTimer); st.holdTimer=null; }
+      if(sendBtn&&!st.recording) sendBtn.classList.remove('record-pressing');
       if(st.recording){ e.preventDefault(); finishVoiceRecording(true,target); }
     };
     btn.addEventListener('pointerdown',e=>holdStart(e,'chat'));
@@ -2533,6 +2553,7 @@
     function renderChatMessages(items){
       const wrap=document.getElementById('chat-messages');
       const bottom=document.getElementById('chat-bottom');
+      suppressReactionAnimations=true;
       messageMap.clear();
       wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
@@ -2608,6 +2629,7 @@
         reactionsData.set(bubble,reactionState);
         renderReactions(bubble);
       });
+      suppressReactionAnimations=false;
       bindRichTextInteractions(wrap);
       initVoicePlayers(wrap);
       const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
