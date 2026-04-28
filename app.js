@@ -449,7 +449,7 @@
         input.classList.remove('chat-voice-hidden');
         target==='chat'?updateSendBtn():updateFavBtn();
         state.uiTimer=null;
-      },340);
+      },430);
     }
   }
 
