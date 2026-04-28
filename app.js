@@ -510,21 +510,27 @@
     const state=recordStates[target];
     const wave=document.getElementById(state.waveId);
     if(!state.analyser||!wave) return;
-    const bars=Array.from(wave.querySelectorAll('.record-bar'));
-    const buf=new Uint8Array(state.analyser.fftSize);
+    let bars=Array.from(wave.querySelectorAll('.record-bar'));
+    const buf=new Uint8Array(state.analyser.frequencyBinCount);
     const tick=()=>{
       if(!state.recording) return;
-      state.analyser.getByteTimeDomainData(buf);
-      let sum=0;
-      for(let i=0;i<buf.length;i++){
-        const n=(buf[i]-128)/128;
-        sum+=n*n;
+      if(!bars.length){
+        bars=Array.from(wave.querySelectorAll('.record-bar'));
+        if(!bars.length){
+          state.raf=requestAnimationFrame(tick);
+          return;
+        }
       }
-      const rms=Math.sqrt(sum/buf.length);
-      const h=Math.max(6,Math.min(28,Math.round(6+rms*62)));
-      state.levels.push(h);
-      if(state.levels.length>bars.length) state.levels.shift();
-      bars.forEach((bar,i)=>{ bar.style.height=`${state.levels[i]||8}px`; });
+      state.analyser.getByteFrequencyData(buf);
+      bars.forEach((bar,i)=>{
+        const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
+        const v=buf[idx]||0;
+        const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
+        const prev=state.levels[i]||8;
+        const next=Math.round(prev*0.45+targetH*0.55);
+        state.levels[i]=next;
+        bar.style.height=`${next}px`;
+      });
       state.raf=requestAnimationFrame(tick);
     };
     state.raf=requestAnimationFrame(tick);
@@ -538,7 +544,11 @@
     const source=state.analyserCtx.createMediaStreamSource(state.stream);
     state.analyser=state.analyserCtx.createAnalyser();
     state.analyser.fftSize=256;
+    state.analyser.smoothingTimeConstant=0.72;
     source.connect(state.analyser);
+    if(state.analyserCtx.state==='suspended'){
+      await state.analyserCtx.resume().catch(()=>{});
+    }
     state.recorder=new MediaRecorder(state.stream);
     state.recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) state.chunks.push(e.data); };
     state.recorder.onstop=async ()=>{
