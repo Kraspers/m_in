@@ -430,13 +430,6 @@
     if(state.uiTimer){ clearTimeout(state.uiTimer); state.uiTimer=null; }
     if(on){
       ensureRecordingBars(target);
-      pill.classList.remove('recording-exit');
-      pill.classList.add('recording-enter');
-      clearTimeout(state.pillAnimTimer);
-      state.pillAnimTimer=setTimeout(()=>{
-        pill.classList.remove('recording-enter');
-        state.pillAnimTimer=null;
-      },280);
       pill.classList.add('chat-recording');
       mediaBtn.classList.add('chat-voice-hidden');
       input.classList.add('chat-voice-hidden');
@@ -445,13 +438,6 @@
       sendBtn.classList.add('record-hold');
       sendBtn.innerHTML=SEND_ICON_SVG;
     }else{
-      clearTimeout(state.pillAnimTimer);
-      pill.classList.remove('recording-enter');
-      pill.classList.add('recording-exit');
-      state.pillAnimTimer=setTimeout(()=>{
-        pill.classList.remove('recording-exit');
-        state.pillAnimTimer=null;
-      },240);
       pill.classList.remove('chat-recording');
       mediaBtn.classList.remove('chat-voice-hidden');
       input.classList.remove('chat-voice-hidden');
