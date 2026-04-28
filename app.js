@@ -514,14 +514,11 @@
     const buf=new Uint8Array(state.analyser.fftSize);
     const tick=()=>{
       if(!state.recording) return;
-      state.analyser.getByteTimeDomainData(buf);
+      state.analyser.getByteFrequencyData(buf);
       let sum=0;
-      for(let i=0;i<buf.length;i++){
-        const n=(buf[i]-128)/128;
-        sum+=n*n;
-      }
-      const rms=Math.sqrt(sum/buf.length);
-      const h=Math.max(6,Math.min(28,Math.round(6+rms*62)));
+      for(let i=0;i<buf.length;i++) sum+=buf[i];
+      const avg=sum/Math.max(1,buf.length);
+      const h=Math.max(6,Math.min(28,Math.round(6+(avg/255)*24)));
       state.levels.push(h);
       if(state.levels.length>bars.length) state.levels.shift();
       bars.forEach((bar,i)=>{ bar.style.height=`${state.levels[i]||8}px`; });
@@ -538,7 +535,11 @@
     const source=state.analyserCtx.createMediaStreamSource(state.stream);
     state.analyser=state.analyserCtx.createAnalyser();
     state.analyser.fftSize=256;
+    state.analyser.smoothingTimeConstant=0.72;
     source.connect(state.analyser);
+    if(state.analyserCtx.state==='suspended'){
+      await state.analyserCtx.resume().catch(()=>{});
+    }
     state.recorder=new MediaRecorder(state.stream);
     state.recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) state.chunks.push(e.data); };
     state.recorder.onstop=async ()=>{
@@ -565,7 +566,7 @@
     state.timerInt=setInterval(()=>{
       const el=document.getElementById(state.timeId);
       if(el) el.textContent=formatVoiceTime(Date.now()-state.startTs);
-    },200);
+    },120);
     state.recorder.start();
     state.recording=true;
     setRecordingUiActive(true,target);
@@ -1573,11 +1574,11 @@
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(isVoice&&voiceMetaEl) voiceMetaEl.before(rDiv);
+      if(isVoice&&voiceMetaEl) voiceMetaEl.after(rDiv);
       else if(metaEl)metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
-    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.nextElementSibling!==voiceMetaEl){
-      voiceMetaEl.before(rDiv);
+    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.previousElementSibling!==voiceMetaEl){
+      voiceMetaEl.after(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
@@ -2210,6 +2211,17 @@
     if(copyToastTimer)clearTimeout(copyToastTimer);
     copyToastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
   }
+  function enableBasicSourceProtection(){
+    document.addEventListener('contextmenu',e=>e.preventDefault());
+    document.addEventListener('keydown',e=>{
+      const k=(e.key||'').toLowerCase();
+      const ctrlOrMeta=e.ctrlKey||e.metaKey;
+      if(k==='f12'){ e.preventDefault(); return; }
+      if(ctrlOrMeta&&e.shiftKey&&(k==='i'||k==='j'||k==='c')){ e.preventDefault(); return; }
+      if(ctrlOrMeta&&(k==='u'||k==='s')) e.preventDefault();
+    });
+  }
+  enableBasicSourceProtection();
   function copyPrivacyCode(){
     const code=document.getElementById('privacy-code-text').textContent;
     navigator.clipboard.writeText(code).catch(()=>{});

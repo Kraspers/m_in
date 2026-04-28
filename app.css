@@ -44,8 +44,8 @@
   .voice-time{margin-left:auto;}
   .voice-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);}
   .voice-caption{margin-top:6px;font-size:14px;line-height:1.35;word-break:break-word;}
-  .voice-bubble .msg-reactions{flex-basis:100%;margin:8px 0 0;align-self:stretch;}
-  .voice-bubble .msg-reactions.visible{margin-top:8px;margin-bottom:2px;}
+  .voice-bubble .msg-reactions{flex-basis:100%;margin:6px 0 0;align-self:stretch;}
+  .voice-bubble .msg-reactions.visible{margin-top:6px;margin-bottom:2px;}
   #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
   .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;max-width:100%;min-width:0;}
