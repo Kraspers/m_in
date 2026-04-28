@@ -230,8 +230,8 @@
     return `<span style="display:inline-flex;width:${size}px;height:${size}px;">${GHOST_ICON_SVG}</span>`;
   }
   const recordStates={
-    chat:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'record-wave',timeId:'record-time',pillSel:'#screen-chat .input-pill',mediaBtnId:'media-btn',inputId:'msg-input',sendBtnId:'send-btn'},
-    fav:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'fav-record-wave',timeId:'fav-record-time',pillSel:'#fav-input-pill',mediaBtnId:'fav-media-btn',inputId:'fav-input',sendBtnId:'fav-send-btn'}
+    chat:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,meterSink:null,raf:0,levels:[],waveId:'record-wave',timeId:'record-time',pillSel:'#screen-chat .input-pill',mediaBtnId:'media-btn',inputId:'msg-input',sendBtnId:'send-btn'},
+    fav:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,meterSink:null,raf:0,levels:[],waveId:'fav-record-wave',timeId:'fav-record-time',pillSel:'#fav-input-pill',mediaBtnId:'fav-media-btn',inputId:'fav-input',sendBtnId:'fav-send-btn'}
   };
   let activeVoiceAudio=null;
   let pendingVoiceSendFn=null;
@@ -546,6 +546,10 @@
     state.analyser.fftSize=256;
     state.analyser.smoothingTimeConstant=0.72;
     source.connect(state.analyser);
+    state.meterSink=state.analyserCtx.createGain();
+    state.meterSink.gain.value=0;
+    state.analyser.connect(state.meterSink);
+    state.meterSink.connect(state.analyserCtx.destination);
     if(state.analyserCtx.state==='suspended'){
       await state.analyserCtx.resume().catch(()=>{});
     }
@@ -560,7 +564,7 @@
       if(state.raf) cancelAnimationFrame(state.raf);
       state.raf=0;
       if(state.analyserCtx) state.analyserCtx.close().catch(()=>{});
-      state.analyserCtx=null;state.analyser=null;
+      state.analyserCtx=null;state.analyser=null;state.meterSink=null;
       setRecordingUiActive(false,target);
       clearInterval(state.timerInt);state.timerInt=null;
       const tEl=document.getElementById(state.timeId);if(tEl) tEl.textContent='00:00';
