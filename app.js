@@ -411,7 +411,15 @@
 
   function clearMedia(){attachedMedia=[];renderMediaPreview();}
 
-  function getRecordingBarsCount(){
+  function getRecordingBarsCount(target='chat'){
+    const state=recordStates[target];
+    const wave=state?document.getElementById(state.waveId):null;
+    const barW=isDesktop()?3:4;
+    const gap=3;
+    const waveWidth=wave?Math.floor(wave.clientWidth):0;
+    if(waveWidth>0){
+      return Math.max(18,Math.floor((waveWidth+gap)/(barW+gap)));
+    }
     return isDesktop()?58:46;
   }
 
@@ -419,7 +427,7 @@
     const state=recordStates[target];
     const wave=document.getElementById(state.waveId);
     if(!wave) return;
-    const barsCount=getRecordingBarsCount();
+    const barsCount=getRecordingBarsCount(target);
     if(wave.childElementCount===barsCount) return;
     const heights=Array.from({length:barsCount}).map(()=>8);
     wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
@@ -435,7 +443,6 @@
     if(!pill||!mediaBtn||!input||!sendBtn)return;
     if(state.uiTimer){ clearTimeout(state.uiTimer); state.uiTimer=null; }
     if(on){
-      ensureRecordingBars(target);
       pill.classList.remove('recording-stopping');
       pill.classList.add('chat-recording');
       mediaBtn.classList.add('chat-voice-hidden');
@@ -444,6 +451,10 @@
       sendBtn.classList.remove('voice-mode');
       sendBtn.classList.add('record-hold');
       sendBtn.innerHTML=SEND_ICON_SVG;
+      ensureRecordingBars(target);
+      requestAnimationFrame(()=>{
+        ensureRecordingBars(target);
+      });
     }else{
       sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('record-hold');
@@ -3052,7 +3063,7 @@
       if(isVoice){
         const dur=media[0].durationMs||0;
         w.style.cssText='align-self:flex-end;max-width:276px;';
-        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:true,text:text||'',quoteHtml});
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:'',durationMs:dur,timeText:t,tickHtml:'',waveform:media[0].waveform||[],showUnreadDot:false,text:text||'',quoteHtml});
       }else if(media.length){
         const textPart=text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${safeText}</p>`:'';
         const topBr=quoteHtml?'0':'calc(1.4rem - 3px)';
