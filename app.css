@@ -6,19 +6,19 @@
   .scroll-area::-webkit-scrollbar{display:none;}
   .header-blur{backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);background:rgba(100,100,110,0.28);border-radius:0 0 2.2rem 2.2rem;flex-shrink:0;}
   .input-bar{padding:8px 10px 24px;flex-shrink:0;background:transparent;}
-  .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;height:52px;overflow:hidden;will-change:height,padding,gap;transition:height .22s cubic-bezier(.22,1,.36,1),padding .22s cubic-bezier(.22,1,.36,1),gap .22s cubic-bezier(.22,1,.36,1);}
-  .input-pill.chat-recording{height:86px;border-radius:34px;padding:14px 18px 14px 4px;gap:12px;}
-  .chat-voice-hidden{opacity:0;pointer-events:none;transform:translateY(4px) scale(.97);max-width:0!important;width:0!important;flex:0 0 0!important;padding:0!important;margin:0!important;overflow:hidden;transition:max-width .22s ease,opacity .18s ease,transform .22s ease;}
-  #recording-ui{display:flex;align-items:center;gap:6px;flex:1;min-width:0;max-width:0;opacity:0;transform:translateY(6px);overflow:hidden;pointer-events:none;transition:max-width .22s ease,opacity .22s ease,transform .22s ease;}
+  .input-pill{display:flex;align-items:center;gap:6px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:999px;padding:6px 6px 6px 12px;height:52px;overflow:hidden;will-change:height,padding,gap;transition:height .3s cubic-bezier(.22,1,.36,1),padding .3s cubic-bezier(.22,1,.36,1),gap .3s cubic-bezier(.22,1,.36,1);}
+  .input-pill.chat-recording{height:86px;border-radius:999px;padding:14px 18px 14px 4px;gap:12px;}
+  .chat-voice-hidden{opacity:0;pointer-events:none;transform:translateY(4px) scale(.97);max-width:0!important;width:0!important;flex:0 0 0!important;padding:0!important;margin:0!important;overflow:hidden;transition:max-width .28s cubic-bezier(.22,1,.36,1),opacity .24s ease,transform .28s cubic-bezier(.22,1,.36,1);}
+  #recording-ui{display:flex;align-items:center;gap:4px;flex:1;min-width:0;max-width:0;opacity:0;transform:translateY(6px);overflow:hidden;pointer-events:none;transition:max-width .28s cubic-bezier(.22,1,.36,1),opacity .24s ease,transform .28s cubic-bezier(.22,1,.36,1);}
   .input-pill.chat-recording #recording-ui{max-width:100%;opacity:1;transform:translateY(0);}
-  #fav-recording-ui{display:flex;align-items:center;gap:6px;flex:1;min-width:0;max-width:0;opacity:0;transform:translateY(6px);overflow:hidden;pointer-events:none;transition:max-width .22s ease,opacity .22s ease,transform .22s ease;}
+  #fav-recording-ui{display:flex;align-items:center;gap:4px;flex:1;min-width:0;max-width:0;opacity:0;transform:translateY(6px);overflow:hidden;pointer-events:none;transition:max-width .28s cubic-bezier(.22,1,.36,1),opacity .24s ease,transform .28s cubic-bezier(.22,1,.36,1);}
   #fav-input-pill.chat-recording #fav-recording-ui{max-width:100%;opacity:1;transform:translateY(0);}
   #record-dot{width:11px;height:11px;border-radius:50%;background:#ff4d4f;flex:0 0 auto;margin-left:0;animation:recordDotPulse 1.2s ease-in-out infinite;}
   #fav-record-dot{width:11px;height:11px;border-radius:50%;background:#ff4d4f;flex:0 0 auto;margin-left:0;animation:recordDotPulse 1.2s ease-in-out infinite;}
   @keyframes recordDotPulse{0%,100%{opacity:.35;transform:scale(.9);}50%{opacity:1;transform:scale(1.08);}}
   @keyframes recordHoldPop{0%{transform:scale(.9);}60%{transform:scale(1.12);}100%{transform:scale(1.06);}}
-  #record-wave{display:flex;align-items:center;gap:3px;height:30px;flex:1;min-width:0;margin:0 0 0 2px;}
-  #fav-record-wave{display:flex;align-items:center;gap:3px;height:30px;flex:1;min-width:0;margin:0 0 0 2px;}
+  #record-wave{display:flex;align-items:center;gap:3px;height:30px;flex:1;min-width:0;margin:0 0 0 4px;}
+  #fav-record-wave{display:flex;align-items:center;gap:3px;height:30px;flex:1;min-width:0;margin:0 0 0 4px;}
   .record-bar{width:3px;border-radius:3px;background:#fff;height:8px;transform-origin:center;transition:height .09s linear;}
   #record-time{color:rgba(255,255,255,.9);font-size:14px;font-variant-numeric:tabular-nums;min-width:44px;margin-right:8px;margin-left:0;text-align:right;}
   #fav-record-time{color:rgba(255,255,255,.9);font-size:14px;font-variant-numeric:tabular-nums;min-width:44px;margin-right:8px;margin-left:0;text-align:right;}
@@ -29,8 +29,8 @@
   @media (min-width:768px){
     #screen-chat .input-pill.chat-recording,#fav-input-pill.chat-recording{padding-left:4px;padding-right:8px;}
     #record-dot,#fav-record-dot{margin-left:0;}
-    #record-wave,#fav-record-wave{margin:0 0 0 2px;min-width:0;}
-    #record-time,#fav-record-time{min-width:56px;margin-left:0;margin-right:8px;text-align:left;}
+    #record-wave,#fav-record-wave{margin:0 0 0 4px;min-width:0;}
+    #record-time,#fav-record-time{min-width:44px;margin-left:0;margin-right:8px;text-align:right;}
     #send-btn.record-hold,#fav-send-btn.record-hold{margin-left:auto;}
   }
   .voice-bubble{width:276px;max-width:276px;display:flex;flex-direction:row!important;align-items:flex-start;gap:10px;padding:8px 10px 7px!important;flex-wrap:wrap;}
