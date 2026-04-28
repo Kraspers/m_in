@@ -455,6 +455,9 @@
       requestAnimationFrame(()=>{
         ensureRecordingBars(target);
       });
+      setTimeout(()=>{
+        if(state.recording) ensureRecordingBars(target);
+      },260);
     }else{
       sendBtn.classList.remove('record-pressing');
       sendBtn.classList.remove('record-hold');
@@ -1563,14 +1566,18 @@
       return;
     }
     const metaEl=bubble.querySelector('.msg-meta');
+    const voiceMetaEl=bubble.querySelector('.voice-meta');
+    const voiceMetaWrap=voiceMetaEl?voiceMetaEl.parentElement:null;
     const isVoice=!!bubble.classList.contains('voice-bubble');
     const isNew=!rDiv;
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(isVoice) bubble.appendChild(rDiv);
+      if(isVoice&&voiceMetaEl) voiceMetaEl.before(rDiv);
       else if(metaEl)metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
+    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.nextElementSibling!==voiceMetaEl){
+      voiceMetaEl.before(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
