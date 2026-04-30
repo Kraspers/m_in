@@ -26,6 +26,33 @@ const MIME_TYPES = {
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
 const linkPreviewCache = new Map();
+const ADMIN_PASSWORD_HASH = hashPassword('m_inall106@');
+const adminTokens = new Map();
+function adminAuthed(req){ const t=req.headers['x-admin-token']; return !!(t&&adminTokens.has(t)); }
+function onlineUserIds(){ const set=new Set(); for(const sess of sessions.values()) set.add(sess.userId); return set; }
+function enforceUserBan(user){
+  if(!user||!user.adminBan) return null;
+  const b=user.adminBan;
+  if(b.permanent) return b;
+  if(b.until && new Date(b.until).getTime()>Date.now()) return b;
+  return null;
+}
+
+function ensureSupportUser(db){
+  if(!Array.isArray(db.users)) db.users=[];
+  let u=db.users.find(x=>String(x.username||'').toLowerCase()==='min');
+  if(u) return u;
+  u={id:crypto.randomUUID(),name:'MIN',username:'min',passwordHash:hashPassword(makeToken()),vpscCode:makeUniqueVpscCode(db),blockedUsers:[],pinnedChatUserIds:[],bio:'Официальная поддержка',avatarDataUrl:'/min-app.png',bannerDataUrl:''};
+  db.users.push(u);
+  return u;
+}
+function createSupportWelcome(db,user,support){
+  if(!Array.isArray(db.messages)) db.messages=[];
+  const hasThread=db.messages.some(m=>(m.fromUserId===support.id&&m.toUserId===user.id)||(m.fromUserId===user.id&&m.toUserId===support.id));
+  if(hasThread) return;
+  db.messages.push({id:crypto.randomUUID(),fromUserId:support.id,toUserId:user.id,text:`Привет, ${user.name||user.username}! Добро пожаловать в MIN. Это официальный чат поддержки — мы всегда на связи.`,media:[],voiceDurationMs:0,voiceWaveform:[],listenedBy:[support.id],replyToMessageId:'',forwardedFromName:'',reactions:{},pinnedBy:[],createdAt:new Date().toISOString()});
+}
+
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -271,6 +298,7 @@ function handleApi(req, res, urlObj) {
       .then(body => {
         const { name, username, password } = body;
         if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
+        if (String(username).trim().toLowerCase() === 'min') return sendJson(res, 409, { error: 'username занят' });
         const db = readDb();
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
@@ -288,6 +316,8 @@ function handleApi(req, res, urlObj) {
           bannerDataUrl: ''
         };
         db.users.push(user);
+        const support = ensureSupportUser(db);
+        createSupportWelcome(db, user, support);
         writeDb(db);
         const session = createSession(req, user.id);
         const token = session.token;
@@ -303,7 +333,9 @@ function handleApi(req, res, urlObj) {
         const { username, password } = body;
         const db = readDb();
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
+        if (String(username||'').toLowerCase()==='min') return sendJson(res,401,{error:'Неверный логин или пароль'});
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        const ban=enforceUserBan(user); if(ban){ const until=ban.permanent?'навсегда':(ban.until||''); return sendJson(res,403,{error:`Ваш аккаунт был заблокирован администратором до ${until}. Причина: ${ban.reason||'Не указана'}`,ban}); }
         if (!user.vpscCode) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
@@ -357,6 +389,7 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        const ban=enforceUserBan(user); if(ban){ const until=ban.permanent?'навсегда':(ban.until||''); return sendJson(res,403,{error:`Вход в этот аккаунт по VPSC ограничен до ${until}. Причина: ${ban.reason||'Не указана'}`,ban}); }
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -708,6 +741,47 @@ function handleApi(req, res, urlObj) {
     });
   }
 
+
+  if (pathname === '/api/hidden-root/login' && method === 'POST') {
+    return readBody(req).then(body=>{
+      if (hashPassword(String(body.password||''))!==ADMIN_PASSWORD_HASH) return sendJson(res,401,{error:'Неверный пароль'});
+      const t=makeToken(); adminTokens.set(t,{createdAt:new Date().toISOString()});
+      sendJson(res,200,{token:t});
+    }).catch(err=>sendJson(res,400,{error:err.message}));
+  }
+  if (pathname === '/api/hidden-root/stats' && method === 'GET') {
+    if(!adminAuthed(req)) return sendJson(res,401,{error:'Unauthorized'});
+    const db=readDb();
+    return sendJson(res,200,{totalUsers:(db.users||[]).length,onlineUsers:onlineUserIds().size,totalMessages:(db.messages||[]).length});
+  }
+  if (pathname === '/api/hidden-root/users' && method === 'GET') {
+    if(!adminAuthed(req)) return sendJson(res,401,{error:'Unauthorized'});
+    const db=readDb();
+    const items=(db.users||[]).filter(u=>String(u.username||'').toLowerCase()!=='min').map(u=>({id:u.id,name:u.name||u.username,username:u.username,bio:u.bio||'',avatarDataUrl:u.avatarDataUrl||'',bannerDataUrl:u.bannerDataUrl||'',lastSeenAt:Array.from(sessions.values()).filter(s=>s.userId===u.id).sort((a,b)=>String(b.lastSeenAt||'').localeCompare(String(a.lastSeenAt||'')))[0]?.lastSeenAt||'',adminBan:u.adminBan||null}));
+    return sendJson(res,200,{items});
+  }
+  const adminBanMatch=pathname.match(/^\/api\/hidden-root\/users\/([^/]+)\/ban$/);
+  if(adminBanMatch && method==='POST'){
+    if(!adminAuthed(req)) return sendJson(res,401,{error:'Unauthorized'});
+    return readBody(req).then(body=>{
+      const db=readDb(); const uid=String(adminBanMatch[1]); const u=(db.users||[]).find(x=>x.id===uid); if(!u) return sendJson(res,404,{error:'Пользователь не найден'});
+      const permanent=!!body.permanent; const mins=Math.max(1,Math.min(60*24*365,Number(body.durationMinutes)||60));
+      u.adminBan={reason:String(body.reason||'Без причины').slice(0,300), permanent, until: permanent?'':new Date(Date.now()+mins*60000).toISOString(), updatedAt:new Date().toISOString()};
+      writeDb(db);
+      for(const [token,sess] of sessions.entries()){ if(sess.userId===u.id){ sendEventToSessionToken(token,'force_logout',{reason:'admin_ban',ban:u.adminBan}); sseClients.delete(token); sessions.delete(token);} }
+      return sendJson(res,200,{ok:true,ban:u.adminBan});
+    }).catch(err=>sendJson(res,400,{error:err.message}));
+  }
+
+  const adminUnbanMatch=pathname.match(/^\/api\/hidden-root\/users\/([^/]+)\/unban$/);
+  if(adminUnbanMatch && method==='POST'){
+    if(!adminAuthed(req)) return sendJson(res,401,{error:'Unauthorized'});
+    const db=readDb(); const uid=String(adminUnbanMatch[1]); const u=(db.users||[]).find(x=>x.id===uid); if(!u) return sendJson(res,404,{error:'Пользователь не найден'});
+    delete u.adminBan; delete u.vpscBan;
+    writeDb(db);
+    return sendJson(res,200,{ok:true});
+  }
+
   if (pathname === '/api/messages' && method === 'POST') {
     return readBody(req)
       .then(body => {
@@ -850,6 +924,10 @@ const server = http.createServer((req, res) => {
 
   if (requestUrl.pathname === '/healthz') {
     return sendJson(res, 200, { status: 'ok' });
+  }
+
+  if (requestUrl.pathname === '/x-7f3a-root-gate' || requestUrl.pathname === '/x7f3arootgate') {
+    return sendFile(res, path.join(ROOT, 'admin.html'));
   }
 
   const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;

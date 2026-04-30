@@ -11,6 +11,7 @@
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
   let me=null;
+  function isSupportPeer(p){ return !!p && String(p.username||'').toLowerCase()==='min'; }
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
   function hideAppLoading(){
@@ -511,7 +512,8 @@
     const wave=document.getElementById(state.waveId);
     if(!state.analyser||!wave) return;
     let bars=Array.from(wave.querySelectorAll('.record-bar'));
-    const buf=new Uint8Array(state.analyser.frequencyBinCount);
+    const freqBuf=new Uint8Array(state.analyser.frequencyBinCount);
+    const timeBuf=new Uint8Array(state.analyser.fftSize);
     const tick=()=>{
       if(!state.recording) return;
       if(!bars.length){
@@ -521,11 +523,15 @@
           return;
         }
       }
-      state.analyser.getByteFrequencyData(buf);
+      state.analyser.getByteFrequencyData(freqBuf);
+      state.analyser.getByteTimeDomainData(timeBuf);
+      let rms=0; for(let k=0;k<timeBuf.length;k++){ const n=(timeBuf[k]-128)/128; rms+=n*n; }
+      rms=Math.sqrt(rms/Math.max(1,timeBuf.length));
       bars.forEach((bar,i)=>{
-        const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
-        const v=buf[idx]||0;
-        const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
+        const idx=Math.floor((i/Math.max(1,bars.length-1))*(freqBuf.length-1));
+        const v=freqBuf[idx]||0;
+        const mix=Math.min(1,(v/255)*0.75 + rms*1.15);
+        const targetH=Math.max(6,Math.min(28,Math.round(6+mix*22)));
         const prev=state.levels[i]||8;
         const next=Math.round(prev*0.45+targetH*0.55);
         state.levels[i]=next;
@@ -2524,7 +2530,7 @@
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
-            <span class="chat-row-preview">${esc(c.preview||'')}</span>
+            <span class="chat-row-preview">${isSupportPeer(c)?'Официальная поддержка':esc(c.preview||'')}</span>
           </div>
         </button>`;
         }).join('');
@@ -2583,7 +2589,7 @@
       if(card){
         card.style.display='flex';
         if(cardName) cardName.textContent=peer.name||'Пользователь';
-        if(cardU) cardU.textContent=peer.username?`@${peer.username}`:'';
+        if(cardU) cardU.textContent=isSupportPeer(peer)?'Официальная поддержка':(peer.username?`@${peer.username}`:'');
         if(cardA){
           if(peer.avatarDataUrl) cardA.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
@@ -2851,12 +2857,15 @@
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
       });
-      stream.addEventListener('force_logout',()=>{
+      stream.addEventListener('force_logout',ev=>{
+        let payload={}; try{ payload=JSON.parse(ev.data||'{}'); }catch(_){}
         authToken='';
         localStorage.removeItem('auth_token');
+        if(payload&&payload.ban){
+          sessionStorage.setItem('ban_notice',JSON.stringify(payload.ban));
+        }
         try{ stream.close(); }catch(_){}
         stream=null;
-        openAuth('login');
         location.reload();
       });
     }
