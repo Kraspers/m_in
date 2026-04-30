@@ -3362,24 +3362,17 @@
         host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
         logo.style.opacity='0';
         logo.style.visibility='hidden';
-        wrap.classList.add('open');
-        const pinAboveTitle=()=>{
-          const t=title.getBoundingClientRect();
-          const size=Math.max(dock.getBoundingClientRect().width||124,124);
-          host.style.width=size+'px'; host.style.height=size+'px';
-          host.style.left=(t.left+(t.width-size)/2)+'px';
-          host.style.top=(t.top-size-12)+'px';
-        };
-        setTimeout(pinAboveTitle,40);
         const slideable=document.getElementById('min-menu-slideable');
-        if(slideable){
-          const onEnd=(ev)=>{
-            if(ev.propertyName!=='transform') return;
-            slideable.removeEventListener('transitionend',onEnd);
-            pinAboveTitle();
-          };
-          slideable.addEventListener('transitionend',onEnd);
-        }
+        const d=dock.getBoundingClientRect();
+        const size=Math.max(d.width||124,124);
+        const slideH=slideable?slideable.getBoundingClientRect().height:0;
+        const targetTop=d.top-slideH;
+        wrap.classList.add('open');
+        setTimeout(()=>{
+          host.style.width=size+'px'; host.style.height=size+'px';
+          host.style.left=d.left+'px';
+          host.style.top=targetTop+'px';
+        },40);
       }
       function closeMenu(){
         const host=wrap.querySelector('#min-menu-logo-flight');
