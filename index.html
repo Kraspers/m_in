@@ -97,7 +97,7 @@
 
 <div id="screen-list" class="screen active">
   <div class="header-blur" style="padding:36px 20px 18px;display:flex;align-items:center;justify-content:space-between;">
-    <span style="font-size:22px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;">Minimum<img src="/logo_app.png" style="height:26px;width:26px;object-fit:contain;border-radius:6px;vertical-align:middle;"></span>
+    <button id="min-brand-trigger" style="font-size:22px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;">Minimum<img id="min-brand-logo" src="/logo_app.png" style="height:26px;width:26px;object-fit:contain;border-radius:6px;vertical-align:middle;"></button>
     <div style="display:flex;align-items:center;gap:10px;">
       <button onclick="showScreen('screen-search')" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -232,6 +232,27 @@
 </div>
 
 <!-- ════════════════ ТОСТ СКОПИРОВАНО ════════════════ -->
+
+<div id="min-menu-wrap">
+  <div id="min-menu-bg"></div>
+  <div id="min-menu-slideable">
+    <div id="min-menu-close-row">
+      <button id="min-menu-close-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>MIN</button>
+    </div>
+    <div id="min-menu-sheet">
+      <div id="min-menu-grip"></div>
+      <div id="min-menu-logo-dock"></div>
+      <div id="min-menu-title">Minimum Messenger</div>
+      <div id="min-menu-version">Version 1.6 beta</div>
+      <div id="min-menu-share">
+        <img id="min-menu-qr" src="" alt="QR code"/>
+        <div id="min-menu-share-caption">Поделитесь MIN</div>
+      </div>
+    </div>
+  </div>
+  <div id="min-menu-logo-flight"></div>
+</div>
+
 <div id="copy-toast">Скопировано</div>
 
 <!-- ════════════════ ШТОРКА — УСТРОЙСТВА ════════════════ -->

@@ -70,11 +70,6 @@
   /* ── Избранное ── */
   function openFavorites(){ showScreen('screen-favorites'); }
   function closeProfileSidebar(){
-    if(isDesktop()){
-      resetScreen(document.getElementById('screen-profile'));
-      resetScreen(document.getElementById('screen-search'));
-      return;
-    }
     showScreen('screen-list');
   }
   window.closeProfileSidebar=closeProfileSidebar;
@@ -3346,7 +3341,47 @@
         if(u) openUserProfileView(u);
       });
     }
-    (async function initBackend(){
+    
+    (function initMinMenu(){
+      const trigger=document.getElementById('min-brand-trigger');
+      const wrap=document.getElementById('min-menu-wrap');
+      const bg=document.getElementById('min-menu-bg');
+      const closeBtn=document.getElementById('min-menu-close-btn');
+      const logo=document.getElementById('min-brand-logo');
+      const dock=document.getElementById('min-menu-logo-dock');
+      const title=document.getElementById('min-menu-title');
+      const qr=document.getElementById('min-menu-qr');
+      if(!trigger||!wrap||!bg||!closeBtn||!logo||!dock||!title) return;
+      if(qr) qr.src=`https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(location.origin)}`;
+      let lastTap=0;
+      function openMenu(){
+        const r=logo.getBoundingClientRect();
+        const host=wrap.querySelector('#min-menu-logo-flight');
+        host.style.left=r.left+'px'; host.style.top=r.top+'px';
+        host.style.width=r.width+'px'; host.style.height=r.height+'px';
+        host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
+        wrap.classList.add('open');
+        setTimeout(()=>{
+          const t=title.getBoundingClientRect();
+          const size=dock.getBoundingClientRect().width||88;
+          host.style.width=size+'px'; host.style.height=size+'px';
+          host.style.left=(t.left+(t.width-size)/2)+'px';
+          host.style.top=(t.top-size-10)+'px';
+        },40);
+      }
+      function closeMenu(){
+        const host=wrap.querySelector('#min-menu-logo-flight');
+        const r=logo.getBoundingClientRect();
+        host.style.left=r.left+'px'; host.style.top=r.top+'px';
+        host.style.width=r.width+'px'; host.style.height=r.height+'px';
+        setTimeout(()=>wrap.classList.remove('open'),220);
+      }
+      trigger.addEventListener('click',()=>{const now=Date.now(); if(now-lastTap<320) openMenu(); lastTap=now;});
+      bg.addEventListener('click',closeMenu);
+      closeBtn.addEventListener('click',closeMenu);
+    })();
+
+(async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
       if(!authToken){ openAuth('login'); hideAppLoading(); return; }
