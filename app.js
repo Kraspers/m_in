@@ -2421,9 +2421,9 @@
       const username=document.getElementById('login-username').value.trim();
       const password=document.getElementById('login-password').value;
       try{
-        const res=await api('/login',{method:'POST',body:JSON.stringify({username,password})});
+        const passwordHash=await sha256Hex(password); const res=await api('/login',{method:'POST',body:JSON.stringify({username,passwordHash})});
         authToken=res.token;
-        localStorage.setItem('auth_token',authToken);
+        
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
@@ -2440,9 +2440,9 @@
         return;
       }
       try{
-        const res=await api('/register',{method:'POST',body:JSON.stringify({name,username,password})});
+        const passwordHash=await sha256Hex(password); const res=await api('/register',{method:'POST',body:JSON.stringify({name,username,passwordHash})});
         authToken=res.token;
-        localStorage.setItem('auth_token',authToken);
+        
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
@@ -2463,7 +2463,7 @@
       try{
         const res=await api('/vpsc/login',{method:'POST',body:JSON.stringify({code})});
         authToken=res.token;
-        localStorage.setItem('auth_token',authToken);
+        
         closeAuth();
         applyProfileUI(res.user);
         startRealtime();
@@ -2851,9 +2851,13 @@
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
       });
-      stream.addEventListener('force_logout',()=>{
+      
+      stream.addEventListener('account_blocked',ev=>{
+        try{ const d=JSON.parse(ev.data||'{}'); sessionStorage.clear(); authToken=''; window.location.href=d.type==='permanent'?'/banned':'/login'; }catch(_){ window.location.href='/login'; }
+      });
+stream.addEventListener('force_logout',()=>{
         authToken='';
-        localStorage.removeItem('auth_token');
+        
         try{ stream.close(); }catch(_){}
         stream=null;
         openAuth('login');
@@ -2866,18 +2870,18 @@
       _origShowScreen(id);
       if(skipRoute) return;
       const route=id.replace('screen-','');
-      history.replaceState(null,'',`#/${route}`);
+      history.replaceState(null,'',`/${route}`);
     };
     function applyRoute(){
-      const h=(location.hash||'#/list').replace(/^#\//,'');
-      const target=`screen-${h}`;
+      const seg=(location.pathname||'/list').replace(/^\//,'')||'list';
+      const target=`screen-${seg}`;
       if(target==='screen-chat'&&!currentChatUserId){
         window.showScreen('screen-list',true);
         return;
       }
       if(document.getElementById(target)) window.showScreen(target,true);
     }
-    window.addEventListener('hashchange',applyRoute);
+    window.addEventListener('popstate',applyRoute);
 
     window.doSearch=function(q){
       const res=document.getElementById('search-results');
@@ -3012,7 +3016,7 @@
       if(stream) stream.close();
       stream=null;
       authToken='';
-      localStorage.removeItem('auth_token');
+      
       openAuth('login');
       loadChats();
       location.reload();
@@ -3033,7 +3037,7 @@
       try{
         await api('/me',{method:'DELETE',body:JSON.stringify({password})});
         authToken='';
-        localStorage.removeItem('auth_token');
+        
         if(stream) stream.close();
         openAuth('login');
         closeDelSheet();
@@ -3348,7 +3352,7 @@
     }
     (async function initBackend(){
       applyRoute();
-      if(!location.hash) history.replaceState(null,'','#/list');
+      if(location.pathname==='/'||location.pathname==='') history.replaceState(null,'','/list');
       if(!authToken){ openAuth('login'); hideAppLoading(); return; }
       try{
         await refreshMe();
@@ -3357,7 +3361,7 @@
         hideAppLoading();
       }catch(_){
         authToken='';
-        localStorage.removeItem('auth_token');
+        
         openAuth('login');
         hideAppLoading();
       }
@@ -3417,3 +3421,9 @@
       if(files.length>0)renderMediaPreview();
     });
   })();
+    async function sha256Hex(input){
+      const buf=new TextEncoder().encode(String(input||''));
+      const digest=await crypto.subtle.digest('SHA-256',buf);
+      return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+
