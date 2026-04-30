@@ -230,8 +230,8 @@
     return `<span style="display:inline-flex;width:${size}px;height:${size}px;">${GHOST_ICON_SVG}</span>`;
   }
   const recordStates={
-    chat:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'record-wave',timeId:'record-time',pillSel:'#screen-chat .input-pill',mediaBtnId:'media-btn',inputId:'msg-input',sendBtnId:'send-btn'},
-    fav:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,raf:0,levels:[],waveId:'fav-record-wave',timeId:'fav-record-time',pillSel:'#fav-input-pill',mediaBtnId:'fav-media-btn',inputId:'fav-input',sendBtnId:'fav-send-btn'}
+    chat:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,meterSink:null,raf:0,levels:[],waveId:'record-wave',timeId:'record-time',pillSel:'#screen-chat .input-pill',mediaBtnId:'media-btn',inputId:'msg-input',sendBtnId:'send-btn'},
+    fav:{holdTimer:null,recording:false,recorder:null,startTs:0,timerInt:null,chunks:[],stream:null,analyser:null,analyserCtx:null,meterSink:null,raf:0,levels:[],waveId:'fav-record-wave',timeId:'fav-record-time',pillSel:'#fav-input-pill',mediaBtnId:'fav-media-btn',inputId:'fav-input',sendBtnId:'fav-send-btn'}
   };
   let activeVoiceAudio=null;
   let pendingVoiceSendFn=null;
@@ -486,7 +486,7 @@
     const caption=text?`<p class="${textClass} voice-caption">${renderRichText(text)}</p>`:'';
     const fwd=forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);line-height:1.25;margin-bottom:5px;flex-basis:100%;">Переслано от <b>${esc(forwardedFromName)}</b></div>`:'';
     const quote=quoteHtml?`<div style="flex-basis:100%;margin-bottom:2px;">${quoteHtml}</div>`:'';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="voice-sent"><span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</span></div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -510,21 +510,27 @@
     const state=recordStates[target];
     const wave=document.getElementById(state.waveId);
     if(!state.analyser||!wave) return;
-    const bars=Array.from(wave.querySelectorAll('.record-bar'));
-    const buf=new Uint8Array(state.analyser.fftSize);
+    let bars=Array.from(wave.querySelectorAll('.record-bar'));
+    const buf=new Uint8Array(state.analyser.frequencyBinCount);
     const tick=()=>{
       if(!state.recording) return;
-      state.analyser.getByteTimeDomainData(buf);
-      let sum=0;
-      for(let i=0;i<buf.length;i++){
-        const n=(buf[i]-128)/128;
-        sum+=n*n;
+      if(!bars.length){
+        bars=Array.from(wave.querySelectorAll('.record-bar'));
+        if(!bars.length){
+          state.raf=requestAnimationFrame(tick);
+          return;
+        }
       }
-      const rms=Math.sqrt(sum/buf.length);
-      const h=Math.max(6,Math.min(28,Math.round(6+rms*62)));
-      state.levels.push(h);
-      if(state.levels.length>bars.length) state.levels.shift();
-      bars.forEach((bar,i)=>{ bar.style.height=`${state.levels[i]||8}px`; });
+      state.analyser.getByteFrequencyData(buf);
+      bars.forEach((bar,i)=>{
+        const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
+        const v=buf[idx]||0;
+        const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
+        const prev=state.levels[i]||8;
+        const next=Math.round(prev*0.45+targetH*0.55);
+        state.levels[i]=next;
+        bar.style.height=`${next}px`;
+      });
       state.raf=requestAnimationFrame(tick);
     };
     state.raf=requestAnimationFrame(tick);
@@ -538,7 +544,15 @@
     const source=state.analyserCtx.createMediaStreamSource(state.stream);
     state.analyser=state.analyserCtx.createAnalyser();
     state.analyser.fftSize=256;
+    state.analyser.smoothingTimeConstant=0.72;
     source.connect(state.analyser);
+    state.meterSink=state.analyserCtx.createGain();
+    state.meterSink.gain.value=0;
+    state.analyser.connect(state.meterSink);
+    state.meterSink.connect(state.analyserCtx.destination);
+    if(state.analyserCtx.state==='suspended'){
+      await state.analyserCtx.resume().catch(()=>{});
+    }
     state.recorder=new MediaRecorder(state.stream);
     state.recorder.ondataavailable=e=>{ if(e.data&&e.data.size>0) state.chunks.push(e.data); };
     state.recorder.onstop=async ()=>{
@@ -550,7 +564,7 @@
       if(state.raf) cancelAnimationFrame(state.raf);
       state.raf=0;
       if(state.analyserCtx) state.analyserCtx.close().catch(()=>{});
-      state.analyserCtx=null;state.analyser=null;
+      state.analyserCtx=null;state.analyser=null;state.meterSink=null;
       setRecordingUiActive(false,target);
       clearInterval(state.timerInt);state.timerInt=null;
       const tEl=document.getElementById(state.timeId);if(tEl) tEl.textContent='00:00';
@@ -1554,7 +1568,9 @@
     let rDiv=bubble.querySelector('.msg-reactions');
     const data=reactionsData.get(bubble)||{};
     const entries=Object.entries(data).filter(([,v])=>v.count>0);
+    const isVoice=!!bubble.classList.contains('voice-bubble');
     if(!entries.length){
+      if(isVoice) bubble.classList.remove('voice-reactions-open');
       if(rDiv){
         if(suppressReactionAnimations){
           if(rDiv.parentElement) rDiv.remove();
@@ -1568,16 +1584,16 @@
     const metaEl=bubble.querySelector('.msg-meta');
     const voiceMetaEl=bubble.querySelector('.voice-meta');
     const voiceMetaWrap=voiceMetaEl?voiceMetaEl.parentElement:null;
-    const isVoice=!!bubble.classList.contains('voice-bubble');
+    if(isVoice) bubble.classList.add('voice-reactions-open');
     const isNew=!rDiv;
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(isVoice&&voiceMetaEl) voiceMetaEl.before(rDiv);
+      if(isVoice&&voiceMetaEl) voiceMetaEl.after(rDiv);
       else if(metaEl)metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
-    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.nextElementSibling!==voiceMetaEl){
-      voiceMetaEl.before(rDiv);
+    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.previousElementSibling!==voiceMetaEl){
+      voiceMetaEl.after(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
@@ -2210,6 +2226,17 @@
     if(copyToastTimer)clearTimeout(copyToastTimer);
     copyToastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
   }
+  function enableBasicSourceProtection(){
+    document.addEventListener('contextmenu',e=>e.preventDefault());
+    document.addEventListener('keydown',e=>{
+      const k=(e.key||'').toLowerCase();
+      const ctrlOrMeta=e.ctrlKey||e.metaKey;
+      if(k==='f12'){ e.preventDefault(); return; }
+      if(ctrlOrMeta&&e.shiftKey&&(k==='i'||k==='j'||k==='c')){ e.preventDefault(); return; }
+      if(ctrlOrMeta&&(k==='u'||k==='s')) e.preventDefault();
+    });
+  }
+  enableBasicSourceProtection();
   function copyPrivacyCode(){
     const code=document.getElementById('privacy-code-text').textContent;
     navigator.clipboard.writeText(code).catch(()=>{});
