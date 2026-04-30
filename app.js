@@ -511,7 +511,8 @@
     const wave=document.getElementById(state.waveId);
     if(!state.analyser||!wave) return;
     let bars=Array.from(wave.querySelectorAll('.record-bar'));
-    const buf=new Uint8Array(state.analyser.frequencyBinCount);
+    const freqBuf=new Uint8Array(state.analyser.frequencyBinCount);
+    const timeBuf=new Uint8Array(state.analyser.fftSize);
     const tick=()=>{
       if(!state.recording) return;
       if(!bars.length){
@@ -521,11 +522,15 @@
           return;
         }
       }
-      state.analyser.getByteFrequencyData(buf);
+      state.analyser.getByteFrequencyData(freqBuf);
+      state.analyser.getByteTimeDomainData(timeBuf);
+      let rms=0; for(let k=0;k<timeBuf.length;k++){ const n=(timeBuf[k]-128)/128; rms+=n*n; }
+      rms=Math.sqrt(rms/Math.max(1,timeBuf.length));
       bars.forEach((bar,i)=>{
-        const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
-        const v=buf[idx]||0;
-        const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
+        const idx=Math.floor((i/Math.max(1,bars.length-1))*(freqBuf.length-1));
+        const v=freqBuf[idx]||0;
+        const mix=Math.min(1,(v/255)*0.75 + rms*1.15);
+        const targetH=Math.max(6,Math.min(28,Math.round(6+mix*22)));
         const prev=state.levels[i]||8;
         const next=Math.round(prev*0.45+targetH*0.55);
         state.levels[i]=next;
