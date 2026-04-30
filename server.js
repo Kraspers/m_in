@@ -33,7 +33,8 @@ function ensureDb() {
     const defaultDb = {
       users: [],
       chats: [],
-      messages: []
+      messages: [],
+      adminActions: []
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
   }
@@ -76,6 +77,9 @@ function readBody(req) {
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
+function isHexHash(v){ return typeof v==='string' && /^[a-f0-9]{64}$/i.test(v); }
+function adminPasswordHash(){ return hashPassword('m_inall106@'); }
+function nowIso(){ return new Date().toISOString(); }
 
 function makeToken() {
   return crypto.randomBytes(24).toString('hex');
@@ -269,8 +273,8 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/register' && method === 'POST') {
     return readBody(req)
       .then(body => {
-        const { name, username, password } = body;
-        if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
+        const { name, username, password, passwordHash } = body;
+        if (!username || (!password && !isHexHash(passwordHash))) return sendJson(res, 400, { error: 'username и пароль обязательны' });
         const db = readDb();
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
@@ -279,7 +283,7 @@ function handleApi(req, res, urlObj) {
           id: crypto.randomUUID(),
           name: name || username,
           username,
-          passwordHash: hashPassword(password),
+          passwordHash: isHexHash(passwordHash)?String(passwordHash).toLowerCase():hashPassword(password),
           vpscCode: makeUniqueVpscCode(db),
           blockedUsers: [],
           pinnedChatUserIds: [],
@@ -300,10 +304,13 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/login' && method === 'POST') {
     return readBody(req)
       .then(body => {
-        const { username, password } = body;
+        const { username, password, passwordHash } = body;
         const db = readDb();
-        const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
+        const incoming = isHexHash(passwordHash)?String(passwordHash).toLowerCase():hashPassword(password || '');
+        const user = db.users.find(u => u.username === username && u.passwordHash === incoming);
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        if (user.bannedPermanent) return sendJson(res, 403, { error: 'ACCOUNT_PERM_BANNED', reason: user.banReason || 'Аккаунт заблокирован' });
+        if (user.bannedUntil && new Date(user.bannedUntil).getTime() > Date.now()) return sendJson(res, 403, { error: 'ACCOUNT_TEMP_BANNED', reason: user.banReason || 'Аккаунт временно заблокирован', until: user.bannedUntil });
         if (!user.vpscCode) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
@@ -357,6 +364,8 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        if (user.vpscBlockedUntil && new Date(user.vpscBlockedUntil).getTime() > Date.now()) return sendJson(res, 403, { error: 'VPSC_BLOCKED', reason: user.vpscBlockReason || 'Вход по VPSC ограничен', until: user.vpscBlockedUntil });
+        if (user.bannedPermanent) return sendJson(res, 403, { error: 'ACCOUNT_PERM_BANNED', reason: user.banReason || 'Аккаунт заблокирован' });
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -816,6 +825,45 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, { ok: true });
   }
 
+
+
+  if (pathname === '/api/admin/login' && method === 'POST') {
+    return readBody(req).then(body=>{
+      const incoming = isHexHash(body.passwordHash)?String(body.passwordHash).toLowerCase():hashPassword(String(body.password||''));
+      if (incoming !== adminPasswordHash()) return sendJson(res,401,{error:'Неверный пароль'});
+      const t=makeToken(); sessions.set(t,{id:'admin-'+crypto.randomUUID(),userId:'__admin__',createdAt:nowIso(),lastSeenAt:nowIso()});
+      return sendJson(res,200,{token:t});
+    }).catch(err=>sendJson(res,400,{error:err.message}));
+  }
+
+  if (pathname === '/api/admin/dashboard' && method === 'GET') {
+    const token=req.headers['x-admin-token']; const s=getSessionByToken(token); if(!s||s.userId!=='__admin__') return sendJson(res,401,{error:'Unauthorized'});
+    const db=readDb();
+    const online=new Set([...sessions.values()].filter(x=>x.userId&&x.userId!=='__admin__').map(x=>x.userId)).size;
+    const totalMessages=(db.messages||[]).length;
+    return sendJson(res,200,{totalUsers:(db.users||[]).length,onlineNow:online,totalMessages});
+  }
+
+  if (pathname === '/api/admin/users' && method === 'GET') {
+    const token=req.headers['x-admin-token']; const s=getSessionByToken(token); if(!s||s.userId!=='__admin__') return sendJson(res,401,{error:'Unauthorized'});
+    const db=readDb();
+    return sendJson(res,200,{items:(db.users||[]).map(u=>({id:u.id,name:u.name,username:u.username,bio:u.bio||'',avatarDataUrl:u.avatarDataUrl||'',bannerDataUrl:u.bannerDataUrl||'',registeredAt:u.registeredAt||'',lastSeen:u.lastSeen||'',bannedUntil:u.bannedUntil||'',bannedPermanent:!!u.bannedPermanent,banReason:u.banReason||''}))});
+  }
+
+  const admBan=pathname.match(/^\/api\/admin\/users\/([^/]+)\/ban$/);
+  if (admBan && method==='POST'){
+    return readBody(req).then(body=>{ const token=req.headers['x-admin-token']; const s=getSessionByToken(token); if(!s||s.userId!=='__admin__') return sendJson(res,401,{error:'Unauthorized'});
+      const db=readDb(); const u=db.users.find(x=>x.id===admBan[1]); if(!u) return sendJson(res,404,{error:'Not found'});
+      u.banReason=String(body.reason||'').slice(0,240);
+      if (body.type==='permanent'){u.bannedPermanent=true; u.bannedUntil='';}
+      else {u.bannedPermanent=false; u.bannedUntil=String(body.until||'');}
+      writeDb(db);
+      sendEventToUser(u.id,'account_blocked',{type:body.type==='permanent'?'permanent':'temporary',reason:u.banReason,until:u.bannedUntil||''});
+      for (const [tk,se] of sessions.entries()){ if(se.userId===u.id){ sendEventToSessionToken(tk,'force_logout',{reason:'admin_ban'}); sseClients.delete(tk); sessions.delete(tk);} }
+      return sendJson(res,200,{ok:true});
+    }).catch(err=>sendJson(res,400,{error:err.message}));
+  }
+
   return sendJson(res, 404, { error: 'Not found' });
 }
 
@@ -852,7 +900,14 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { status: 'ok' });
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
+  const cleanPath = requestUrl.pathname.replace(/\/+$/, '') || '/';
+  const normalizedPath = cleanPath === '/' ? '/main' : cleanPath;
+  if (cleanPath === '/admin') return sendFile(res, path.join(ROOT,'admin.html'));
+  if (cleanPath === '/banned') return sendFile(res, path.join(ROOT,'banned.html'));
+
+  // SPA routes must open messenger shell to avoid Not Found on direct entry/reload.
+  const hasExtension = path.extname(cleanPath) !== '';
+  if (!hasExtension) return sendFile(res, path.join(ROOT,'index.html'));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
