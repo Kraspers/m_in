@@ -901,10 +901,12 @@ const server = http.createServer((req, res) => {
   }
 
   const normalizedPath = requestUrl.pathname === '/' ? '/main' : requestUrl.pathname;
-  if (requestUrl.pathname === '/main') return sendFile(res, path.join(ROOT,'index.html'));
-  if (requestUrl.pathname === '/login' || requestUrl.pathname === '/reg') return sendFile(res, path.join(ROOT,'index.html'));
   if (requestUrl.pathname === '/admin') return sendFile(res, path.join(ROOT,'admin.html'));
   if (requestUrl.pathname === '/banned') return sendFile(res, path.join(ROOT,'banned.html'));
+
+  // SPA routes must open messenger shell to avoid Not Found on direct entry/reload.
+  const hasExtension = path.extname(requestUrl.pathname) !== '';
+  if (!hasExtension) return sendFile(res, path.join(ROOT,'index.html'));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
