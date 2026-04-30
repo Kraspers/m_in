@@ -3357,17 +3357,27 @@
       function openMenu(){
         const r=logo.getBoundingClientRect();
         const host=wrap.querySelector('#min-menu-logo-flight');
+        const slideable=document.getElementById('min-menu-slideable');
         host.style.left=r.left+'px'; host.style.top=r.top+'px';
         host.style.width=r.width+'px'; host.style.height=r.height+'px';
         host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
         logo.style.opacity='0';
         wrap.classList.add('open');
-        setTimeout(()=>{
-          const d=dock.getBoundingClientRect();
+        let d;
+        if(slideable){
+          const prevTransition=slideable.style.transition;
+          const prevTransform=slideable.style.transform;
+          slideable.style.transition='none';
+          slideable.style.transform='translateY(0)';
+          d=dock.getBoundingClientRect();
+          slideable.style.transform=prevTransform;
+          slideable.style.transition=prevTransition;
+        }else d=dock.getBoundingClientRect();
+        requestAnimationFrame(()=>{
           host.style.width=d.width+'px'; host.style.height=d.height+'px';
           host.style.left=d.left+'px';
           host.style.top=d.top+'px';
-        },380);
+        });
       }
       function closeMenu(){
         const host=wrap.querySelector('#min-menu-logo-flight');
