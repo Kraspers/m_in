@@ -3363,13 +3363,23 @@
         logo.style.opacity='0';
         logo.style.visibility='hidden';
         wrap.classList.add('open');
-        setTimeout(()=>{
+        const pinAboveTitle=()=>{
           const t=title.getBoundingClientRect();
           const size=Math.max(dock.getBoundingClientRect().width||124,124);
           host.style.width=size+'px'; host.style.height=size+'px';
           host.style.left=(t.left+(t.width-size)/2)+'px';
           host.style.top=(t.top-size-12)+'px';
-        },40);
+        };
+        setTimeout(pinAboveTitle,40);
+        const slideable=document.getElementById('min-menu-slideable');
+        if(slideable){
+          const onEnd=(ev)=>{
+            if(ev.propertyName!=='transform') return;
+            slideable.removeEventListener('transitionend',onEnd);
+            pinAboveTitle();
+          };
+          slideable.addEventListener('transitionend',onEnd);
+        }
       }
       function closeMenu(){
         const host=wrap.querySelector('#min-menu-logo-flight');
