@@ -42,7 +42,7 @@ function ensureSupportUser(db){
   if(!Array.isArray(db.users)) db.users=[];
   let u=db.users.find(x=>String(x.username||'').toLowerCase()==='min');
   if(u) return u;
-  u={id:crypto.randomUUID(),name:'MIN',username:'min',passwordHash:hashPassword(makeToken()),vpscCode:makeUniqueVpscCode(db),blockedUsers:[],pinnedChatUserIds:[],bio:'Официальная поддержка',avatarDataUrl:'',bannerDataUrl:''};
+  u={id:crypto.randomUUID(),name:'MIN',username:'min',passwordHash:hashPassword(makeToken()),vpscCode:makeUniqueVpscCode(db),blockedUsers:[],pinnedChatUserIds:[],bio:'Официальная поддержка',avatarDataUrl:'/min-app.png',bannerDataUrl:''};
   db.users.push(u);
   return u;
 }
@@ -335,7 +335,7 @@ function handleApi(req, res, urlObj) {
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (String(username||'').toLowerCase()==='min') return sendJson(res,401,{error:'Неверный логин или пароль'});
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
-        const ban=enforceUserBan(user); if(ban) return sendJson(res,403,{error:'Аккаунт заблокирован',ban});
+        const ban=enforceUserBan(user); if(ban){ const until=ban.permanent?'навсегда':(ban.until||''); return sendJson(res,403,{error:`Ваш аккаунт был заблокирован администратором до ${until}. Причина: ${ban.reason||'Не указана'}`,ban}); }
         if (!user.vpscCode) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
@@ -389,7 +389,7 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
-        const ban=enforceUserBan(user); if(ban) return sendJson(res,403,{error:'Вход по VPSC ограничен',ban});
+        const ban=enforceUserBan(user); if(ban){ const until=ban.permanent?'навсегда':(ban.until||''); return sendJson(res,403,{error:`Вход в этот аккаунт по VPSC ограничен до ${until}. Причина: ${ban.reason||'Не указана'}`,ban}); }
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -757,7 +757,7 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/hidden-root/users' && method === 'GET') {
     if(!adminAuthed(req)) return sendJson(res,401,{error:'Unauthorized'});
     const db=readDb();
-    const items=(db.users||[]).map(u=>({id:u.id,name:u.name||u.username,username:u.username,bio:u.bio||'',avatarDataUrl:u.avatarDataUrl||'',bannerDataUrl:u.bannerDataUrl||'',lastSeenAt:Array.from(sessions.values()).filter(s=>s.userId===u.id).sort((a,b)=>String(b.lastSeenAt||'').localeCompare(String(a.lastSeenAt||'')))[0]?.lastSeenAt||'',adminBan:u.adminBan||null}));
+    const items=(db.users||[]).filter(u=>String(u.username||'').toLowerCase()!=='min').map(u=>({id:u.id,name:u.name||u.username,username:u.username,bio:u.bio||'',avatarDataUrl:u.avatarDataUrl||'',bannerDataUrl:u.bannerDataUrl||'',lastSeenAt:Array.from(sessions.values()).filter(s=>s.userId===u.id).sort((a,b)=>String(b.lastSeenAt||'').localeCompare(String(a.lastSeenAt||'')))[0]?.lastSeenAt||'',adminBan:u.adminBan||null}));
     return sendJson(res,200,{items});
   }
   const adminBanMatch=pathname.match(/^\/api\/hidden-root\/users\/([^/]+)\/ban$/);
@@ -772,6 +772,16 @@ function handleApi(req, res, urlObj) {
       return sendJson(res,200,{ok:true,ban:u.adminBan});
     }).catch(err=>sendJson(res,400,{error:err.message}));
   }
+
+  const adminUnbanMatch=pathname.match(/^\/api\/hidden-root\/users\/([^/]+)\/unban$/);
+  if(adminUnbanMatch && method==='POST'){
+    if(!adminAuthed(req)) return sendJson(res,401,{error:'Unauthorized'});
+    const db=readDb(); const uid=String(adminUnbanMatch[1]); const u=(db.users||[]).find(x=>x.id===uid); if(!u) return sendJson(res,404,{error:'Пользователь не найден'});
+    delete u.adminBan; delete u.vpscBan;
+    writeDb(db);
+    return sendJson(res,200,{ok:true});
+  }
+
   if (pathname === '/api/messages' && method === 'POST') {
     return readBody(req)
       .then(body => {
