@@ -3360,13 +3360,13 @@
         host.style.left=r.left+'px'; host.style.top=r.top+'px';
         host.style.width=r.width+'px'; host.style.height=r.height+'px';
         host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
+        logo.style.opacity='0';
         wrap.classList.add('open');
         setTimeout(()=>{
-          const t=title.getBoundingClientRect();
-          const size=dock.getBoundingClientRect().width||88;
-          host.style.width=size+'px'; host.style.height=size+'px';
-          host.style.left=(t.left+(t.width-size)/2)+'px';
-          host.style.top=(t.top-size-10)+'px';
+          const d=dock.getBoundingClientRect();
+          host.style.width=d.width+'px'; host.style.height=d.height+'px';
+          host.style.left=d.left+'px';
+          host.style.top=d.top+'px';
         },40);
       }
       function closeMenu(){
@@ -3374,7 +3374,7 @@
         const r=logo.getBoundingClientRect();
         host.style.left=r.left+'px'; host.style.top=r.top+'px';
         host.style.width=r.width+'px'; host.style.height=r.height+'px';
-        setTimeout(()=>wrap.classList.remove('open'),220);
+        setTimeout(()=>{wrap.classList.remove('open');logo.style.opacity='1';},220);
       }
       trigger.addEventListener('click',()=>{const now=Date.now(); if(now-lastTap<320) openMenu(); lastTap=now;});
       bg.addEventListener('click',closeMenu);
