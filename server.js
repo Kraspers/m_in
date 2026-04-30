@@ -274,7 +274,7 @@ function handleApi(req, res, urlObj) {
     return readBody(req)
       .then(body => {
         const { name, username, password, passwordHash } = body;
-        if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
+        if (!username || (!password && !isHexHash(passwordHash))) return sendJson(res, 400, { error: 'username и пароль обязательны' });
         const db = readDb();
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
@@ -900,12 +900,13 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { status: 'ok' });
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/main' : requestUrl.pathname;
-  if (requestUrl.pathname === '/admin') return sendFile(res, path.join(ROOT,'admin.html'));
-  if (requestUrl.pathname === '/banned') return sendFile(res, path.join(ROOT,'banned.html'));
+  const cleanPath = requestUrl.pathname.replace(/\/+$/, '') || '/';
+  const normalizedPath = cleanPath === '/' ? '/main' : cleanPath;
+  if (cleanPath === '/admin') return sendFile(res, path.join(ROOT,'admin.html'));
+  if (cleanPath === '/banned') return sendFile(res, path.join(ROOT,'banned.html'));
 
   // SPA routes must open messenger shell to avoid Not Found on direct entry/reload.
-  const hasExtension = path.extname(requestUrl.pathname) !== '';
+  const hasExtension = path.extname(cleanPath) !== '';
   if (!hasExtension) return sendFile(res, path.join(ROOT,'index.html'));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
