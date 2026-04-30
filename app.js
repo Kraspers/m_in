@@ -3364,10 +3364,11 @@
         logo.style.visibility='hidden';
         wrap.classList.add('open');
         setTimeout(()=>{
-          const d=dock.getBoundingClientRect();
-          host.style.width=d.width+'px'; host.style.height=d.height+'px';
-          host.style.left=d.left+'px';
-          host.style.top=d.top+'px';
+          const t=title.getBoundingClientRect();
+          const size=Math.max(dock.getBoundingClientRect().width||124,124);
+          host.style.width=size+'px'; host.style.height=size+'px';
+          host.style.left=(t.left+(t.width-size)/2)+'px';
+          host.style.top=(t.top-size-12)+'px';
         },40);
       }
       function closeMenu(){
