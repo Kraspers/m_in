@@ -3349,7 +3349,9 @@
       const closeBtn=document.getElementById('min-menu-close-btn');
       const logo=document.getElementById('min-brand-logo');
       const dock=document.getElementById('min-menu-logo-dock');
+      const qr=document.getElementById('min-menu-qr');
       if(!trigger||!wrap||!bg||!closeBtn||!logo||!dock) return;
+      if(qr) qr.src=`https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(location.origin)}`;
       let lastTap=0;
       function openMenu(){
         const r=logo.getBoundingClientRect();
