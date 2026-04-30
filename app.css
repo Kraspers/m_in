@@ -523,9 +523,9 @@
   #screen-chat>.header-blur{padding:33.4px 20px 20px !important;}
 }
 
-#min-menu-wrap{position:fixed;inset:0;z-index:310;display:flex;align-items:flex-end;pointer-events:none;}
-#min-menu-wrap.open{pointer-events:all;}
-#min-menu-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .22s ease;}
+#min-menu-wrap{position:fixed;inset:0;z-index:310;display:flex;align-items:flex-end;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s ease;}
+#min-menu-wrap.open{pointer-events:all;opacity:1;visibility:visible;}
+#min-menu-bg{position:absolute;inset:0;background:rgba(0,0,0,.36);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);opacity:0;transition:opacity .22s ease;}
 #min-menu-wrap.open #min-menu-bg{opacity:1;}
 #min-menu-slideable{position:relative;width:100%;transform:translateY(100%);transition:transform .28s ease;}
 #min-menu-wrap.open #min-menu-slideable{transform:translateY(0);}

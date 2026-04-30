@@ -3349,8 +3349,9 @@
       const closeBtn=document.getElementById('min-menu-close-btn');
       const logo=document.getElementById('min-brand-logo');
       const dock=document.getElementById('min-menu-logo-dock');
+      const title=document.getElementById('min-menu-title');
       const qr=document.getElementById('min-menu-qr');
-      if(!trigger||!wrap||!bg||!closeBtn||!logo||!dock) return;
+      if(!trigger||!wrap||!bg||!closeBtn||!logo||!dock||!title) return;
       if(qr) qr.src=`https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(location.origin)}`;
       let lastTap=0;
       function openMenu(){
@@ -3361,9 +3362,11 @@
         host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
         wrap.classList.add('open');
         setTimeout(()=>{
-          const d=dock.getBoundingClientRect();
-          host.style.left=d.left+'px'; host.style.top=d.top+'px';
-          host.style.width=d.width+'px'; host.style.height=d.height+'px';
+          const t=title.getBoundingClientRect();
+          const size=dock.getBoundingClientRect().width||88;
+          host.style.width=size+'px'; host.style.height=size+'px';
+          host.style.left=(t.left+(t.width-size)/2)+'px';
+          host.style.top=(t.top-size-10)+'px';
         },40);
       }
       function closeMenu(){
