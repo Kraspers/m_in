@@ -506,7 +506,7 @@
     const wave=document.getElementById(state.waveId);
     if(!state.analyser||!wave) return;
     let bars=Array.from(wave.querySelectorAll('.record-bar'));
-    const timeBuf=new Uint8Array(state.analyser.fftSize);
+    const buf=new Uint8Array(state.analyser.frequencyBinCount);
     const tick=()=>{
       if(!state.recording) return;
       if(!bars.length){
@@ -516,19 +516,13 @@
           return;
         }
       }
-      state.analyser.getByteTimeDomainData(timeBuf);
-      const seg=Math.max(1,Math.floor(timeBuf.length/Math.max(1,bars.length)));
+      state.analyser.getByteFrequencyData(buf);
       bars.forEach((bar,i)=>{
-        const start=i*seg;
-        const end=Math.min(timeBuf.length,start+seg);
-        let peak=0;
-        for(let j=start;j<end;j++){
-          const centered=Math.abs((timeBuf[j]-128)/128);
-          if(centered>peak) peak=centered;
-        }
-        const targetH=Math.max(6,Math.min(28,Math.round(6+peak*22)));
+        const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
+        const v=buf[idx]||0;
+        const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
         const prev=state.levels[i]||8;
-        const next=Math.round(prev*0.4+targetH*0.6);
+        const next=Math.round(prev*0.45+targetH*0.55);
         state.levels[i]=next;
         bar.style.height=`${next}px`;
       });
@@ -3347,7 +3341,42 @@
         if(u) openUserProfileView(u);
       });
     }
-    (async function initBackend(){
+    
+    (function initMinMenu(){
+      const trigger=document.getElementById('min-brand-trigger');
+      const wrap=document.getElementById('min-menu-wrap');
+      const bg=document.getElementById('min-menu-bg');
+      const closeBtn=document.getElementById('min-menu-close-btn');
+      const logo=document.getElementById('min-brand-logo');
+      const dock=document.getElementById('min-menu-logo-dock');
+      if(!trigger||!wrap||!bg||!closeBtn||!logo||!dock) return;
+      let lastTap=0;
+      function openMenu(){
+        const r=logo.getBoundingClientRect();
+        const host=wrap.querySelector('#min-menu-logo-flight');
+        host.style.left=r.left+'px'; host.style.top=r.top+'px';
+        host.style.width=r.width+'px'; host.style.height=r.height+'px';
+        host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
+        wrap.classList.add('open');
+        requestAnimationFrame(()=>{
+          const d=dock.getBoundingClientRect();
+          host.style.left=d.left+'px'; host.style.top=d.top+'px';
+          host.style.width=d.width+'px'; host.style.height=d.height+'px';
+        });
+      }
+      function closeMenu(){
+        const host=wrap.querySelector('#min-menu-logo-flight');
+        const r=logo.getBoundingClientRect();
+        host.style.left=r.left+'px'; host.style.top=r.top+'px';
+        host.style.width=r.width+'px'; host.style.height=r.height+'px';
+        setTimeout(()=>wrap.classList.remove('open'),220);
+      }
+      trigger.addEventListener('click',()=>{const now=Date.now(); if(now-lastTap<320) openMenu(); lastTap=now;});
+      bg.addEventListener('click',closeMenu);
+      closeBtn.addEventListener('click',closeMenu);
+    })();
+
+(async function initBackend(){
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
       if(!authToken){ openAuth('login'); hideAppLoading(); return; }
