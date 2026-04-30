@@ -38,6 +38,21 @@ function enforceUserBan(user){
   return null;
 }
 
+function ensureSupportUser(db){
+  if(!Array.isArray(db.users)) db.users=[];
+  let u=db.users.find(x=>String(x.username||'').toLowerCase()==='min');
+  if(u) return u;
+  u={id:crypto.randomUUID(),name:'MIN',username:'min',passwordHash:hashPassword(makeToken()),vpscCode:makeUniqueVpscCode(db),blockedUsers:[],pinnedChatUserIds:[],bio:'Официальная поддержка',avatarDataUrl:'',bannerDataUrl:''};
+  db.users.push(u);
+  return u;
+}
+function createSupportWelcome(db,user,support){
+  if(!Array.isArray(db.messages)) db.messages=[];
+  const hasThread=db.messages.some(m=>(m.fromUserId===support.id&&m.toUserId===user.id)||(m.fromUserId===user.id&&m.toUserId===support.id));
+  if(hasThread) return;
+  db.messages.push({id:crypto.randomUUID(),fromUserId:support.id,toUserId:user.id,text:`Привет, ${user.name||user.username}! Добро пожаловать в MIN. Это официальный чат поддержки — мы всегда на связи.`,media:[],voiceDurationMs:0,voiceWaveform:[],listenedBy:[support.id],replyToMessageId:'',forwardedFromName:'',reactions:{},pinnedBy:[],createdAt:new Date().toISOString()});
+}
+
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -283,6 +298,7 @@ function handleApi(req, res, urlObj) {
       .then(body => {
         const { name, username, password } = body;
         if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
+        if (String(username).trim().toLowerCase() === 'min') return sendJson(res, 409, { error: 'username занят' });
         const db = readDb();
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
@@ -300,6 +316,8 @@ function handleApi(req, res, urlObj) {
           bannerDataUrl: ''
         };
         db.users.push(user);
+        const support = ensureSupportUser(db);
+        createSupportWelcome(db, user, support);
         writeDb(db);
         const session = createSession(req, user.id);
         const token = session.token;
@@ -315,6 +333,7 @@ function handleApi(req, res, urlObj) {
         const { username, password } = body;
         const db = readDb();
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
+        if (String(username||'').toLowerCase()==='min') return sendJson(res,401,{error:'Неверный логин или пароль'});
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
         const ban=enforceUserBan(user); if(ban) return sendJson(res,403,{error:'Аккаунт заблокирован',ban});
         if (!user.vpscCode) {
@@ -895,6 +914,10 @@ const server = http.createServer((req, res) => {
 
   if (requestUrl.pathname === '/healthz') {
     return sendJson(res, 200, { status: 'ok' });
+  }
+
+  if (requestUrl.pathname === '/x-7f3a-root-gate' || requestUrl.pathname === '/x7f3arootgate') {
+    return sendFile(res, path.join(ROOT, 'admin.html'));
   }
 
   const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
