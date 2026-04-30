@@ -3367,7 +3367,7 @@
           host.style.width=d.width+'px'; host.style.height=d.height+'px';
           host.style.left=d.left+'px';
           host.style.top=d.top+'px';
-        },40);
+        },380);
       }
       function closeMenu(){
         const host=wrap.querySelector('#min-menu-logo-flight');
