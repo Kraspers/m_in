@@ -531,20 +531,20 @@
 #min-menu-wrap.open #min-menu-slideable{transform:translateY(0);}
 #min-menu-close-row{padding:0 16px 12px;}
 #min-menu-close-btn{background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;}
-#min-menu-sheet{background:#1d1c24;border-radius:1.8rem 1.8rem 0 0;padding:8px 18px 30px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+#min-menu-sheet{background:#1d1c24;border-radius:1.8rem 1.8rem 0 0;padding:8px 16px 20px;display:flex;flex-direction:column;align-items:center;gap:6px;}
 #min-menu-grip{width:36px;height:4px;background:rgba(255,255,255,.18);border-radius:2px;margin-bottom:4px;}
-#min-menu-logo-dock{width:132px;height:132px;border-radius:34px;margin-top:8px;}
+#min-menu-logo-dock{width:88px;height:88px;border-radius:22px;margin-top:6px;}
 #min-menu-logo-flight{position:fixed;border-radius:12px;background-size:cover;background-position:center;z-index:312;pointer-events:none;transition:all .25s ease;opacity:0;}
 #min-menu-wrap.open #min-menu-logo-flight{opacity:1;}
-#min-menu-title{color:#fff;font-weight:800;font-size:56px;line-height:1.05;text-align:center;max-width:100%;}
-#min-menu-version{color:rgba(255,255,255,.58);font-size:18px;margin-top:2px;}
-#min-menu-share{margin-top:14px;background:#fff;border-radius:36px;padding:16px 16px 22px;width:min(370px,88vw);display:flex;flex-direction:column;align-items:center;gap:14px;}
-#min-menu-qr{width:min(300px,72vw);aspect-ratio:1;border-radius:24px;object-fit:cover;background:#f4f4f4;}
-#min-menu-share-caption{color:#111;font-weight:500;font-size:46px;line-height:1.1;text-align:center;}
+#min-menu-title{color:#fff;font-weight:800;font-size:32px;line-height:1.1;text-align:center;max-width:100%;}
+#min-menu-version{color:rgba(255,255,255,.58);font-size:14px;margin-top:0;}
+#min-menu-share{margin-top:10px;background:#fff;border-radius:24px;padding:12px 12px 14px;width:min(250px,76vw);display:flex;flex-direction:column;align-items:center;gap:10px;}
+#min-menu-qr{width:min(210px,64vw);aspect-ratio:1;border-radius:16px;object-fit:cover;background:#f4f4f4;}
+#min-menu-share-caption{color:#111;font-weight:500;font-size:18px;line-height:1.1;text-align:center;}
 @media (max-width:767px){
-  #min-menu-title{font-size:64px;}
-  #min-menu-version{font-size:16px;}
-  #min-menu-share-caption{font-size:48px;}
+  #min-menu-title{font-size:30px;}
+  #min-menu-version{font-size:13px;}
+  #min-menu-share-caption{font-size:18px;}
 }
 @media (min-width:768px){
   #min-menu-wrap{align-items:center;justify-content:center;}

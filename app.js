@@ -3360,11 +3360,11 @@
         host.style.width=r.width+'px'; host.style.height=r.height+'px';
         host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
         wrap.classList.add('open');
-        requestAnimationFrame(()=>{
+        setTimeout(()=>{
           const d=dock.getBoundingClientRect();
           host.style.left=d.left+'px'; host.style.top=d.top+'px';
           host.style.width=d.width+'px'; host.style.height=d.height+'px';
-        });
+        },40);
       }
       function closeMenu(){
         const host=wrap.querySelector('#min-menu-logo-flight');
