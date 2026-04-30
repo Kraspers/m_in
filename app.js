@@ -70,11 +70,6 @@
   /* ── Избранное ── */
   function openFavorites(){ showScreen('screen-favorites'); }
   function closeProfileSidebar(){
-    if(isDesktop()){
-      resetScreen(document.getElementById('screen-profile'));
-      resetScreen(document.getElementById('screen-search'));
-      return;
-    }
     showScreen('screen-list');
   }
   window.closeProfileSidebar=closeProfileSidebar;
@@ -511,7 +506,7 @@
     const wave=document.getElementById(state.waveId);
     if(!state.analyser||!wave) return;
     let bars=Array.from(wave.querySelectorAll('.record-bar'));
-    const buf=new Uint8Array(state.analyser.frequencyBinCount);
+    const timeBuf=new Uint8Array(state.analyser.fftSize);
     const tick=()=>{
       if(!state.recording) return;
       if(!bars.length){
@@ -521,13 +516,19 @@
           return;
         }
       }
-      state.analyser.getByteFrequencyData(buf);
+      state.analyser.getByteTimeDomainData(timeBuf);
+      const seg=Math.max(1,Math.floor(timeBuf.length/Math.max(1,bars.length)));
       bars.forEach((bar,i)=>{
-        const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
-        const v=buf[idx]||0;
-        const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
+        const start=i*seg;
+        const end=Math.min(timeBuf.length,start+seg);
+        let peak=0;
+        for(let j=start;j<end;j++){
+          const centered=Math.abs((timeBuf[j]-128)/128);
+          if(centered>peak) peak=centered;
+        }
+        const targetH=Math.max(6,Math.min(28,Math.round(6+peak*22)));
         const prev=state.levels[i]||8;
-        const next=Math.round(prev*0.45+targetH*0.55);
+        const next=Math.round(prev*0.4+targetH*0.6);
         state.levels[i]=next;
         bar.style.height=`${next}px`;
       });
