@@ -2838,7 +2838,7 @@
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
               const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
-              if(msg.editedAt||hasPinned) scheduleOpenCurrentChat();
+              if(msg.editedAt||Array.isArray(msg.pinnedBy)) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -3223,7 +3223,7 @@
     const doPinMessageLocal=doPinMessage;
     const unpinMessageLocal=unpinMessage;
 
-    unpinMessage=async function(){
+    window.unpinPinnedMessageRemote=async function(){
       const bubble=pinnedBubble;
       const mid=bubble&&bubble.dataset?bubble.dataset.mid:'';
       unpinMessageLocal();
