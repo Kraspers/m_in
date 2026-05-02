@@ -45,8 +45,8 @@
   .voice-time{margin-left:0;}
   .voice-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);}
   .voice-caption{margin-top:6px;font-size:14px;line-height:1.35;word-break:break-word;}
-  .voice-bubble .msg-reactions{flex-basis:100%;margin:6px 0 0;align-self:stretch;}
-  .voice-bubble .msg-reactions.visible{margin-top:6px;margin-bottom:2px;}
+  .voice-bubble .msg-reactions{flex-basis:100%;margin:0 6px;align-self:stretch;}
+  .voice-bubble .msg-reactions.visible{margin-top:10px;margin-bottom:4px;}
   .bubble-out.voice-bubble .msg-reactions{justify-content:flex-start;margin-left:0;}
   .bubble-in.voice-bubble .msg-reactions{justify-content:flex-start;margin-left:0;}
   .voice-bubble.voice-reactions-open .voice-meta{align-items:flex-end;padding-bottom:14px;}

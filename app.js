@@ -1678,9 +1678,15 @@
     reactionPickerBubble=null;
   }
 
-  function doReaction(emoji){
-    if(reactionPickerBubble) addReaction(reactionPickerBubble,emoji);
+  async function doReaction(emoji){
+    const bubble=reactionPickerBubble;
+    if(bubble) addReaction(bubble,emoji);
     closeReactionPicker();
+    const mid=bubble?.dataset?.mid;
+    if(!mid) return;
+    try{
+      await api(`/messages/${encodeURIComponent(mid)}/react`,{method:'POST',body:JSON.stringify({emoji})});
+    }catch(_){ }
   }
 
   /* ── Просмотр медиа ── */
