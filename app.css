@@ -48,10 +48,10 @@
   .voice-bubble .msg-reactions{flex-basis:100%;margin:6px 0 0;align-self:stretch;}
   .voice-bubble .msg-reactions.visible{margin-top:6px;margin-bottom:2px;}
   .bubble-out.voice-bubble .msg-reactions{justify-content:flex-start;}
-  .bubble-in.voice-bubble .msg-reactions{justify-content:flex-end;}
+  .bubble-in.voice-bubble .msg-reactions{justify-content:flex-start;}
   .voice-bubble.voice-reactions-open .voice-sent{width:100%;margin-left:0;margin-top:3px;}
   .bubble-out.voice-bubble.voice-reactions-open .voice-sent{justify-content:flex-end;}
-  .bubble-in.voice-bubble.voice-reactions-open .voice-sent{justify-content:flex-start;}
+  .bubble-in.voice-bubble.voice-reactions-open .voice-sent{justify-content:flex-end;}
   #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
   .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;max-width:100%;min-width:0;}
