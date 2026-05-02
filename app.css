@@ -34,7 +34,7 @@
     #record-time,#fav-record-time{min-width:44px;margin-left:0;margin-right:8px;text-align:right;}
     #send-btn.record-hold,#fav-send-btn.record-hold{margin-left:auto;}
   }
-  .voice-bubble{width:276px;max-width:276px;display:flex;flex-direction:row!important;align-items:flex-start;gap:10px;padding:8px 10px 7px!important;flex-wrap:wrap;}
+  .voice-bubble{width:276px;max-width:276px;display:flex;flex-direction:row!important;align-items:flex-start;gap:10px;padding:8px 10px 7px!important;flex-wrap:wrap;position:relative;}
   .voice-play-btn{width:40px;height:40px;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .bubble-out .voice-play-btn{background:rgba(255,255,255,.2);}
   .bubble-in .voice-play-btn{background:rgba(255,255,255,.1);}
@@ -45,13 +45,14 @@
   .voice-time{margin-left:0;}
   .voice-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);}
   .voice-caption{margin-top:6px;font-size:14px;line-height:1.35;word-break:break-word;}
-  .voice-bubble .msg-reactions{flex-basis:100%;margin:6px 0 0;align-self:stretch;}
-  .voice-bubble .msg-reactions.visible{margin-top:6px;margin-bottom:2px;}
-  .bubble-out.voice-bubble .msg-reactions{justify-content:flex-start;}
-  .bubble-in.voice-bubble .msg-reactions{justify-content:flex-end;}
-  .voice-bubble.voice-reactions-open .voice-sent{width:100%;margin-left:0;margin-top:3px;}
+  .voice-bubble .msg-reactions{flex-basis:100%;margin:0 6px;align-self:stretch;}
+  .voice-bubble .msg-reactions.visible{margin-top:10px;margin-bottom:4px;}
+  .bubble-out.voice-bubble .msg-reactions{justify-content:flex-start;margin-left:0;}
+  .bubble-in.voice-bubble .msg-reactions{justify-content:flex-start;margin-left:0;}
+  .voice-bubble.voice-reactions-open .voice-meta{align-items:flex-end;padding-bottom:14px;}
+  .voice-bubble.voice-reactions-open .voice-sent{position:absolute;right:10px;bottom:6px;width:auto;margin:0;}
   .bubble-out.voice-bubble.voice-reactions-open .voice-sent{justify-content:flex-end;}
-  .bubble-in.voice-bubble.voice-reactions-open .voice-sent{justify-content:flex-start;}
+  .bubble-in.voice-bubble.voice-reactions-open .voice-sent{justify-content:flex-end;align-self:flex-end;}
   #desktop-placeholder{display:none;}
   /* ── Цитата внутри пузыря (исходящие) ── */
   .msg-quote-out{background:rgba(255,255,255,0.14);border-left:3px solid rgba(255,255,255,0.82);border-radius:0.6rem;padding:5px 9px;margin-bottom:6px;overflow:hidden;width:100%;max-width:100%;min-width:0;}

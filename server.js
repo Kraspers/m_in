@@ -852,6 +852,12 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { status: 'ok' });
   }
 
+  if (requestUrl.pathname === '/index.html') {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+    return;
+  }
+
   const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
