@@ -426,6 +426,8 @@
     if(wave.childElementCount===barsCount) return;
     const heights=Array.from({length:barsCount}).map(()=>8);
     wave.innerHTML=heights.map(h=>`<span class="record-bar" style="height:${h}px"></span>`).join('');
+    wave.style.visibility='visible';
+    wave.style.opacity='1';
     state.levels=heights.slice();
   }
 
@@ -510,6 +512,7 @@
     const tick=()=>{
       if(!state.recording) return;
       if(!bars.length){
+        ensureRecordingBars(target);
         bars=Array.from(wave.querySelectorAll('.record-bar'));
         if(!bars.length){
           state.raf=requestAnimationFrame(tick);
@@ -517,15 +520,23 @@
         }
       }
       state.analyser.getByteFrequencyData(buf);
+      let energy=0;
       bars.forEach((bar,i)=>{
         const idx=Math.floor((i/Math.max(1,bars.length-1))*(buf.length-1));
         const v=buf[idx]||0;
+        energy+=v;
         const targetH=Math.max(6,Math.min(28,Math.round(6+(v/255)*22)));
         const prev=state.levels[i]||8;
         const next=Math.round(prev*0.45+targetH*0.55);
         state.levels[i]=next;
         bar.style.height=`${next}px`;
       });
+      if(energy===0){
+        bars.forEach((bar,i)=>{
+          const wobble=8+Math.round(Math.sin((Date.now()/130)+i*0.55)*2);
+          bar.style.height=`${Math.max(6,wobble)}px`;
+        });
+      }
       state.raf=requestAnimationFrame(tick);
     };
     state.raf=requestAnimationFrame(tick);
@@ -2913,7 +2924,8 @@
         if(bWrap&&pendingBannerDataUrl) bWrap.classList.add('shimmer-loading');
         const name=document.getElementById('pe-name').value.trim();
         const username=document.getElementById('pe-username').value.trim();
-        if(!name||!username){ alert('Имя и username обязательны'); return; }
+        if(!name||!username){ showTopToast('Имя и username обязательны',true); return; }
+        if(!/^[a-zA-Z0-9_.-]{2,32}$/.test(username)){ showTopToast('Логин: 2–32 символа, латиница, цифры, _.-',true); return; }
         const payload={
           name,
           username,
@@ -2937,7 +2949,11 @@
         }
         applyProfileUI(user);
         closeProfileEdit();
-      }catch(e){ alert(e.message); }
+      }catch(e){
+        const msg=String((e&&e.message)||'Ошибка сохранения');
+        if(msg.toLowerCase().includes('username')&&msg.toLowerCase().includes('занят')) showTopToast('Этот username уже занят',true);
+        else showTopToast(msg,true);
+      }
       finally{
         if(saveBtn) saveBtn.classList.remove('loading');
         if(avWrap) avWrap.classList.remove('shimmer-loading');
@@ -3209,7 +3225,7 @@
       try{
         await api(`/messages/${encodeURIComponent(mid)}`,{method:'PATCH',body:JSON.stringify({action:'unpin'})});
       }catch(_){}
-      if(currentChatUserId) await openChatWith(currentChatUserId,{keepScreen:true});
+      scheduleOpenCurrentChat();
     };
 
     doDeleteMessage=async function(){
