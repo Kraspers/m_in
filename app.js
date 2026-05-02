@@ -1584,9 +1584,13 @@
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
+      if(isVoice) bubble.appendChild(rDiv);
+      else if(metaEl) metaEl.before(rDiv);
+      else bubble.appendChild(rDiv);
+    }else if(isVoice&&rDiv.parentElement!==bubble){
       bubble.appendChild(rDiv);
-    }else if(rDiv.parentElement!==bubble){
-      bubble.appendChild(rDiv);
+    }else if(!isVoice&&metaEl&&rDiv.nextElementSibling!==metaEl){
+      metaEl.before(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
