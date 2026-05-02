@@ -510,6 +510,7 @@
     const tick=()=>{
       if(!state.recording) return;
       if(!bars.length){
+        ensureRecordingBars(target);
         bars=Array.from(wave.querySelectorAll('.record-bar'));
         if(!bars.length){
           state.raf=requestAnimationFrame(tick);
@@ -2818,7 +2819,8 @@
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
               const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
-              if(msg.editedAt||hasPinned) scheduleOpenCurrentChat();
+              const isCurrentPinned=pinnedBubble&&pinnedBubble.dataset&&pinnedBubble.dataset.mid===msg.id;
+              if(msg.editedAt||hasPinned||isCurrentPinned) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -2912,8 +2914,16 @@
         if(avWrap&&pendingAvatarDataUrl) avWrap.classList.add('shimmer-loading');
         if(bWrap&&pendingBannerDataUrl) bWrap.classList.add('shimmer-loading');
         const name=document.getElementById('pe-name').value.trim();
-        const username=document.getElementById('pe-username').value.trim();
-        if(!name||!username){ alert('Имя и username обязательны'); return; }
+        const usernameRaw=document.getElementById('pe-username').value.trim();
+        const username=usernameRaw.replace(/[^a-zA-Z0-9_.-]/g,'');
+        if(username!==usernameRaw){
+          showTopToast('Логин: только a-z, 0-9, _, ., -',true);
+          return;
+        }
+        if(!name||!username){
+          showTopToast('Имя и username обязательны',true);
+          return;
+        }
         const payload={
           name,
           username,
@@ -2937,7 +2947,7 @@
         }
         applyProfileUI(user);
         closeProfileEdit();
-      }catch(e){ alert(e.message); }
+      }catch(e){ showTopToast(e.message||'Ошибка сохранения',true); }
       finally{
         if(saveBtn) saveBtn.classList.remove('loading');
         if(avWrap) avWrap.classList.remove('shimmer-loading');
@@ -2976,7 +2986,7 @@
           setAvatarNode(av,dataUrl,me?me.name:'');
           av.style.background='none';
         }
-      }catch(e){ alert(e.message); }
+      }catch(e){ showTopToast(e.message||'Ошибка сохранения',true); }
       applyPeMediaScale();
       input.value='';
     };
@@ -2987,7 +2997,7 @@
         pendingBannerDataUrl=dataUrl;
         const bImg=document.getElementById('pe-banner-img');
         if(bImg){ bImg.src=dataUrl; bImg.style.display='block'; }
-      }catch(e){ alert(e.message); }
+      }catch(e){ showTopToast(e.message||'Ошибка сохранения',true); }
       applyPeMediaScale();
       input.value='';
     };

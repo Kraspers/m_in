@@ -218,7 +218,7 @@
       </div>
       <div>
         <div class="pe-label">Username</div>
-        <input id="pe-username" class="pe-field" type="text" placeholder="username" />
+        <input id="pe-username" class="pe-field" type="text" placeholder="username" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_.-]/g,'')" />
         <div class="pe-hint">Ваш уникальный идентификатор (только латиница, цифры и _)</div>
       </div>
       <div>
