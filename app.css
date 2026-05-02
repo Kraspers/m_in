@@ -341,7 +341,11 @@
   #copy-toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#111;font-size:17px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
   #copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   /* ── Закреплённый чат: иконка пина ── */
-  .chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
+.chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
+.chat-unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#0078FF;color:#fff;font-size:12px;font-weight:700;}
+.new-msg-sep{align-self:center;background:rgba(60,60,67,.7);color:#fff;font-size:12px;padding:4px 10px;border-radius:999px;margin:8px 0;}
+.sys-msg{align-self:center;max-width:86%;display:flex;justify-content:center;}
+.sys-pill{background:rgba(60,60,67,.8);color:#fff;font-size:12px;padding:6px 12px;border-radius:999px;}
   /* ── Контекстное меню чат-листа ── */
   #chatlist-ctx-overlay{position:fixed;inset:0;z-index:100;opacity:0;pointer-events:none;}
   #chatlist-ctx-overlay.open{opacity:1;pointer-events:all;}

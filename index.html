@@ -367,7 +367,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div style="color:#fff;font-size:20px;font-weight:700;text-align:center;">Удалить аккаунт?</div>
-        <div style="color:rgba(255,255,255,0.65);font-size:15px;text-align:center;line-height:1.5;">Это действие <span style="color:#FF453A;font-weight:600;">необратимо</span>. Все ваши посты, истории и данные будут удалены навсегда. Восстановить аккаунт будет невозможно.</div>
+        <div style="color:rgba(255,255,255,0.65);font-size:15px;text-align:center;line-height:1.5;">Это действие <span style="color:#FF453A;font-weight:600;">необратимо</span>. Ваш аккаунт, все чаты и все данные будут удалены навсегда. Восстановить аккаунт будет невозможно.</div>
         <input id="del-password" class="pe-field" type="password" placeholder="Введите пароль для подтверждения" style="border-radius:999px;background:rgba(44,44,46,0.6);border:1px solid rgba(255,255,255,0.1);padding:20px 20px;" />
         <button onclick="submitDeleteAccount()" style="width:100%;background:#FF453A;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Удалить навсегда</button>
         <button onclick="closeDelSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;color:rgba(255,255,255,0.6);font-size:17px;font-weight:500;cursor:pointer;font-family:inherit;padding:17px;">Отмена</button>
@@ -661,7 +661,7 @@
       <span style="position:absolute;left:22px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.45);pointer-events:none;display:flex;align-items:center;z-index:1;">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(150,150,160,0.85)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>
       </span>
-      <input class="login-input" id="reg-username" type="text" placeholder="Логин" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_.-]/g,'')" style="padding-left:48px;margin-bottom:0;width:100%;box-sizing:border-box;">
+      <input class="login-input" id="reg-username" type="text" placeholder="Логин" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_]/g,'')" style="padding-left:48px;margin-bottom:0;width:100%;box-sizing:border-box;">
     </div>
     <input class="login-input" id="reg-password" type="password" placeholder="Пароль">
     <input class="login-input" id="reg-password2" type="password" placeholder="Повторите пароль">

@@ -81,6 +81,12 @@ function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
 
+
+function isValidUsername(username) {
+  const u = String(username || '').trim();
+  return /^[A-Za-z0-9_]{5,70}$/.test(u);
+}
+
 function makeVpscCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
   let out = '';
@@ -232,6 +238,9 @@ function normalizeMessage(msg) {
     reactions: msg.reactions || {},
     pinnedBy: Array.isArray(msg.pinnedBy) ? msg.pinnedBy : [],
     editedAt: msg.editedAt || '',
+    isSystem: !!msg.isSystem,
+    systemType: msg.systemType || '',
+    systemText: msg.systemText || '',
     createdAt: msg.createdAt
   };
 }
@@ -271,6 +280,7 @@ function handleApi(req, res, urlObj) {
       .then(body => {
         const { name, username, password } = body;
         if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
+        if (!isValidUsername(username)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
         const db = readDb();
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
@@ -422,6 +432,7 @@ function handleApi(req, res, urlObj) {
         const user = getUserByToken(req, db);
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const nextUsername = String(body.username || '').trim();
+        if (nextUsername && !isValidUsername(nextUsername)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
         if (nextUsername && db.users.some(u => u.id !== user.id && u.username.toLowerCase() === nextUsername.toLowerCase())) {
           return sendJson(res, 409, { error: 'username уже занят' });
         }
@@ -554,6 +565,9 @@ function handleApi(req, res, urlObj) {
             ? (String(last.media[0]||'').startsWith('data:audio')?'🎤 Голосовое сообщение':'📷 Медиа')
             : ''))
           : (username ? `@${username}` : '');
+        const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
+        const lastReadAt = String(readMap[uid] || '');
+        const unreadCount = thread.filter(m => m.fromUserId === uid && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length;
         return {
           id: uid,
           name,
@@ -567,7 +581,8 @@ function handleApi(req, res, urlObj) {
           color: u ? colorForId(u.id) : 'linear-gradient(135deg,#4B5563,#1F2937)',
           isPinned: pinOrder.has(uid),
           pinIndex: pinOrder.has(uid) ? pinOrder.get(uid) : Number.MAX_SAFE_INTEGER,
-          deleted: !u
+          deleted: !u,
+          unreadCount
         };
       })
       .filter(u => {
@@ -700,12 +715,34 @@ function handleApi(req, res, urlObj) {
     if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
     const blockedByPeer = !!(peer && Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id));
     const blockedPeer = !!(peer && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(peer.id));
+    const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
+    const lastReadAt = String(readMap[withUserId] || '');
+    const firstUnread = items.find(m => m.fromUserId === withUserId && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime()));
     return sendJson(res, 200, {
+      firstUnreadMessageId: firstUnread ? firstUnread.id : '',
       items: items.map(normalizeMessage),
       peer: peer
         ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', blockedByPeer, blockedPeer }
         : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
     });
+  }
+
+
+  if (pathname === '/api/messages/read' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const withUserId = String(body.withUserId || '');
+        if (!withUserId) return sendJson(res, 400, { error: 'withUserId required' });
+        if (!user.chatReadAt || typeof user.chatReadAt !== 'object') user.chatReadAt = {};
+        user.chatReadAt[withUserId] = new Date().toISOString();
+        writeDb(db);
+        sendEventToUser(user.id, 'chat_read_update', { withUserId, at: user.chatReadAt[withUserId] });
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
   if (pathname === '/api/messages' && method === 'POST') {
@@ -774,8 +811,10 @@ function handleApi(req, res, urlObj) {
           if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
         } else if (action === 'pin') {
           msg.pinnedBy = [msg.fromUserId, msg.toUserId];
+          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
         } else if (action === 'unpin') {
           msg.pinnedBy = [];
+          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'unpin', systemText: `${user.name || user.username} открепил сообщение` });
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const text = String(body.text || '').trim();
