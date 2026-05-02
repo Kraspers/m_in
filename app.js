@@ -1584,11 +1584,11 @@
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(isVoice&&voiceMetaEl) voiceMetaEl.after(rDiv);
+      if(isVoice) bubble.appendChild(rDiv);
       else if(metaEl)metaEl.before(rDiv);
       else bubble.appendChild(rDiv);
-    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.previousElementSibling!==voiceMetaEl){
-      voiceMetaEl.after(rDiv);
+    }else if(isVoice&&rDiv.parentElement!==bubble){
+      bubble.appendChild(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
