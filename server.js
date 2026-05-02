@@ -147,7 +147,7 @@ function deriveDeviceMeta(uaRaw) {
   if (ua.includes('linux')) return { deviceName: 'Linux', osVersion: 'Linux' };
   return { deviceName: 'MIN Web', osVersion: 'Web' };
 }
-function createSession(req, userId) {
+function createSession(req, userId, opts = {}) {
   const token = makeToken();
   const { ua, ip, location } = parseDeviceInfo(req);
   const meta = deriveDeviceMeta(ua);
@@ -297,6 +297,7 @@ function handleApi(req, res, urlObj) {
         const { name, username, password } = body;
         if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
         if (!isValidUsername(username)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
+        if (String(username).toLowerCase()==='min') return sendJson(res, 409, { error: 'username занят' });
         const db = readDb();
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
@@ -315,7 +316,7 @@ function handleApi(req, res, urlObj) {
         };
         db.users.push(user);
         writeDb(db);
-        const session = createSession(req, user.id);
+        const session = createSession(req, user.id, { trusted: true });
         ensureSecurityNotice(db, user.id, session);
         writeDb(db);
         const token = session.token;
@@ -336,7 +337,7 @@ function handleApi(req, res, urlObj) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
         }
-        const session = createSession(req, user.id);
+        const session = createSession(req, user.id, { trusted: false });
         ensureSecurityNotice(db, user.id, session);
         writeDb(db);
         const token = session.token;
@@ -387,7 +388,7 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
-        const session = createSession(req, user.id);
+        const session = createSession(req, user.id, { trusted: false });
         const token = session.token;
         broadcastSessionsUpdate(user.id);
         sendJson(res, 200, { token, user: publicUser(user) });
@@ -426,6 +427,36 @@ function handleApi(req, res, urlObj) {
     }
     items.sort((a, b) => (a.current === b.current ? (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '') : (a.current ? -1 : 1)));
     return sendJson(res, 200, { count: Math.max(1, items.length), items });
+  }
+
+
+  if (pathname === '/api/me/sessions/pending' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const currentToken = req.headers['x-session-token'];
+    const items=[];
+    for (const s of sessions.values()) {
+      if (s.userId!==user.id || s.token===currentToken || s.trusted) continue;
+      items.push({id:s.id,deviceName:s.deviceName||'MIN Web',osVersion:s.osVersion||s.os||'Web',ip:s.ip||'Unknown',location:s.location||'Unknown',createdAt:s.createdAt});
+    }
+    items.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    return sendJson(res,200,{items});
+  }
+
+  if (pathname === '/api/me/sessions/decision' && method === 'POST') {
+    return readBody(req).then(body=>{
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      const { sessionId, action } = body||{};
+      let targetToken=''; let target=null;
+      for (const [tk,s] of sessions.entries()) { if (s.userId===user.id && s.id===sessionId) {targetToken=tk;target=s;break;} }
+      if (!target) return sendJson(res,404,{error:'Сеанс не найден'});
+      if (action==='trust') { target.trusted=true; sessions.set(targetToken,target); return sendJson(res,200,{ok:true}); }
+      if (action==='reject') { sendEventToSessionToken(targetToken,'force_logout',{reason:'security_reject'}); sseClients.delete(targetToken); sessions.delete(targetToken); return sendJson(res,200,{ok:true,terminated:true}); }
+      return sendJson(res,400,{error:'Некорректное действие'});
+    }).catch(err=>sendJson(res,400,{error:err.message}));
   }
 
   if (pathname === '/api/me/sessions/logout-others' && method === 'POST') {
@@ -618,7 +649,7 @@ function handleApi(req, res, urlObj) {
       .map(({ pinIndex, ...rest }) => rest);
     const sysThread = messages.filter(m => m.fromUserId === SYSTEM_CHAT_ID && m.toUserId === user.id);
     const sysLast = sysThread[sysThread.length-1];
-    const sysItem = {id:SYSTEM_CHAT_ID,name:'MIN',username:'min_support',bio:'Поддержка',preview:sysLast?sysLast.text:'Добро пожаловать в MIN',lastCreatedAt:sysLast?sysLast.createdAt:new Date().toISOString(),avatarDataUrl:'min-app.png',bannerDataUrl:'',avatar:'M',color:'linear-gradient(135deg,#0078FF,#005fcc)',isPinned:true,deleted:false,unreadCount:0,isSystem:true};
+    const sysItem = {id:SYSTEM_CHAT_ID,name:'MIN',username:'min',bio:'Поддержка',preview:sysLast?sysLast.text:'Добро пожаловать в MIN',lastCreatedAt:sysLast?sysLast.createdAt:new Date().toISOString(),avatarDataUrl:'min-app.png',bannerDataUrl:'',avatar:'M',color:'linear-gradient(135deg,#0078FF,#005fcc)',isPinned:true,deleted:false,unreadCount:0,isSystem:true};
     return sendJson(res, 200, { items: [sysItem, ...items.filter(i=>i.id!==SYSTEM_CHAT_ID)] });
   }
 
@@ -702,7 +733,7 @@ function handleApi(req, res, urlObj) {
       }));
     const sysThread = messages.filter(m => m.fromUserId === SYSTEM_CHAT_ID && m.toUserId === user.id);
     const sysLast = sysThread[sysThread.length-1];
-    const sysItem = {id:SYSTEM_CHAT_ID,name:'MIN',username:'min_support',bio:'Поддержка',preview:sysLast?sysLast.text:'Добро пожаловать в MIN',lastCreatedAt:sysLast?sysLast.createdAt:new Date().toISOString(),avatarDataUrl:'min-app.png',bannerDataUrl:'',avatar:'M',color:'linear-gradient(135deg,#0078FF,#005fcc)',isPinned:true,deleted:false,unreadCount:0,isSystem:true};
+    const sysItem = {id:SYSTEM_CHAT_ID,name:'MIN',username:'min',bio:'Поддержка',preview:sysLast?sysLast.text:'Добро пожаловать в MIN',lastCreatedAt:sysLast?sysLast.createdAt:new Date().toISOString(),avatarDataUrl:'min-app.png',bannerDataUrl:'',avatar:'M',color:'linear-gradient(135deg,#0078FF,#005fcc)',isPinned:true,deleted:false,unreadCount:0,isSystem:true};
     return sendJson(res, 200, { items: [sysItem, ...items.filter(i=>i.id!==SYSTEM_CHAT_ID)] });
   }
 
@@ -736,7 +767,7 @@ function handleApi(req, res, urlObj) {
     const withUserId = String(searchParams.get('withUserId') || '');
     if (withUserId === SYSTEM_CHAT_ID) {
       const items=(db.messages||[]).filter(m=>m.fromUserId===SYSTEM_CHAT_ID && m.toUserId===user.id);
-      return sendJson(res,200,{firstUnreadMessageId:'',items:items.map(normalizeMessage),peer:{id:SYSTEM_CHAT_ID,name:'MIN',username:'min_support',bio:'Поддержка',avatarDataUrl:'min-app.png',bannerDataUrl:''}});
+      return sendJson(res,200,{firstUnreadMessageId:'',items:items.map(normalizeMessage),peer:{id:SYSTEM_CHAT_ID,name:'MIN',username:'min',bio:'Поддержка',avatarDataUrl:'min-app.png',bannerDataUrl:''}});
     }
     const peer = db.users.find(u => u.id === withUserId);
     const items = (db.messages || []).filter(m =>
