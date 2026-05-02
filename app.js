@@ -1584,11 +1584,9 @@
     if(isNew){
       rDiv=document.createElement('div');
       rDiv.className='msg-reactions';
-      if(isVoice&&voiceMetaEl) voiceMetaEl.after(rDiv);
-      else if(metaEl)metaEl.before(rDiv);
-      else bubble.appendChild(rDiv);
-    }else if(isVoice&&voiceMetaEl&&voiceMetaWrap&&rDiv.parentElement===voiceMetaWrap&&rDiv.previousElementSibling!==voiceMetaEl){
-      voiceMetaEl.after(rDiv);
+      bubble.appendChild(rDiv);
+    }else if(rDiv.parentElement!==bubble){
+      bubble.appendChild(rDiv);
     }
     const currentEmojis=new Set(entries.map(([e])=>e));
     /* Анимированное удаление исчезнувших пилюль */
@@ -1678,9 +1676,15 @@
     reactionPickerBubble=null;
   }
 
-  function doReaction(emoji){
-    if(reactionPickerBubble) addReaction(reactionPickerBubble,emoji);
+  async function doReaction(emoji){
+    const bubble=reactionPickerBubble;
+    if(bubble) addReaction(bubble,emoji);
     closeReactionPicker();
+    const mid=bubble?.dataset?.mid;
+    if(!mid) return;
+    try{
+      await api(`/messages/${encodeURIComponent(mid)}/react`,{method:'POST',body:JSON.stringify({emoji})});
+    }catch(_){ }
   }
 
   /* ── Просмотр медиа ── */
