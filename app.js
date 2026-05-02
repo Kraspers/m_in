@@ -2543,7 +2543,7 @@ const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="no
         const pData=await api('/me/sessions/pending');
         const firstPending=(pData.items||[])[0];
         if(firstPending){
-          pendingCard=`<div id="security-prompt" style="background:#1A1A1A;border-radius:14px;padding:12px 14px;color:#fff;"><div style="font-weight:700;margin-bottom:6px;text-align:center;">Это вы?</div><div id="security-prompt-info" style="color:#8E8E93;font-size:13px;margin-bottom:10px;text-align:center;">${esc(firstPending.deviceName)} • ${esc(firstPending.osVersion)}<br>${esc(firstPending.location)} • ${esc(firstPending.ip)}</div><div style="display:flex;justify-content:space-between;gap:16px;"><button class="tg-action-link yes" onclick="approveLastSecurity(true,'${esc(firstPending.id)}')">Да, это я</button><button class="tg-action-link no" onclick="approveLastSecurity(false,'${esc(firstPending.id)}')">Нет, это не я</button></div></div>`;
+          pendingCard=`<div id="security-prompt" style="background:#1A1A1A;border-radius:28px;padding:14px 16px;color:#fff;"><div style="font-weight:700;margin-bottom:6px;text-align:center;">Это вы?</div><div id="security-prompt-info" style="color:#8E8E93;font-size:13px;margin-bottom:10px;text-align:center;">${esc(firstPending.deviceName)} • ${esc(firstPending.osVersion)}<br>${esc(firstPending.location)} • ${esc(firstPending.ip)}</div><div style="display:flex;justify-content:center;gap:22px;"><button class="tg-action-link yes" onclick="approveLastSecurity(true,'${esc(firstPending.id)}')">Да, это я</button><button class="tg-action-link no" onclick="approveLastSecurity(false,'${esc(firstPending.id)}')">Нет, это не я</button></div></div>`;
         }
         holder.insertAdjacentHTML('beforeend',pendingCard+html);
         holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
@@ -2630,6 +2630,10 @@ const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="no
       const rows=items.map(m=>{
         if(m.isSystem){
           return `<div class="rt-msg sys-msg"><div class="sys-pill">${esc(m.systemText||'Системное сообщение')}</div></div>`;
+        }
+        if((m.systemType||'')==='security_login'){
+          const body=esc(m.text||'Новый вход в аккаунт').replace(/\n/g,'<br>');
+          return `<div class="rt-msg" style="align-self:center;max-width:92%;"><div class="sys-login-card"><div class="sys-login-text">${body}</div><div class="sys-login-actions"><button class="tg-action-link yes" onclick="approveLastSecurity(true,'${esc(m.sessionId||'')}')">Доверять</button><button class="tg-action-link no" onclick="approveLastSecurity(false,'${esc(m.sessionId||'')}')">Не доверять</button></div></div></div>`;
         }
         let prefix='';
         if(!unreadMarkerPlaced&&firstUnreadMessageId&&m.id===firstUnreadMessageId){ unreadMarkerPlaced=true; prefix='<div class="new-msg-sep">Новые сообщения</div>'; }

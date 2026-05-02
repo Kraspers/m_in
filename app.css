@@ -572,3 +572,7 @@
 .tg-action-link{border:none;background:none;padding:0;font-size:15px;font-weight:700;cursor:pointer}
 .tg-action-link.yes{color:#34C759}
 .tg-action-link.no{color:#FF3B30}
+#security-prompt{border-radius:28px !important;}
+.sys-login-card{background:#1A1A1A;border-radius:22px;padding:12px 14px;color:#fff;}
+.sys-login-text{font-size:13px;line-height:1.45;color:#C7C7CC;text-align:left;white-space:normal;}
+.sys-login-actions{display:flex;justify-content:center;gap:22px;margin-top:10px;}

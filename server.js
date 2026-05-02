@@ -271,7 +271,7 @@ async function fetchLinkPreview(urlStr) {
 
 function ensureSecurityNotice(db, userId, session) {
   if (!db.messages) db.messages = [];
-  const text = `Вход в аккаунт: ${session.deviceName || 'Устройство'} • ${session.osVersion || session.os || 'Web'} • ${session.ip || 'Unknown'} • ${session.location || 'Unknown'}`;
+  const text = `Новый вход в аккаунт\nУстройство: ${session.deviceName || 'Устройство'}\nСистема: ${session.osVersion || session.os || 'Web'}\nIP: ${session.ip || 'Unknown'}\nЛокация: ${session.location || 'Unknown'}`;
   db.messages.push({
     id: crypto.randomUUID(),
     fromUserId: SYSTEM_CHAT_ID,
@@ -316,8 +316,10 @@ function handleApi(req, res, urlObj) {
         };
         db.users.push(user);
         writeDb(db);
-        const session = createSession(req, user.id, { trusted: true });
-        ensureSecurityNotice(db, user.id, session);
+        const session = createSession(req, user.id, { trusted: true, isPrimary: true });
+        user.primarySessionId = session.id;
+        if (!db.messages) db.messages = [];
+        db.messages.push({ id: crypto.randomUUID(), fromUserId: SYSTEM_CHAT_ID, toUserId: user.id, text: 'Добро пожаловать в MIN! Здесь будут сообщения о безопасности аккаунта.', createdAt: new Date().toISOString(), reactions: {}, systemType: 'welcome' });
         writeDb(db);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -337,8 +339,11 @@ function handleApi(req, res, urlObj) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
         }
-        const session = createSession(req, user.id, { trusted: false });
-        ensureSecurityNotice(db, user.id, session);
+        const hasActive = Array.from(sessions.values()).some(s=>s.userId===user.id);
+        const isPrimaryLogin = !user.primarySessionId || !Array.from(sessions.values()).some(s=>s.userId===user.id && s.id===user.primarySessionId);
+        const session = createSession(req, user.id, { trusted: !hasActive, isPrimary: isPrimaryLogin });
+        if (isPrimaryLogin) user.primarySessionId = session.id;
+        if (hasActive) ensureSecurityNotice(db, user.id, session);
         writeDb(db);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -375,7 +380,16 @@ function handleApi(req, res, urlObj) {
       const s = sessions.get(token);
       sessions.delete(token);
       sseClients.delete(token);
-      if (s && s.userId) broadcastSessionsUpdate(s.userId);
+      if (s && s.userId) {
+        const db = readDb();
+        const u = db.users.find(x=>x.id===s.userId);
+        if (u && u.primarySessionId===s.id) {
+          const next = Array.from(sessions.values()).filter(x=>x.userId===s.userId).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt))[0];
+          u.primarySessionId = next ? next.id : '';
+          writeDb(db);
+        }
+        broadcastSessionsUpdate(s.userId);
+      }
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -435,6 +449,8 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const currentToken = req.headers['x-session-token'];
+    const current = getSessionByToken(currentToken);
+    if (!current || user.primarySessionId !== current.id) return sendJson(res,200,{items:[]});
     const items=[];
     for (const s of sessions.values()) {
       if (s.userId!==user.id || s.token===currentToken || s.trusted) continue;
