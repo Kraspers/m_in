@@ -2583,7 +2583,9 @@ const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="no
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
-      if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
+      const subtitleFast=document.getElementById('chat-contact-subtitle');
+      if(titleFast) titleFast.innerHTML=esc(optimisticPeer.name||'Чат');
+      if(subtitleFast) subtitleFast.style.display='none';
       if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
@@ -2592,14 +2594,16 @@ const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="no
       currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
       const title=document.getElementById('chat-contact-name');
-      if(title) title.textContent=peer.name||'Чат';
+      const subtitle=document.getElementById('chat-contact-subtitle');
+      if(title){ const nm=peer.name||'Чат'; title.innerHTML=peer.id===SYSTEM_CHAT_ID?`${esc(nm)} ${VERIFIED_BADGE_SVG}`:esc(nm); }
+      if(subtitle) subtitle.style.display=peer.id===SYSTEM_CHAT_ID?'block':'none';
       const card=document.getElementById('chat-peer-card');
       const cardName=document.getElementById('chat-peer-name');
       const cardU=document.getElementById('chat-peer-username');
       const cardA=document.getElementById('chat-peer-avatar');
       if(card){
         card.style.display='flex';
-        if(cardName) cardName.textContent=peer.name||'Пользователь';
+        if(cardName) cardName.innerHTML=peer.id===SYSTEM_CHAT_ID?`${esc(peer.name||'Пользователь')} ${VERIFIED_BADGE_SVG}`:esc(peer.name||'Пользователь');
         if(cardU) cardU.textContent=peer.username?`@${peer.username}`:'';
         if(cardA){
           if(peer.avatarDataUrl) cardA.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
@@ -2833,6 +2837,7 @@ const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="no
           const msg=JSON.parse(ev.data);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
           scheduleChatsRefresh();
+          if(document.getElementById('screen-list')?.classList.contains('active')) loadChats('',{showSkeleton:false});
         }catch(_){}
       });
       stream.addEventListener('message_update',ev=>{
@@ -2872,6 +2877,8 @@ const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="no
       });
       stream.addEventListener('sessions_update',()=>{
         refreshMe();
+        scheduleChatsRefresh();
+        if(document.getElementById('screen-list')?.classList.contains('active')) loadChats('',{showSkeleton:false});
         const dw=document.getElementById('devices-wrap');
         if(dw&&dw.classList.contains('open')) openDevicesSheet();
       });

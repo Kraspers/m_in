@@ -272,7 +272,7 @@ async function fetchLinkPreview(urlStr) {
 function ensureSecurityNotice(db, userId, session) {
   if (!db.messages) db.messages = [];
   const text = `Новый вход в аккаунт\nУстройство: ${session.deviceName || 'Устройство'}\nСистема: ${session.osVersion || session.os || 'Web'}\nIP: ${session.ip || 'Unknown'}\nЛокация: ${session.location || 'Unknown'}`;
-  db.messages.push({
+  const msg = {
     id: crypto.randomUUID(),
     fromUserId: SYSTEM_CHAT_ID,
     toUserId: userId,
@@ -281,7 +281,9 @@ function ensureSecurityNotice(db, userId, session) {
     reactions: {},
     systemType: 'security_login',
     sessionId: session.id
-  });
+  };
+  db.messages.push(msg);
+  sendEventToUser(userId, 'message', normalizeMessage(msg));
 }
 function handleApi(req, res, urlObj) {
   const { pathname, searchParams } = urlObj;
