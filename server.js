@@ -26,6 +26,7 @@ const MIME_TYPES = {
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
 const linkPreviewCache = new Map();
+const SYSTEM_CHAT_ID = 'min-system';
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -267,6 +268,21 @@ async function fetchLinkPreview(urlStr) {
   return out;
 }
 
+
+function ensureSecurityNotice(db, userId, session) {
+  if (!db.messages) db.messages = [];
+  const text = `Вход в аккаунт: ${session.deviceName || 'Устройство'} • ${session.osVersion || session.os || 'Web'} • ${session.ip || 'Unknown'} • ${session.location || 'Unknown'}`;
+  db.messages.push({
+    id: crypto.randomUUID(),
+    fromUserId: SYSTEM_CHAT_ID,
+    toUserId: userId,
+    text,
+    createdAt: new Date().toISOString(),
+    reactions: {},
+    systemType: 'security_login',
+    sessionId: session.id
+  });
+}
 function handleApi(req, res, urlObj) {
   const { pathname, searchParams } = urlObj;
   const method = req.method;
@@ -300,6 +316,8 @@ function handleApi(req, res, urlObj) {
         db.users.push(user);
         writeDb(db);
         const session = createSession(req, user.id);
+        ensureSecurityNotice(db, user.id, session);
+        writeDb(db);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
         sendJson(res, 201, { token, user: publicUser(user) });
@@ -319,6 +337,8 @@ function handleApi(req, res, urlObj) {
           writeDb(db);
         }
         const session = createSession(req, user.id);
+        ensureSecurityNotice(db, user.id, session);
+        writeDb(db);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
         sendJson(res, 200, { token, user: publicUser(user) });
@@ -596,7 +616,10 @@ function handleApi(req, res, urlObj) {
         return new Date(b.lastCreatedAt || 0).getTime() - new Date(a.lastCreatedAt || 0).getTime();
       })
       .map(({ pinIndex, ...rest }) => rest);
-    return sendJson(res, 200, { items });
+    const sysThread = messages.filter(m => m.fromUserId === SYSTEM_CHAT_ID && m.toUserId === user.id);
+    const sysLast = sysThread[sysThread.length-1];
+    const sysItem = {id:SYSTEM_CHAT_ID,name:'MIN',username:'min_support',bio:'Поддержка',preview:sysLast?sysLast.text:'Добро пожаловать в MIN',lastCreatedAt:sysLast?sysLast.createdAt:new Date().toISOString(),avatarDataUrl:'min-app.png',bannerDataUrl:'',avatar:'M',color:'linear-gradient(135deg,#0078FF,#005fcc)',isPinned:true,deleted:false,unreadCount:0,isSystem:true};
+    return sendJson(res, 200, { items: [sysItem, ...items.filter(i=>i.id!==SYSTEM_CHAT_ID)] });
   }
 
   const chatMatch = pathname.match(/^\/api\/chats\/([^/]+)$/);
@@ -632,6 +655,7 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const peerId = chatMatch[1];
+    if (peerId === SYSTEM_CHAT_ID) return sendJson(res, 403, { error: 'System chat protected' });
     db.messages = (db.messages || []).filter(m => !(
       (m.fromUserId === user.id && m.toUserId === peerId) ||
       (m.fromUserId === peerId && m.toUserId === user.id)
@@ -676,7 +700,10 @@ function handleApi(req, res, urlObj) {
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
         color: colorForId(u.id)
       }));
-    return sendJson(res, 200, { items });
+    const sysThread = messages.filter(m => m.fromUserId === SYSTEM_CHAT_ID && m.toUserId === user.id);
+    const sysLast = sysThread[sysThread.length-1];
+    const sysItem = {id:SYSTEM_CHAT_ID,name:'MIN',username:'min_support',bio:'Поддержка',preview:sysLast?sysLast.text:'Добро пожаловать в MIN',lastCreatedAt:sysLast?sysLast.createdAt:new Date().toISOString(),avatarDataUrl:'min-app.png',bannerDataUrl:'',avatar:'M',color:'linear-gradient(135deg,#0078FF,#005fcc)',isPinned:true,deleted:false,unreadCount:0,isSystem:true};
+    return sendJson(res, 200, { items: [sysItem, ...items.filter(i=>i.id!==SYSTEM_CHAT_ID)] });
   }
 
   const blockMatch = pathname.match(/^\/api\/users\/([^/]+)\/block$/);
@@ -707,6 +734,10 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const withUserId = String(searchParams.get('withUserId') || '');
+    if (withUserId === SYSTEM_CHAT_ID) {
+      const items=(db.messages||[]).filter(m=>m.fromUserId===SYSTEM_CHAT_ID && m.toUserId===user.id);
+      return sendJson(res,200,{firstUnreadMessageId:'',items:items.map(normalizeMessage),peer:{id:SYSTEM_CHAT_ID,name:'MIN',username:'min_support',bio:'Поддержка',avatarDataUrl:'min-app.png',bannerDataUrl:''}});
+    }
     const peer = db.users.find(u => u.id === withUserId);
     const items = (db.messages || []).filter(m =>
       (m.fromUserId === user.id && m.toUserId === withUserId) ||
@@ -757,6 +788,7 @@ function handleApi(req, res, urlObj) {
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
         if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (toUserId===SYSTEM_CHAT_ID) return sendJson(res,403,{error:'Нельзя писать в системный чат'});
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
         if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {

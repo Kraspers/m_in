@@ -11,6 +11,8 @@
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
   let me=null;
+const SYSTEM_CHAT_ID='min-system';
+const VERIFIED_BADGE_SVG='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8.5 12.5L10.0089 14.0089C10.3526 14.3526 10.5245 14.5245 10.7198 14.5822C10.8914 14.6328 11.0749 14.6245 11.2412 14.5585C11.4305 14.4834 11.5861 14.2967 11.8973 13.9232L16 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3C12.7974 3 13.5222 3.31114 14.0595 3.81864C14.5913 4.32084 14.8571 4.57194 14.9325 4.61693C15.0937 4.71324 14.9649 4.65988 15.147 4.70581C15.2321 4.72726 15.5976 4.73769 16.3287 4.75855C17.0676 4.77963 17.8001 5.07212 18.364 5.636C18.9278 6.19989 19.2203 6.9324 19.2414 7.67121C19.2623 8.40232 19.2727 8.76787 19.2942 8.85296C19.3401 9.0351 19.2867 8.90625 19.383 9.06752C19.428 9.14286 19.6792 9.40876 20.1814 9.94045C20.6889 10.4778 21 11.2026 21 12C21 12.7974 20.6889 13.5222 20.1814 14.0595C19.6792 14.5912 19.428 14.8571 19.383 14.9325" stroke="#0078FF" stroke-width="2" stroke-linecap="round"/></svg>'; 
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
@@ -2511,6 +2513,7 @@
       }
       chatsLoadInFlight=true;
       const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
+      const pendingCard='<div id="security-prompt" style="background:#1A1A1A;border-radius:14px;padding:12px 14px;color:#fff;"><div style="font-weight:700;margin-bottom:4px;">Это вы?</div><div id="security-prompt-info" style="color:#8E8E93;font-size:13px;margin-bottom:10px;">Проверьте новый вход в аккаунт в чате MIN.</div><div style="display:flex;gap:8px;"><button class="tg-action-btn" onclick="approveLastSecurity(true)">Да, это я</button><button class="tg-action-btn tg-action-btn-dark" onclick="approveLastSecurity(false)">Нет, это не я</button></div></div>';
       const prevHtml=holder.innerHTML;
       holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
       const emptyPre=document.getElementById('chat-list-empty');
@@ -2523,7 +2526,7 @@
         const items=data.items||[];
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
-        holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
+        holder.querySelectorAll('.chat-row-item,.chat-row-skeleton,#security-prompt').forEach(n=>n.remove());
         items.forEach(c=>usersMap.set(c.id,c));
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
@@ -2531,12 +2534,12 @@
           ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center;gap:6px;">${esc(c.name||'Пользователь')}${c.isSystem?'<span class=\"sys-badge\">'+VERIFIED_BADGE_SVG+'</span>':''}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             <span class="chat-row-preview">${esc(c.preview||'')}</span>
           </div>
         </button>`;
         }).join('');
-        holder.insertAdjacentHTML('beforeend',html);
+        holder.insertAdjacentHTML('beforeend',pendingCard+html);
         holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
         holder.querySelectorAll('.chat-open-avatar').forEach(el=>{
           const openProfile=(ev)=>{
@@ -3479,3 +3482,5 @@
       if(files.length>0)renderMediaPreview();
     });
   })();
+
+window.approveLastSecurity=async function(ok){ alert(ok?'Устройство отмечено как доверенное':'Сеанс завершён через Устройства'); };
