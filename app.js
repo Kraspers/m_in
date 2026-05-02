@@ -2826,7 +2826,8 @@
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
               const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
-              if(msg.editedAt||hasPinned) scheduleOpenCurrentChat();
+              const becameUnpinned=!!(bubble===pinnedBubble&&!hasPinned);
+              if(msg.editedAt||hasPinned||becameUnpinned) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -3365,29 +3366,45 @@
       function openMenu(){
         const r=logo.getBoundingClientRect();
         const host=wrap.querySelector('#min-menu-logo-flight');
-        host.style.left=r.left+'px'; host.style.top=r.top+'px';
-        host.style.width=r.width+'px'; host.style.height=r.height+'px';
+        if(!host) return;
+        host.style.transition='none';
+        host.style.left=r.left+'px';
+        host.style.top=r.top+'px';
+        host.style.width=r.width+'px';
+        host.style.height=r.height+'px';
         host.style.backgroundImage=`url(${logo.getAttribute('src')})`;
-        logo.style.opacity='0';
-        logo.style.visibility='hidden';
+        host.style.opacity='1';
         const slideable=document.getElementById('min-menu-slideable');
-        const d=dock.getBoundingClientRect();
-        const size=Math.max(d.width||124,124);
-        const slideH=slideable?slideable.getBoundingClientRect().height:0;
-        const targetTop=d.top-slideH;
         wrap.classList.add('open');
-        setTimeout(()=>{
-          host.style.width=size+'px'; host.style.height=size+'px';
+        requestAnimationFrame(()=>{
+          logo.style.opacity='0';
+          logo.style.visibility='hidden';
+          const d=dock.getBoundingClientRect();
+          const size=Math.max(d.width||124,124);
+          const slideH=slideable?slideable.getBoundingClientRect().height:0;
+          const targetTop=d.top-slideH;
+          host.style.transition='all .25s ease';
+          host.style.width=size+'px';
+          host.style.height=size+'px';
           host.style.left=d.left+'px';
           host.style.top=targetTop+'px';
-        },40);
+        });
       }
       function closeMenu(){
         const host=wrap.querySelector('#min-menu-logo-flight');
+        if(!host) return;
         const r=logo.getBoundingClientRect();
-        host.style.left=r.left+'px'; host.style.top=r.top+'px';
-        host.style.width=r.width+'px'; host.style.height=r.height+'px';
-        setTimeout(()=>{wrap.classList.remove('open');logo.style.opacity='1';logo.style.visibility='visible';},220);
+        host.style.left=r.left+'px';
+        host.style.top=r.top+'px';
+        host.style.width=r.width+'px';
+        host.style.height=r.height+'px';
+        const finalize=()=>{
+          wrap.classList.remove('open');
+          logo.style.opacity='1';
+          logo.style.visibility='visible';
+          host.removeEventListener('transitionend',finalize);
+        };
+        host.addEventListener('transitionend',finalize,{once:true});
       }
       trigger.addEventListener('click',()=>{const now=Date.now(); if(now-lastTap<320) openMenu(); lastTap=now;});
       bg.addEventListener('click',closeMenu);
