@@ -2501,6 +2501,15 @@
         </div>
       </div>`).join('');
     }
+    function renderChatPreviewHtml(preview){
+      const pv=String(preview||'');
+      const low=pv.toLowerCase();
+      const pinIcon='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg>';
+      const unpinIcon='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor"><path d="M73 39.1C63.6 29.7 48.4 29.7 39.1 39.1C29.8 48.5 29.7 63.7 39 73.1L567 601.1C576.4 610.5 591.6 610.5 600.9 601.1C610.2 591.7 610.3 576.5 600.9 567.2L449.8 416L480 416C490 416 499.5 411.3 505.5 403.3C511.5 395.3 513.5 384.9 510.7 375.2L507 361.8C494.6 318.5 466 283.3 428.8 262.1L418.5 128L448 128C465.7 128 480 113.7 480 96C480 78.3 465.7 64 448 64L192 64C184.6 64 177.9 66.5 172.5 70.6L222.1 120.3L217.3 183.4L73 39.1zM314.2 416L181.7 283.6C159 304.1 141.9 331 133 361.9L129.2 375.3C126.4 385 128.4 395.3 134.4 403.4C140.4 411.5 150 416 160 416L314.2 416zM288 576C288 593.7 302.3 608 320 608C337.7 608 352 593.7 352 576L352 464L288 464L288 576z"/></svg>';
+      if(low.includes('откреп')) return `<span class="chat-row-preview chat-row-preview-system">${unpinIcon}<span>${esc(pv)}</span></span>`;
+      if(low.includes('закреп')) return `<span class="chat-row-preview chat-row-preview-system">${pinIcon}<span>${esc(pv)}</span></span>`;
+      return `<span class="chat-row-preview">${esc(pv)}</span>`;
+    }
     async function loadChats(query='',opts={}){
       const showSkeleton=opts.showSkeleton!==false;
       const holder=document.getElementById('chat-list');
@@ -2532,7 +2541,7 @@
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
-            <span class="chat-row-preview">${esc(c.preview||'')}</span>
+            ${renderChatPreviewHtml(c.preview)}
           </div>
         </button>`;
         }).join('');
@@ -2619,8 +2628,7 @@
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
       let unreadMarkerPlaced=false;
       const firstUnreadIndex=firstUnreadMessageId?items.findIndex(x=>x&&x.id===firstUnreadMessageId):-1;
-      const chatScreenActive=!!document.getElementById('screen-chat')?.classList.contains('active');
-      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0&&items.length>1&&!chatScreenActive;
+      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0&&items.length>1;
       const rows=items.map(m=>{
         if(m.isSystem){
           return `<div class="rt-msg sys-msg"><div class="sys-pill">${esc(m.systemText||'Системное сообщение')}</div></div>`;
