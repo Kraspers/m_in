@@ -10,6 +10,7 @@
   let peBannerScale=1;
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
+  const chatLeaveAtByUser=new Map();
   let me=null;
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
@@ -22,6 +23,9 @@
   }
 
   function showScreen(id){
+    if(id!=='screen-chat'&&currentChatUserId){
+      chatLeaveAtByUser.set(currentChatUserId,Date.now());
+    }
     if(isDesktop()){
       if(id==='screen-list'){
         /* Закрываем оверлеи сайдбара (поиск, профиль) */
@@ -2607,7 +2611,18 @@
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
-      unreadSeparatorMessageId=keepScreen?'':(data.firstUnreadMessageId||'');
+      if(keepScreen){
+        unreadSeparatorMessageId='';
+      }else{
+        const serverUnreadId=data.firstUnreadMessageId||'';
+        const leftAt=chatLeaveAtByUser.get(userId)||0;
+        let localUnreadId='';
+        if(leftAt){
+          const firstAfterLeave=(data.items||[]).find(msg=>!msg.isSystem&&me&&msg.fromUserId!==me.id&&new Date(msg.createdAt).getTime()>leftAt);
+          localUnreadId=firstAfterLeave?firstAfterLeave.id:'';
+        }
+        unreadSeparatorMessageId=localUnreadId||serverUnreadId;
+      }
       renderChatMessages(data.items||[],unreadSeparatorMessageId);
       api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
