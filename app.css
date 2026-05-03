@@ -237,7 +237,7 @@
   .forward-row:active{background:rgba(255,255,255,0.06);}
   .forward-row-name{color:#fff;font-size:16px;}
   /* ── Карточка «Избранное» в начале чата ── */
-  .favorites-intro-card{display:flex;flex-direction:column;align-items:center;background:rgba(30,30,32,0.9);border-radius:1.6rem;padding:28px 20px 22px;margin:0 8px;gap:0;width:calc(100% - 16px);}
+  .favorites-intro-card{display:flex;flex-direction:column;align-items:center;background:rgba(30,30,32,0.56);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:1.6rem;padding:28px 20px 22px;margin:0 8px;gap:0;width:calc(100% - 16px);}
   .fav-intro-wrap{flex:1;display:flex;align-items:center;justify-content:center;}
   /* ── Миниатюра медиа при редактировании (в области предпросмотра медиа) ── */
   .edit-media-thumb-wrap{position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#333;}
@@ -462,7 +462,7 @@
       position: fixed;
       top: 0; left: 360px; right: 0; bottom: 0;
       display: flex; align-items: center; justify-content: center;
-      z-index: 0; pointer-events: none; background:#111;
+      z-index: 0; pointer-events: none; background-color:#111;
     }
     body.has-right-screen #desktop-placeholder { display: none; }
     #desktop-placeholder-pill {
