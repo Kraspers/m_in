@@ -11,6 +11,7 @@
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
   let me=null;
+  const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
   function hideAppLoading(){
@@ -2436,6 +2437,10 @@
     window.doRegister=async function(){
       const name=document.getElementById('reg-displayname').value.trim();
       const username=document.getElementById('reg-username').value.trim();
+      if(!USERNAME_RE.test(username)){
+        document.getElementById('reg-error').textContent='username: только латиница/цифры/_ и длина 5-70';
+        return;
+      }
       const password=document.getElementById('reg-password').value;
       const password2=document.getElementById('reg-password2').value;
       if(password!==password2){
@@ -2592,7 +2597,8 @@
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
-      renderChatMessages(data.items||[]);
+      renderChatMessages(data.items||[],data.firstUnreadMessageId||'');
+      api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
     }
     window.openChatWith=openChatWith;
@@ -2604,14 +2610,20 @@
       if(t&&t.textContent.trim()) return t.textContent.trim();
       return 'Пользователь';
     }
-    function renderChatMessages(items){
+    function renderChatMessages(items,firstUnreadMessageId=''){
       const wrap=document.getElementById('chat-messages');
       const bottom=document.getElementById('chat-bottom');
       suppressReactionAnimations=true;
       messageMap.clear();
       wrap.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='chat-bottom') node.remove(); });
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
+      let unreadMarkerPlaced=false;
       const rows=items.map(m=>{
+        if(m.isSystem){
+          return `<div class="rt-msg sys-msg"><div class="sys-pill">${esc(m.systemText||'Системное сообщение')}</div></div>`;
+        }
+        let prefix='';
+        if(!unreadMarkerPlaced&&firstUnreadMessageId&&m.id===firstUnreadMessageId){ unreadMarkerPlaced=true; prefix='<div class="new-msg-sep">Новые сообщения</div>'; }
         messageMap.set(m.id,m);
         const mine=me&&m.fromUserId===me.id;
         const t=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
@@ -2640,7 +2652,7 @@
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
           const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:t,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||'',quoteHtml:replyHtml||''});
-          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
+          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
           const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">Переслано</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">от <b>${esc(m.forwardedFromName)}</b></div>`;
@@ -2648,7 +2660,7 @@
           const gridHtml=buildMediaGrid(mediaArr,m.id,'0 0 0 0',false);
           const mediaWrap=`<div style="margin:0 3px;overflow:hidden;">${gridHtml}</div>`;
           const metaStyle=m.text?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
-          return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div></div>`;
+          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div></div>`;
         }
         const mediaRadiusBase=mine
           ?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)'
@@ -2664,7 +2676,7 @@
         const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
         const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
         const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
-        return `<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div></div>`;
+        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${t}</span>${mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
@@ -2826,7 +2838,7 @@
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
               const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
-              if(msg.editedAt||hasPinned) scheduleOpenCurrentChat();
+              if(msg.editedAt||Array.isArray(msg.pinnedBy)) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -2850,6 +2862,7 @@
         const dw=document.getElementById('devices-wrap');
         if(dw&&dw.classList.contains('open')) openDevicesSheet();
       });
+      stream.addEventListener('chat_read_update',()=>{ scheduleChatsRefresh(); });
       stream.addEventListener('chat_pin_update',()=>{
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
@@ -2922,6 +2935,7 @@
         const name=document.getElementById('pe-name').value.trim();
         const username=document.getElementById('pe-username').value.trim();
         if(!name||!username){ alert('Имя и username обязательны'); return; }
+        if(!USERNAME_RE.test(username)){ alert('username: только латиница/цифры/_ и длина 5-70'); return; }
         const payload={
           name,
           username,
@@ -3209,7 +3223,7 @@
     const doPinMessageLocal=doPinMessage;
     const unpinMessageLocal=unpinMessage;
 
-    unpinMessage=async function(){
+    window.unpinPinnedMessageRemote=async function(){
       const bubble=pinnedBubble;
       const mid=bubble&&bubble.dataset?bubble.dataset.mid:'';
       unpinMessageLocal();

@@ -341,7 +341,14 @@
   #copy-toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#111;font-size:17px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
   #copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   /* ── Закреплённый чат: иконка пина ── */
-  .chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
+.chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
+.chat-unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#0078FF;color:#fff;font-size:12px;font-weight:700;}
+.new-msg-sep{align-self:stretch;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.82);font-size:12px;margin:10px 0;position:relative;text-transform:none;}
+.new-msg-sep::before,.new-msg-sep::after{content:'';height:1px;background:rgba(255,255,255,.22);flex:1;}
+.new-msg-sep::before{margin-right:10px;}
+.new-msg-sep::after{margin-left:10px;}
+.sys-msg{align-self:center;max-width:86%;display:flex;justify-content:center;}
+.sys-pill{background:rgba(60,60,67,.8);color:#fff;font-size:12px;padding:6px 12px;border-radius:999px;}
   /* ── Контекстное меню чат-листа ── */
   #chatlist-ctx-overlay{position:fixed;inset:0;z-index:100;opacity:0;pointer-events:none;}
   #chatlist-ctx-overlay.open{opacity:1;pointer-events:all;}
@@ -385,7 +392,7 @@
 #upv-ctx-overlay{position:fixed;inset:0;z-index:360;display:none;opacity:0;pointer-events:none;transition:opacity .22s ease;}
 #upv-ctx-overlay.open{display:block;opacity:1;pointer-events:all;}
 #upv-ctx-bg{position:absolute;inset:0;background:rgba(0,0,0,0.0);}
-#upv-ctx-menu{position:absolute;left:50%;transform:translateX(-50%) scale(.9);width:min(92vw,480px);bottom:12px;background:#1A1A1A;border-radius:14px;overflow:hidden;opacity:0;transition:transform .22s ease,opacity .22s ease;}
+#upv-ctx-menu{position:absolute;left:50%;transform:translateX(-50%) scale(.9);width:min(92vw,480px);bottom:28px;background:#1A1A1A;border-radius:14px;overflow:hidden;opacity:0;transition:transform .22s ease,opacity .22s ease;}
 #upv-ctx-overlay.open #upv-ctx-menu{transform:translateX(-50%) scale(1);opacity:1;}
 #profile-save-btn.loading{position:relative;pointer-events:none;overflow:hidden;}
 #profile-save-btn.loading::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,rgba(180,180,180,.16) 8%,rgba(220,220,220,.38) 18%,rgba(180,180,180,.16) 33%);background-size:200% 100%;animation:saveShimmer 1s linear infinite;}
