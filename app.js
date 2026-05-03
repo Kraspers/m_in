@@ -2628,7 +2628,8 @@
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
       let unreadMarkerPlaced=false;
       const firstUnreadIndex=firstUnreadMessageId?items.findIndex(x=>x&&x.id===firstUnreadMessageId):-1;
-      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0&&items.length>1;
+      const chatScreenActive=!!document.getElementById('screen-chat')?.classList.contains('active');
+      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0&&items.length>1&&!chatScreenActive;
       const rows=items.map(m=>{
         if(m.isSystem){
           return `<div class="rt-msg sys-msg"><div class="sys-pill">${esc(m.systemText||'Системное сообщение')}</div></div>`;
