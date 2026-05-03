@@ -11,6 +11,9 @@
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
   let me=null;
+const SYSTEM_CHAT_ID='min-system';
+const VERIFIED_BADGE_SVG='<span class="min-verified"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M530.8 134.1C545.1 144.5 548.3 164.5 537.9 178.8L281.9 530.8C276.4 538.4 267.9 543.1 258.5 543.9C249.1 544.7 240 541.2 233.4 534.6L105.4 406.6C92.9 394.1 92.9 373.8 105.4 361.3C117.9 348.8 138.2 348.8 150.7 361.3L252.2 462.8L486.2 141.1C496.6 126.8 516.6 123.6 530.9 134z" fill="#fff"/></svg></span>';
+const UNUSED_OLD_BADGE='<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8.5 12.5L10.0089 14.0089C10.3526 14.3526 10.5245 14.5245 10.7198 14.5822C10.8914 14.6328 11.0749 14.6245 11.2412 14.5585C11.4305 14.4834 11.5861 14.2967 11.8973 13.9232L16 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3C12.7974 3 13.5222 3.31114 14.0595 3.81864C14.5913 4.32084 14.8571 4.57194 14.9325 4.61693C15.0937 4.71324 14.9649 4.65988 15.147 4.70581C15.2321 4.72726 15.5976 4.73769 16.3287 4.75855C17.0676 4.77963 17.8001 5.07212 18.364 5.636C18.9278 6.19989 19.2203 6.9324 19.2414 7.67121C19.2623 8.40232 19.2727 8.76787 19.2942 8.85296C19.3401 9.0351 19.2867 8.90625 19.383 9.06752C19.428 9.14286 19.6792 9.40876 20.1814 9.94045C20.6889 10.4778 21 11.2026 21 12C21 12.7974 20.6889 13.5222 20.1814 14.0595C19.6792 14.5912 19.428 14.8571 19.383 14.9325" stroke="#0078FF" stroke-width="2" stroke-linecap="round"/></svg>'; 
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
@@ -2511,6 +2514,7 @@
       }
       chatsLoadInFlight=true;
       const hadChats=holder.querySelectorAll('.chat-row-item').length>0;
+      let pendingCard='';
       const prevHtml=holder.innerHTML;
       holder.querySelectorAll('.chat-row-skeleton').forEach(n=>n.remove());
       const emptyPre=document.getElementById('chat-list-empty');
@@ -2523,7 +2527,7 @@
         const items=data.items||[];
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
-        holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
+        holder.querySelectorAll('.chat-row-item,.chat-row-skeleton,#security-prompt').forEach(n=>n.remove());
         items.forEach(c=>usersMap.set(c.id,c));
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
@@ -2531,12 +2535,17 @@
           ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;display:flex;align-items:center;gap:6px;">${esc(c.name||'Пользователь')}${c.isSystem?'<span class=\"sys-badge\">'+VERIFIED_BADGE_SVG+'</span>':''}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             <span class="chat-row-preview">${esc(c.preview||'')}</span>
           </div>
         </button>`;
         }).join('');
-        holder.insertAdjacentHTML('beforeend',html);
+        const pData=await api('/me/sessions/pending');
+        const firstPending=(pData.items||[])[0];
+        if(firstPending){
+          pendingCard=`<div id="security-prompt" style="background:#1A1A1A;border-radius:28px;padding:14px 16px;color:#fff;"><div style="font-weight:700;margin-bottom:6px;text-align:center;">Это вы?</div><div id="security-prompt-info" style="color:#8E8E93;font-size:13px;margin-bottom:10px;text-align:center;">${esc(firstPending.deviceName)} • ${esc(firstPending.osVersion)}<br>${esc(firstPending.location)} • ${esc(firstPending.ip)}</div><div style="display:flex;justify-content:center;gap:22px;"><button class="tg-action-link yes" onclick="approveLastSecurity(true,'${esc(firstPending.id)}')">Да, это я</button><button class="tg-action-link no" onclick="approveLastSecurity(false,'${esc(firstPending.id)}')">Нет, это не я</button></div></div>`;
+        }
+        holder.insertAdjacentHTML('beforeend',pendingCard+html);
         holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
         holder.querySelectorAll('.chat-open-avatar').forEach(el=>{
           const openProfile=(ev)=>{
@@ -2574,7 +2583,9 @@
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
-      if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
+      const subtitleFast=document.getElementById('chat-contact-subtitle');
+      if(titleFast) titleFast.innerHTML=esc(optimisticPeer.name||'Чат');
+      if(subtitleFast) subtitleFast.style.display='none';
       if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
@@ -2583,14 +2594,16 @@
       currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
       const title=document.getElementById('chat-contact-name');
-      if(title) title.textContent=peer.name||'Чат';
+      const subtitle=document.getElementById('chat-contact-subtitle');
+      if(title){ const nm=peer.name||'Чат'; title.innerHTML=peer.id===SYSTEM_CHAT_ID?`${esc(nm)} ${VERIFIED_BADGE_SVG}`:esc(nm); }
+      if(subtitle) subtitle.style.display=peer.id===SYSTEM_CHAT_ID?'block':'none';
       const card=document.getElementById('chat-peer-card');
       const cardName=document.getElementById('chat-peer-name');
       const cardU=document.getElementById('chat-peer-username');
       const cardA=document.getElementById('chat-peer-avatar');
       if(card){
         card.style.display='flex';
-        if(cardName) cardName.textContent=peer.name||'Пользователь';
+        if(cardName) cardName.innerHTML=peer.id===SYSTEM_CHAT_ID?`${esc(peer.name||'Пользователь')} ${VERIFIED_BADGE_SVG}`:esc(peer.name||'Пользователь');
         if(cardU) cardU.textContent=peer.username?`@${peer.username}`:'';
         if(cardA){
           if(peer.avatarDataUrl) cardA.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
@@ -2621,6 +2634,10 @@
       const rows=items.map(m=>{
         if(m.isSystem){
           return `<div class="rt-msg sys-msg"><div class="sys-pill">${esc(m.systemText||'Системное сообщение')}</div></div>`;
+        }
+        if((m.systemType||'')==='security_login'){
+          const body=esc(m.text||'Новый вход в аккаунт').replace(/\n/g,'<br>');
+          return `<div class="rt-msg" style="align-self:center;max-width:92%;"><div class="sys-login-card"><div class="sys-login-text">${body}</div><div class="sys-login-actions"><button class="tg-action-link yes" onclick="approveLastSecurity(true,'${esc(m.sessionId||'')}')">Доверять</button><button class="tg-action-link no" onclick="approveLastSecurity(false,'${esc(m.sessionId||'')}')">Не доверять</button></div></div></div>`;
         }
         let prefix='';
         if(!unreadMarkerPlaced&&firstUnreadMessageId&&m.id===firstUnreadMessageId){ unreadMarkerPlaced=true; prefix='<div class="new-msg-sep">Новые сообщения</div>'; }
@@ -2820,6 +2837,7 @@
           const msg=JSON.parse(ev.data);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
           scheduleChatsRefresh();
+          if(document.getElementById('screen-list')?.classList.contains('active')) loadChats('',{showSkeleton:false});
         }catch(_){}
       });
       stream.addEventListener('message_update',ev=>{
@@ -2859,6 +2877,8 @@
       });
       stream.addEventListener('sessions_update',()=>{
         refreshMe();
+        scheduleChatsRefresh();
+        if(document.getElementById('screen-list')?.classList.contains('active')) loadChats('',{showSkeleton:false});
         const dw=document.getElementById('devices-wrap');
         if(dw&&dw.classList.contains('open')) openDevicesSheet();
       });
@@ -3479,3 +3499,13 @@
       if(files.length>0)renderMediaPreview();
     });
   })();
+
+window.approveLastSecurity=async function(ok,sessionId){
+  try{
+    if(!sessionId) return;
+    await api('/me/sessions/decision',{method:'POST',body:JSON.stringify({sessionId,action:ok?'trust':'reject'})});
+    const card=document.getElementById('security-prompt');
+    if(card) card.remove();
+    if(!ok) alert('Сеанс завершён.');
+  }catch(e){ alert(e.message||'Ошибка'); }
+};
