@@ -98,6 +98,8 @@
   .chat-row-item.chat-pinned .chat-pin-icon{opacity:.75;transform:scale(1);}
   .chat-row-name{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .chat-row-preview{display:block;color:#8E8E93;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .chat-row-preview-system{display:inline-flex;align-items:center;gap:6px;}
+  .chat-row-preview-system svg{width:13px;height:13px;flex-shrink:0;opacity:.85;}
   .chat-row:active{opacity:.7;}
   .settings-row{width:100%;display:flex;align-items:center;gap:14px;padding:17px 16px;background:none;border:none;cursor:pointer;}
   .settings-row:active{opacity:.7;}
@@ -105,7 +107,13 @@
   .tg-avatar{border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;font-family:inherit;}
 
 /* ── Чат: шапка и инпут плавают поверх сообщений ── */
-#screen-chat{overflow:hidden;background:#111;}
+#screen-chat{overflow:hidden;background:#111;background-image:url('wallpaper-mob.png');background-size:cover;background-position:center;background-repeat:no-repeat;}
+#screen-favorites{overflow:hidden;background:#111!important;background-image:url('wallpaper-mob.png')!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;}
+@media (min-width:768px){
+  #screen-chat,#screen-favorites,#desktop-placeholder{background-size:cover;background-position:center;background-repeat:no-repeat;}
+  #screen-chat,#desktop-placeholder{background-image:url('wallpaper-pc.png');}
+  #screen-favorites{background-image:url('wallpaper-pc.png')!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;}
+}
 #screen-chat>.header-blur{position:absolute;top:0;left:0;right:0;z-index:5;background:rgba(44,44,46,0.72)!important;backdrop-filter:blur(28px)!important;-webkit-backdrop-filter:blur(28px)!important;border-radius:0 0 2.2rem 2.2rem!important;}
 #screen-chat>.input-bar{position:absolute;bottom:0;left:0;right:0;z-index:5;background:transparent;}
 /* ── Избранное: позиционирование ── */
@@ -231,7 +239,7 @@
   .forward-row:active{background:rgba(255,255,255,0.06);}
   .forward-row-name{color:#fff;font-size:16px;}
   /* ── Карточка «Избранное» в начале чата ── */
-  .favorites-intro-card{display:flex;flex-direction:column;align-items:center;background:rgba(30,30,32,0.9);border-radius:1.6rem;padding:28px 20px 22px;margin:0 8px;gap:0;width:calc(100% - 16px);}
+  .favorites-intro-card{display:flex;flex-direction:column;align-items:center;background:rgba(30,30,32,0.56);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:1.6rem;padding:28px 20px 22px;margin:0 8px;gap:0;width:calc(100% - 16px);}
   .fav-intro-wrap{flex:1;display:flex;align-items:center;justify-content:center;}
   /* ── Миниатюра медиа при редактировании (в области предпросмотра медиа) ── */
   .edit-media-thumb-wrap{position:relative;width:72px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#333;}
@@ -343,12 +351,9 @@
   /* ── Закреплённый чат: иконка пина ── */
 .chat-pin-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0.5;flex-shrink:0;}
 .chat-unread-pill{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#0078FF;color:#fff;font-size:12px;font-weight:700;}
-.new-msg-sep{align-self:stretch;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.82);font-size:12px;margin:10px 0;position:relative;text-transform:none;}
-.new-msg-sep::before,.new-msg-sep::after{content:'';height:1px;background:rgba(255,255,255,.22);flex:1;}
-.new-msg-sep::before{margin-right:10px;}
-.new-msg-sep::after{margin-left:10px;}
+.new-msg-sep{align-self:stretch;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font-size:13px;font-weight:500;margin:10px 0;padding:8px 14px;border-radius:12px;background:rgba(44,44,46,0.42);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);text-transform:none;}
 .sys-msg{align-self:center;max-width:86%;display:flex;justify-content:center;}
-.sys-pill{background:rgba(60,60,67,.8);color:#fff;font-size:12px;padding:6px 12px;border-radius:999px;}
+.sys-pill{background:rgba(60,60,67,.45);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#fff;font-size:12px;padding:6px 12px;border-radius:999px;}
   /* ── Контекстное меню чат-листа ── */
   #chatlist-ctx-overlay{position:fixed;inset:0;z-index:100;opacity:0;pointer-events:none;}
   #chatlist-ctx-overlay.open{opacity:1;pointer-events:all;}
@@ -459,7 +464,7 @@
       position: fixed;
       top: 0; left: 360px; right: 0; bottom: 0;
       display: flex; align-items: center; justify-content: center;
-      z-index: 0; pointer-events: none; background: #111;
+      z-index: 0; pointer-events: none; background-color:#111;
     }
     body.has-right-screen #desktop-placeholder { display: none; }
     #desktop-placeholder-pill {
