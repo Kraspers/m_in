@@ -110,7 +110,8 @@
 #screen-chat{overflow:hidden;background:#111;background-image:url('wallpaper-mob.png');background-size:cover;background-position:center;background-repeat:no-repeat;}
 #screen-favorites{background:#111!important;background-image:url('wallpaper-mob.png')!important;background-size:cover;background-position:center;background-repeat:no-repeat;}
 @media (min-width:768px){
-  #screen-chat,#desktop-placeholder{background-image:url('wallpaper-pc.png');background-size:cover;background-position:center;background-repeat:no-repeat;}
+  #screen-chat,#screen-favorites,#desktop-placeholder{background-size:cover;background-position:center;background-repeat:no-repeat;}
+  #screen-chat,#desktop-placeholder{background-image:url('wallpaper-pc.png');}
   #screen-favorites{background-image:url('wallpaper-pc.png')!important;background-size:cover;background-position:center;background-repeat:no-repeat;}
 }
 #screen-chat>.header-blur{position:absolute;top:0;left:0;right:0;z-index:5;background:rgba(44,44,46,0.72)!important;backdrop-filter:blur(28px)!important;-webkit-backdrop-filter:blur(28px)!important;border-radius:0 0 2.2rem 2.2rem!important;}
