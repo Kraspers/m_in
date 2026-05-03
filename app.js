@@ -2606,7 +2606,7 @@
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
-      renderChatMessages(data.items||[],data.firstUnreadMessageId||'');
+      renderChatMessages(data.items||[],data.firstUnreadMessageId||'',!keepScreen);
       api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
     }
@@ -2619,7 +2619,7 @@
       if(t&&t.textContent.trim()) return t.textContent.trim();
       return 'Пользователь';
     }
-    function renderChatMessages(items,firstUnreadMessageId=''){
+    function renderChatMessages(items,firstUnreadMessageId='',allowUnreadSeparator=true){
       const wrap=document.getElementById('chat-messages');
       const bottom=document.getElementById('chat-bottom');
       suppressReactionAnimations=true;
@@ -2628,8 +2628,7 @@
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
       let unreadMarkerPlaced=false;
       const firstUnreadIndex=firstUnreadMessageId?items.findIndex(x=>x&&x.id===firstUnreadMessageId):-1;
-      const chatScreenActive=!!document.getElementById('screen-chat')?.classList.contains('active');
-      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0&&items.length>1&&!chatScreenActive;
+      const showUnreadSeparator=allowUnreadSeparator&&!!firstUnreadMessageId&&firstUnreadIndex>0&&items.length>1;
       const rows=items.map(m=>{
         if(m.isSystem){
           return `<div class="rt-msg sys-msg"><div class="sys-pill">${esc(m.systemText||'Системное сообщение')}</div></div>`;
