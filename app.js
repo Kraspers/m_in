@@ -896,6 +896,7 @@
   }
   let authToken='';
   let currentChatUserId='';
+  let unreadSeparatorMessageId='';
   let currentChatBlockedByPeer=false;
   let currentChatBlockedPeer=false;
   const usersMap=new Map();
@@ -2606,7 +2607,8 @@
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
-      renderChatMessages(data.items||[],data.firstUnreadMessageId||'');
+      unreadSeparatorMessageId=keepScreen?'':(data.firstUnreadMessageId||'');
+      renderChatMessages(data.items||[],unreadSeparatorMessageId);
       api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
     }
