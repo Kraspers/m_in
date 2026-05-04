@@ -1,0 +1,17 @@
+let token=localStorage.getItem('adminToken')||'';let tab='home';let modalCb=null;
+const q=s=>document.querySelector(s);const content=q('#content');
+async function api(p,o={}){o.headers={...(o.headers||{}),'content-type':'application/json','x-admin-token':token};const r=await fetch(p,o);const j=await r.json();if(!r.ok)throw new Error(j.error||'err');return j}
+function showLogin(){q('#login').classList.remove('hidden');q('#app').classList.add('hidden')}
+function showApp(){q('#login').classList.add('hidden');q('#app').classList.remove('hidden');render()}
+q('#loginBtn').onclick=async()=>{try{const r=await fetch('/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:q('#pwd').value})});const j=await r.json();if(!r.ok)throw new Error(j.error);token=j.token;localStorage.setItem('adminToken',token);showApp()}catch(e){q('#err').textContent=e.message}};
+document.querySelectorAll('aside button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+function openModal(title,needHours,cb){q('#mTitle').textContent=title;q('#mHours').style.display=needHours?'block':'none';q('#modal').classList.remove('hidden');modalCb=cb}
+q('#mCancel').onclick=()=>q('#modal').classList.add('hidden');q('#mOk').onclick=()=>{modalCb?.(q('#mReason').value,q('#mHours').value);q('#modal').classList.add('hidden');q('#mReason').value='';q('#mHours').value=''};
+async function render(){if(!token) return showLogin();
+if(tab==='home'){const s=await api('/api/admin/stats');content.innerHTML=`<h1>Главная</h1><div class=grid><div class=kpi>👥 Зарегистрировано<br><b>${s.totalUsers}</b></div><div class=kpi>🟢 Онлайн<br><b>${s.onlineNow}</b></div><div class=kpi>💬 Сообщений<br><b>${s.totalMessages}</b></div><div class=kpi>⛔ Заблокировано<br><b>${s.blockedUsers}</b></div></div>`}
+if(tab==='users'||tab==='verif'){const r=await api('/api/admin/users?q=');content.innerHTML=`<h1>${tab==='users'?'Пользователи':'Верификация'}</h1><input id=srch placeholder='Поиск'><div id=list></div>`;const draw=(items)=>q('#list').innerHTML=items.map(u=>`<div class=row><div>${u.name} (@${u.username}) ${u.verified?'✔️':''}</div><div>${tab==='users'?`<button data-a='tb' data-id='${u.id}'>Врем.бан</button><button data-a='pb' data-id='${u.id}'>Пермач</button><button data-a='ub' data-id='${u.id}'>Разбан</button>`:`<button data-a='v' data-id='${u.id}'>${u.verified?'Снять':'Вериф'}</button>`}</div></div>`).join('');draw(r.items);
+q('#srch').oninput=async(e)=>{const rr=await api('/api/admin/users?q='+encodeURIComponent(e.target.value));draw(rr.items)};
+q('#list').onclick=async(e)=>{const b=e.target.closest('button');if(!b)return;const id=b.dataset.id,a=b.dataset.a;if(a==='tb')openModal('Временный бан',true,async(reason,h)=>{await api('/api/admin/ban',{method:'POST',body:JSON.stringify({userId:id,reason,type:'temp',hours:Number(h)||1})});render()});if(a==='pb')openModal('Перманентный бан',false,async(reason)=>{await api('/api/admin/ban',{method:'POST',body:JSON.stringify({userId:id,reason,type:'perm'})});render()});if(a==='ub'){await api('/api/admin/unban',{method:'POST',body:JSON.stringify({userId:id})});render()}if(a==='v'){await api('/api/admin/verify',{method:'POST',body:JSON.stringify({userId:id})});render();}}}
+if(tab==='logs'){const l=await api('/api/admin/logs');content.innerHTML='<h1>Логи (24ч)</h1>'+l.items.map(x=>`<div class=row><div>${x.at} ${x.action}</div><div>${x.details||''}</div></div>`).join('')}
+}
+if(token)showApp();else showLogin();setInterval(()=>{if(tab==='home')render()},5000);
