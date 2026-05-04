@@ -2900,9 +2900,16 @@
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
       });
-      stream.addEventListener('force_logout',()=>{
+      stream.addEventListener('force_logout',ev=>{
+        let payload={};
+        try{payload=JSON.parse(ev.data||'{}');}catch(_){}
         authToken='';
         localStorage.removeItem('auth_token');
+        if(payload&&payload.reason==='banned'){
+          localStorage.setItem('banReason',String(payload.ban?.reason||'Не указана'));
+          location.href='/banned.html';
+          return;
+        }
         try{ stream.close(); }catch(_){}
         stream=null;
         openAuth('login');

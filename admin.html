@@ -1,0 +1,5 @@
+<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MIN Admin</title><link rel="stylesheet" href="admin.css"></head><body>
+<div id="login" class="center-card"><h1>MIN Admin</h1><p>Вход по паролю</p><input id="pwd" type="password" placeholder="Пароль"><button id="loginBtn">Войти</button><p id="err"></p></div>
+<div id="app" class="hidden"><aside><h2>ADMIN</h2><button data-tab="home">Главная</button><button data-tab="users">Пользователи</button><button data-tab="verif">Верификация</button><button data-tab="logs">Системные логи</button></aside><main><div id="content"></div></main></div>
+<div id="modal" class="modal hidden"><div class="card"><h3 id="mTitle"></h3><textarea id="mReason" maxlength="250" placeholder="Причина"></textarea><input id="mHours" type="number" min="1" placeholder="Время бана (часы)"><div><button id="mOk">Применить</button><button id="mCancel">Отмена</button></div></div></div>
+<script src="admin.js"></script></body></html>

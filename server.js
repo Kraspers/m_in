@@ -26,6 +26,22 @@ const MIME_TYPES = {
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
 const linkPreviewCache = new Map();
+const adminSessions = new Map();
+const systemLogs = [];
+
+function addSystemLog(action, details = '') {
+  systemLogs.push({ id: crypto.randomUUID(), at: new Date().toISOString(), action, details: String(details || '').slice(0, 500) });
+  const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+  while (systemLogs.length && new Date(systemLogs[0].at).getTime() < cutoff) systemLogs.shift();
+}
+
+function getAdminToken(req) {
+  return String(req.headers['x-admin-token'] || '');
+}
+function isAdmin(req) {
+  const t = getAdminToken(req);
+  return !!(t && adminSessions.has(t));
+}
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -114,7 +130,17 @@ function getUserByToken(req, db) {
   if (!session) return null;
   session.lastSeenAt = new Date().toISOString();
   sessions.set(token, session);
-  return db.users.find(u => u.id === session.userId) || null;
+  const user = db.users.find(u => u.id === session.userId) || null;
+  if (!user) return null;
+  if (user.ban) {
+    if (user.ban.expiresAt && new Date(user.ban.expiresAt).getTime() <= Date.now()) {
+      delete user.ban;
+      writeDb(db);
+    } else {
+      return null;
+    }
+  }
+  return user;
 }
 function parseDeviceInfo(req) {
   const ua = String(req.headers['user-agent'] || 'MIN Web');
@@ -174,6 +200,7 @@ function publicUser(user) {
     id: user.id,
     name: user.name,
     username: user.username,
+    verified: !!user.verified,
     bio: user.bio || '',
     avatarDataUrl: user.avatarDataUrl || '',
     bannerDataUrl: user.bannerDataUrl || ''
@@ -274,6 +301,72 @@ function handleApi(req, res, urlObj) {
   if (pathname === '/api/healthz') {
     return sendJson(res, 200, { status: 'ok' });
   }
+  if (pathname === '/api/admin/login' && method === 'POST') {
+    return readBody(req).then(body => {
+      const pwd = String(body.password || '');
+      const envPwd = String(process.env.ADMIN_PASSWORD || '');
+      if (!envPwd) return sendJson(res, 500, { error: 'ADMIN_PASSWORD не задан' });
+      if (pwd !== envPwd) return sendJson(res, 401, { error: 'Неверный пароль' });
+      const token = makeToken();
+      adminSessions.set(token, { createdAt: new Date().toISOString() });
+      addSystemLog('admin_login');
+      return sendJson(res, 200, { token });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (pathname === '/api/admin/stats' && method === 'GET') {
+    if (!isAdmin(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+    const db = readDb();
+    const totalUsers = (db.users || []).length;
+    const onlineSet = new Set(Array.from(sessions.values()).map(s => s.userId));
+    const blockedUsers = (db.users || []).filter(u => u.ban && (!u.ban.expiresAt || new Date(u.ban.expiresAt).getTime() > Date.now())).length;
+    return sendJson(res, 200, { totalUsers, onlineNow: onlineSet.size, totalMessages: (db.messages || []).length, blockedUsers });
+  }
+  if (pathname === '/api/admin/users' && method === 'GET') {
+    if (!isAdmin(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+    const db = readDb();
+    const q = String(searchParams.get('q') || '').toLowerCase();
+    const items = (db.users || []).filter(u => {
+      const s = `${u.name || ''} ${u.username || ''} ${u.bio || ''}`.toLowerCase();
+      return !q || s.includes(q);
+    }).map(u => ({ id: u.id, name: u.name, username: u.username, bio: u.bio || '', avatarDataUrl: u.avatarDataUrl || '', bannerDataUrl: u.bannerDataUrl || '', verified: !!u.verified, ban: u.ban || null }));
+    return sendJson(res, 200, { items });
+  }
+  if (pathname === '/api/admin/verify' && method === 'POST') {
+    if (!isAdmin(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+    return readBody(req).then(body => {
+      const db = readDb(); const u = (db.users || []).find(x => x.id === body.userId);
+      if (!u) return sendJson(res, 404, { error: 'Пользователь не найден' });
+      u.verified = !u.verified; writeDb(db); broadcastProfile(u); addSystemLog('verify_toggle', u.username);
+      sendEventToUser(u.id, 'verification_update', { verified: !!u.verified });
+      return sendJson(res, 200, { ok: true, verified: !!u.verified });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (pathname === '/api/admin/ban' && method === 'POST') {
+    if (!isAdmin(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+    return readBody(req).then(body => {
+      const db = readDb(); const u = (db.users || []).find(x => x.id === body.userId);
+      if (!u) return sendJson(res, 404, { error: 'Пользователь не найден' });
+      const reason = String(body.reason || '').slice(0, 250);
+      if (String(body.type) === 'perm') u.ban = { type: 'perm', reason, at: new Date().toISOString() };
+      else u.ban = { type: 'temp', reason, at: new Date().toISOString(), expiresAt: new Date(Date.now() + Math.max(1, Number(body.hours) || 1) * 3600000).toISOString() };
+      writeDb(db); addSystemLog('ban', `${u.username} ${u.ban.type}`);
+      for (const [t, s] of sessions.entries()) if (s.userId === u.id) { sendEventToSessionToken(t, 'force_logout', { reason: 'banned', ban: u.ban }); sseClients.delete(t); sessions.delete(t); }
+      return sendJson(res, 200, { ok: true });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (pathname === '/api/admin/unban' && method === 'POST') {
+    if (!isAdmin(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+    return readBody(req).then(body => {
+      const db = readDb(); const u = (db.users || []).find(x => x.id === body.userId);
+      if (!u) return sendJson(res, 404, { error: 'Пользователь не найден' });
+      delete u.ban; writeDb(db); addSystemLog('unban', u.username); return sendJson(res, 200, { ok: true });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (pathname === '/api/admin/logs' && method === 'GET') {
+    if (!isAdmin(req)) return sendJson(res, 401, { error: 'Unauthorized' });
+    addSystemLog('logs_open');
+    return sendJson(res, 200, { items: systemLogs.slice().reverse() });
+  }
 
   if (pathname === '/api/register' && method === 'POST') {
     return readBody(req)
@@ -314,6 +407,10 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        if (user.ban) {
+          if (user.ban.expiresAt && new Date(user.ban.expiresAt).getTime() <= Date.now()) delete user.ban;
+          else return sendJson(res, 403, { error: 'Ваш аккаунт заблокирован', ban: user.ban });
+        }
         if (!user.vpscCode) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
