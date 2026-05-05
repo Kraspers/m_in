@@ -2311,6 +2311,7 @@
   /* ── Backend sync + auth + routes ── */
   (function(){
     const API_BASE='/api';
+    if(localStorage.getItem('ban_lock_reason')){ location.href='/banned.html'; return; }
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
@@ -2900,9 +2901,15 @@
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
       });
-      stream.addEventListener('force_logout',()=>{
+      stream.addEventListener('force_logout',ev=>{
+        let payload={}; try{payload=JSON.parse(ev.data||'{}');}catch(_){}
         authToken='';
         localStorage.removeItem('auth_token');
+        if(payload&&payload.ban&&payload.ban.permanent){
+          localStorage.setItem('ban_lock_reason', String(payload.ban.reason||''));
+          location.href='/banned.html';
+          return;
+        }
         try{ stream.close(); }catch(_){}
         stream=null;
         openAuth('login');
