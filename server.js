@@ -33,7 +33,8 @@ function ensureDb() {
     const defaultDb = {
       users: [],
       chats: [],
-      messages: []
+      messages: [],
+      moderation: { bans: [], logs: [], adminRoutes: [] }
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
   }
@@ -167,6 +168,32 @@ function createSession(req, userId) {
   };
   sessions.set(token, session);
   return session;
+}
+
+
+function ensureModeration(db) {
+  if (!db.moderation) db.moderation = { bans: [], logs: [], adminRoutes: [] };
+  if (!Array.isArray(db.moderation.bans)) db.moderation.bans = [];
+  if (!Array.isArray(db.moderation.logs)) db.moderation.logs = [];
+  if (!Array.isArray(db.moderation.adminRoutes)) db.moderation.adminRoutes = [];
+  const cutoff = Date.now() - 86400000;
+  db.moderation.logs = db.moderation.logs.filter(l => new Date(l.createdAt||0).getTime() >= cutoff);
+}
+function verifyAdminPassword(password) {
+  const expected = String(process.env.ADMIN_PASSWORD_HASH || '').trim();
+  if (!expected) return false;
+  const salt = String(process.env.ADMIN_PASSWORD_SALT || '');
+  const probe = crypto.createHash('sha256').update(String(password || '') + salt).digest('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(probe), Buffer.from(expected)); } catch { return false; }
+}
+function adminSnapshot(db) {
+  ensureModeration(db);
+  return {
+    totalUsers: db.users.length,
+    onlineUsers: new Set(Array.from(sessions.values()).map(s => s.userId)).size,
+    totalMessages: (db.messages || []).length,
+    bannedUsers: new Set(db.moderation.bans.map(b => b.userId)).size
+  };
 }
 
 function publicUser(user) {
@@ -855,6 +882,30 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, { ok: true });
   }
 
+
+  if (pathname === '/api/admin/login' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb(); ensureModeration(db);
+      if (!verifyAdminPassword(body.password)) return sendJson(res, 401, { error: 'Неверный пароль' });
+      const token = makeToken();
+      db.moderation.adminRoutes.push({ token, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+12*60*60*1000).toISOString() });
+      writeDb(db);
+      return sendJson(res, 200, { token });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (pathname.startsWith('/api/admin/')) {
+    const db = readDb(); ensureModeration(db);
+    const token = String(req.headers['authorization']||'').replace(/^Bearer\s+/i,'').trim();
+    const ok = db.moderation.adminRoutes.some(r => r.token===token && new Date(r.expiresAt).getTime()>Date.now());
+    if (!ok) return sendJson(res, 401, { error: 'Admin unauthorized' });
+    if (pathname === '/api/admin/stats' && method === 'GET') return sendJson(res, 200, adminSnapshot(db));
+    if (pathname === '/api/admin/users' && method === 'GET') {
+      const q = String(searchParams.get('q')||'').toLowerCase();
+      const items = db.users.filter(u => !q || [u.name,u.username,u.bio].join(' ').toLowerCase().includes(q)).map(u => ({...publicUser(u), verified: !!u.verified}));
+      return sendJson(res, 200, { items });
+    }
+  }
+
   return sendJson(res, 404, { error: 'Not found' });
 }
 
@@ -897,7 +948,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname.startsWith('/admin-') ? '/admin.html' : requestUrl.pathname);
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
