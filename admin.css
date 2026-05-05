@@ -10,6 +10,6 @@ main{padding:24px}.title{font-size:54px;margin:0 0 16px}.stats{display:grid;grid
 @media (max-width:900px){.layout{grid-template-columns:1fr}.side{flex-direction:row;overflow:auto;position:sticky;top:0}.tab{font-size:18px;white-space:nowrap}.title{font-size:34px}.v{font-size:30px}}
 
 .tab{display:flex;align-items:center;gap:10px}.ico{width:22px;height:22px;display:inline-flex}.ico svg{width:22px;height:22px;fill:#fff}.k{display:flex;align-items:center;gap:8px}.stat-ico{font-size:20px;line-height:1}
-.sico{width:28px;height:28px;display:inline-flex;vertical-align:-6px;margin-right:8px}.sico svg,.ico svg{width:100%;height:100%;fill:#fff}
+.sico{width:36px;height:36px;display:inline-flex;vertical-align:-10px;margin-right:10px}.sico svg,.ico svg{width:100%;height:100%;fill:#fff}
 #reason.inp{min-height:110px;border-radius:20px;padding-top:14px}
 @keyframes pop{from{transform:translateY(8px) scale(.98);opacity:.3}to{transform:none;opacity:1}}
