@@ -965,7 +965,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || requestUrl.pathname.startsWith('/admin-')) ? '/admin-login.html' : requestUrl.pathname));
+  const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
