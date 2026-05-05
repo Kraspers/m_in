@@ -1,4 +1,45 @@
-<!doctype html><html lang='ru'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Admin MIN</title><link rel='stylesheet' href='/admin.css'></head><body>
-<div id='login' class='center'><div class='card'><h2>Admin вход</h2><input id='pass' type='password' placeholder='Пароль'><button onclick='login()'>Войти</button><div id='err'></div></div></div>
-<div id='app' hidden><aside><button data-tab='home'>Главная</button><button data-tab='users'>Пользователи</button><button data-tab='verify'>Верификация</button><button data-tab='logs'>Системные логи</button></aside><main id='main'></main></div>
-<script src='/admin.js'></script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MIN Admin</title>
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <div id="admin-login" class="login-wrap">
+    <div class="login-card">
+      <div class="brand">Minimum <span>Admin</span></div>
+      <h1>Вход в админ-панель</h1>
+      <input id="pass" type="password" placeholder="Пароль" autocomplete="current-password" />
+      <button id="login-btn">Войти</button>
+      <div id="err" class="error"></div>
+    </div>
+  </div>
+
+  <div id="admin-app" hidden>
+    <aside class="sidebar">
+      <div class="side-title">MIN Admin</div>
+      <button data-tab="home" class="side-btn active">Главная</button>
+      <button data-tab="users" class="side-btn">Пользователи</button>
+      <button data-tab="verify" class="side-btn">Верификация</button>
+      <button data-tab="logs" class="side-btn">Системные логи</button>
+    </aside>
+    <main id="main" class="main"></main>
+  </div>
+
+  <div id="ban-modal" class="modal" hidden>
+    <div class="modal-card">
+      <h3 id="ban-title">Бан пользователя</h3>
+      <textarea id="ban-reason" maxlength="250" placeholder="Причина (до 250 символов)"></textarea>
+      <input id="ban-hours" type="number" min="1" step="1" placeholder="Время бана (часы)" />
+      <div class="modal-row">
+        <button id="ban-cancel" class="ghost">Отмена</button>
+        <button id="ban-submit">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

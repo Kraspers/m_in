@@ -965,7 +965,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname.startsWith('/admin-') ? '/admin.html' : requestUrl.pathname);
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : ((requestUrl.pathname === '/admin' || requestUrl.pathname.startsWith('/admin-')) ? '/admin.html' : requestUrl.pathname);
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
