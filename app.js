@@ -2437,7 +2437,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
-      }catch(e){ document.getElementById('login-error').textContent=e.message; }
+      }catch(e){ const msg=String(e.message||''); document.getElementById('login-error').textContent=msg.includes('заблокирован')?('Ваш аккаунт заблокирован. '+msg):msg; }
     };
     window.doRegister=async function(){
       const name=document.getElementById('reg-displayname').value.trim();
@@ -2481,7 +2481,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
-      }catch(e){ document.getElementById('vpsc-error').textContent=e.message; }
+      }catch(e){ const msg=String(e.message||''); document.getElementById('vpsc-error').textContent=msg.includes('заблокирован')?('Ваш аккаунт заблокирован. '+msg):msg; }
     };
     let chatsRefreshTimer=null;
     let openChatRefreshTimer=null;
