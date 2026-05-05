@@ -196,6 +196,17 @@ function adminSnapshot(db) {
   };
 }
 
+
+function getActiveBan(db, userId) {
+  ensureModeration(db);
+  const now = Date.now();
+  return db.moderation.bans.find(b => b.userId===userId && (!b.expiresAt || new Date(b.expiresAt).getTime()>now)) || null;
+}
+function pushLog(db, action, details) {
+  ensureModeration(db);
+  db.moderation.logs.push({ id: crypto.randomUUID(), action, details, createdAt: new Date().toISOString() });
+}
+
 function publicUser(user) {
   return {
     id: user.id,
@@ -203,7 +214,8 @@ function publicUser(user) {
     username: user.username,
     bio: user.bio || '',
     avatarDataUrl: user.avatarDataUrl || '',
-    bannerDataUrl: user.bannerDataUrl || ''
+    bannerDataUrl: user.bannerDataUrl || '',
+    verified: !!user.verified
   };
 }
 
@@ -904,6 +916,11 @@ function handleApi(req, res, urlObj) {
       const items = db.users.filter(u => !q || [u.name,u.username,u.bio].join(' ').toLowerCase().includes(q)).map(u => ({...publicUser(u), verified: !!u.verified}));
       return sendJson(res, 200, { items });
     }
+    if (pathname === '/api/admin/bans' && method === 'GET') return sendJson(res,200,{items:db.moderation.bans});
+    if (pathname === '/api/admin/logs' && method === 'GET') { ensureModeration(db); writeDb(db); return sendJson(res,200,{items:db.moderation.logs.slice().reverse()}); }
+    if (pathname === '/api/admin/user/verify' && method === 'POST') return readBody(req).then(body=>{ const u=db.users.find(x=>x.id===String(body.userId||'')); if(!u) return sendJson(res,404,{error:'not found'}); u.verified=!!body.verified; pushLog(db,'verify',{userId:u.id,verified:u.verified}); writeDb(db); sendEventToUser(u.id,'profile',publicUser(u)); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
+    if (pathname === '/api/admin/user/ban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); const reason=String(body.reason||'').slice(0,250); const type=String(body.type||'temp'); const u=db.users.find(x=>x.id===userId); if(!u) return sendJson(res,404,{error:'not found'}); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); const ban={id:crypto.randomUUID(),userId,reason,createdAt:new Date().toISOString(),expiresAt:type==='temp'?new Date(Date.now()+Math.max(1,Number(body.hours||1))*3600000).toISOString():''}; db.moderation.bans.push(ban); pushLog(db,'ban',ban); writeDb(db); for (const [t,se] of sessions.entries()) if(se.userId===userId){ sendEventToSessionToken(t,'force_logout',{reason:'Ваш аккаунт заблокирован',ban}); sessions.delete(t);} return sendJson(res,200,{ok:true,ban}); }).catch(err=>sendJson(res,400,{error:err.message}));
+    if (pathname === '/api/admin/user/unban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); pushLog(db,'unban',{userId}); writeDb(db); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
   }
 
   return sendJson(res, 404, { error: 'Not found' });
