@@ -913,7 +913,7 @@ function handleApi(req, res, urlObj) {
     if (pathname === '/api/admin/stats' && method === 'GET') return sendJson(res, 200, adminSnapshot(db));
     if (pathname === '/api/admin/users' && method === 'GET') {
       const q = String(searchParams.get('q')||'').toLowerCase();
-      const items = db.users.filter(u => !q || [u.name,u.username,u.bio].join(' ').toLowerCase().includes(q)).map(u => ({...publicUser(u), verified: !!u.verified}));
+      const items = db.users.filter(u => !q || [u.name,u.username,u.bio].join(' ').toLowerCase().includes(q)).map(u => { const ban=getActiveBan(db,u.id); return ({...publicUser(u), verified: !!u.verified, ban: ban?{reason:ban.reason||'',expiresAt:ban.expiresAt||'',permanent:!ban.expiresAt}:null}); });
       return sendJson(res, 200, { items });
     }
     if (pathname === '/api/admin/bans' && method === 'GET') return sendJson(res,200,{items:db.moderation.bans});
@@ -965,7 +965,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : ((requestUrl.pathname === '/admin' || requestUrl.pathname.startsWith('/admin-')) ? '/admin.html' : requestUrl.pathname);
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || requestUrl.pathname.startsWith('/admin-')) ? '/admin-login.html' : requestUrl.pathname));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 

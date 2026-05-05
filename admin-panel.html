@@ -1,0 +1,5 @@
+<!doctype html><html lang='ru'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>MIN Admin</title><link rel='stylesheet' href='/admin.css'></head><body class='admin-bg'>
+<div class='layout'><aside class='side'><button class='tab active' data-t='home'>🏠 Главная</button><button class='tab' data-t='users'>👥 Пользователи</button><button class='tab' data-t='verify'>✅ Верификация</button><button class='tab' data-t='logs'>🧾 Системные логи</button></aside><main id='main'></main></div>
+<div id='modal' class='modal' hidden><div class='modal-card'><h3 id='mt'>Бан</h3><textarea id='reason' maxlength='250' class='inp' placeholder='Причина'></textarea><input id='hours' class='inp' type='number' min='1' value='24'><div class='r'><button id='cancel' class='btn'>Отмена</button><button id='ok' class='btn-primary'>Применить</button></div></div></div>
+<script src='/admin.js'></script>
+</body></html>
