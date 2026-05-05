@@ -33,7 +33,8 @@ function ensureDb() {
     const defaultDb = {
       users: [],
       chats: [],
-      messages: []
+      messages: [],
+      moderation: { bans: [], logs: [], adminRoutes: [] }
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf8');
   }
@@ -169,6 +170,45 @@ function createSession(req, userId) {
   return session;
 }
 
+
+function ensureModeration(db) {
+  if (!db.moderation) db.moderation = { bans: [], logs: [], adminRoutes: [] };
+  if (!Array.isArray(db.moderation.bans)) db.moderation.bans = [];
+  if (!Array.isArray(db.moderation.logs)) db.moderation.logs = [];
+  if (!Array.isArray(db.moderation.adminRoutes)) db.moderation.adminRoutes = [];
+  const cutoff = Date.now() - 86400000;
+  db.moderation.logs = db.moderation.logs.filter(l => new Date(l.createdAt||0).getTime() >= cutoff);
+}
+function verifyAdminPassword(password) {
+  const expected = String(process.env.ADMIN_PASSWORD_HASH || '').trim();
+  if (!expected) return false;
+  const salt = String(process.env.ADMIN_PASSWORD_SALT || '');
+  const probe = crypto.createHash('sha256').update(String(password || '') + salt).digest('hex');
+  try { return crypto.timingSafeEqual(Buffer.from(probe), Buffer.from(expected)); } catch { return false; }
+}
+function adminSnapshot(db) {
+  ensureModeration(db);
+  const onlineIds = Array.from(new Set(Array.from(sessions.values()).map(s => s.userId)));
+  return {
+    totalUsers: db.users.length,
+    onlineUsers: onlineIds.length,
+    onlineList: onlineIds.map(id=>{ const u=db.users.find(x=>x.id===id); return u?{id:u.id,name:u.name,username:u.username}:null; }).filter(Boolean),
+    totalMessages: (db.messages || []).length,
+    bannedUsers: new Set(db.moderation.bans.map(b => b.userId)).size
+  };
+}
+
+
+function getActiveBan(db, userId) {
+  ensureModeration(db);
+  const now = Date.now();
+  return db.moderation.bans.find(b => b.userId===userId && (!b.expiresAt || new Date(b.expiresAt).getTime()>now)) || null;
+}
+function pushLog(db, action, details) {
+  ensureModeration(db);
+  db.moderation.logs.push({ id: crypto.randomUUID(), action, details, createdAt: new Date().toISOString() });
+}
+
 function publicUser(user) {
   return {
     id: user.id,
@@ -176,7 +216,8 @@ function publicUser(user) {
     username: user.username,
     bio: user.bio || '',
     avatarDataUrl: user.avatarDataUrl || '',
-    bannerDataUrl: user.bannerDataUrl || ''
+    bannerDataUrl: user.bannerDataUrl || '',
+    verified: !!user.verified
   };
 }
 
@@ -855,6 +896,35 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, { ok: true });
   }
 
+
+  if (pathname === '/api/admin/login' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb(); ensureModeration(db);
+      if (!verifyAdminPassword(body.password)) return sendJson(res, 401, { error: 'Неверный пароль' });
+      const token = makeToken();
+      db.moderation.adminRoutes.push({ token, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now()+12*60*60*1000).toISOString() });
+      writeDb(db);
+      return sendJson(res, 200, { token });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (pathname.startsWith('/api/admin/')) {
+    const db = readDb(); ensureModeration(db);
+    const token = String(req.headers['authorization']||'').replace(/^Bearer\s+/i,'').trim();
+    const ok = db.moderation.adminRoutes.some(r => r.token===token && new Date(r.expiresAt).getTime()>Date.now());
+    if (!ok) return sendJson(res, 401, { error: 'Admin unauthorized' });
+    if (pathname === '/api/admin/stats' && method === 'GET') return sendJson(res, 200, adminSnapshot(db));
+    if (pathname === '/api/admin/users' && method === 'GET') {
+      const q = String(searchParams.get('q')||'').toLowerCase();
+      const items = db.users.filter(u => !q || [u.name,u.username,u.bio].join(' ').toLowerCase().includes(q)).map(u => { const ban=getActiveBan(db,u.id); return ({...publicUser(u), verified: !!u.verified, ban: ban?{reason:ban.reason||'',expiresAt:ban.expiresAt||'',permanent:!ban.expiresAt}:null}); });
+      return sendJson(res, 200, { items });
+    }
+    if (pathname === '/api/admin/bans' && method === 'GET') return sendJson(res,200,{items:db.moderation.bans});
+    if (pathname === '/api/admin/logs' && method === 'GET') { ensureModeration(db); writeDb(db); return sendJson(res,200,{items:db.moderation.logs.slice().reverse()}); }
+    if (pathname === '/api/admin/user/verify' && method === 'POST') return readBody(req).then(body=>{ const u=db.users.find(x=>x.id===String(body.userId||'')); if(!u) return sendJson(res,404,{error:'not found'}); u.verified=!!body.verified; pushLog(db,'verify',{userId:u.id,verified:u.verified}); writeDb(db); sendEventToUser(u.id,'profile',publicUser(u)); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
+    if (pathname === '/api/admin/user/ban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); const reason=String(body.reason||'').slice(0,250); const type=String(body.type||'temp'); const u=db.users.find(x=>x.id===userId); if(!u) return sendJson(res,404,{error:'not found'}); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); const ban={id:crypto.randomUUID(),userId,reason,createdAt:new Date().toISOString(),expiresAt:type==='temp'?new Date(Date.now()+Math.max(1,Number(body.hours||1))*3600000).toISOString():''}; db.moderation.bans.push(ban); pushLog(db,'ban',ban); writeDb(db); for (const [t,se] of sessions.entries()) if(se.userId===userId){ sendEventToSessionToken(t,'force_logout',{reason:'Ваш аккаунт заблокирован',ban}); sessions.delete(t);} return sendJson(res,200,{ok:true,ban}); }).catch(err=>sendJson(res,400,{error:err.message}));
+    if (pathname === '/api/admin/user/unban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); pushLog(db,'unban',{userId}); writeDb(db); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
+  }
+
   return sendJson(res, 404, { error: 'Not found' });
 }
 
@@ -897,7 +967,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
+  const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 

@@ -1,0 +1,6 @@
+body{margin:0;min-height:100vh;background:#070911;color:#fff;font-family:Inter,Arial,sans-serif;display:grid;place-items:center}
+.wrap{width:min(760px,92vw);display:flex;flex-direction:column;gap:22px}
+.field{height:88px;border-radius:32px;border:1px solid #3c3f4b;background:#2f323c;color:#fff;padding:0 28px;font-size:36px;outline:none}
+.btn{height:92px;border-radius:32px;border:0;background:#fff;color:#000;font-size:46px;font-weight:800;cursor:pointer}
+.err{min-height:24px;color:#ff7d7d;font-size:18px}
+@media (max-width:700px){.field{height:64px;font-size:24px;border-radius:20px}.btn{height:68px;font-size:30px;border-radius:20px}}
