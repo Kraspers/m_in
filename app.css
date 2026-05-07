@@ -253,7 +253,7 @@
   #profile-edit-bg{position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;transition:opacity 0.2s ease;}
   #profile-edit-wrap.open #profile-edit-bg{opacity:1;}
   #profile-edit-slideable{position:relative;width:100%;transform:translateY(100%);transition:transform 0.36s cubic-bezier(0.25,0.46,0.45,0.94);}
-  #profile-edit-slideable,#privacy-slideable,#pwd-slideable,#del-slideable{flex-shrink:0;}
+  #profile-edit-slideable,#privacy-slideable,#customization-slideable,#pwd-slideable,#del-slideable{flex-shrink:0;}
   #profile-edit-wrap.open #profile-edit-slideable{transform:translateY(0);}
   #profile-edit-close-row{display:flex;align-items:center;padding:6px 16px 12px;}
   #profile-edit-close-btn{border:none;background:none;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer;z-index:2;}
@@ -275,6 +275,48 @@
   #privacy-wrap.open #privacy-slideable{transform:translateY(0);}
   #privacy-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;}
   #privacy-sheet::-webkit-scrollbar{display:none;}
+
+  /* ── Шторка Кастомизация ── */
+  #customization-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
+  #customization-wrap.open{pointer-events:all;}
+  #customization-bg{position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;transition:opacity 0.2s ease;}
+  #customization-wrap.open #customization-bg{opacity:1;}
+  #customization-slideable{position:relative;width:100%;transform:translateY(100%);transition:transform 0.36s cubic-bezier(0.25,0.46,0.45,0.94);}
+  #customization-wrap.open #customization-slideable{transform:translateY(0);}
+  #customization-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;}
+  #customization-sheet::-webkit-scrollbar{display:none;}
+  .customization-content{padding:18px 16px 32px;display:flex;flex-direction:column;gap:14px;}
+  .custom-chat-preview{border-radius:1.4rem;padding:18px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+  .custom-chat-preview .msg-bubble{max-width:82%;}
+  .custom-chat-preview .bubble-in{background:rgba(37,37,37,0.92);}
+  .custom-theme-grid{display:grid;gap:10px;}
+  .custom-theme-grid-six{grid-template-columns:repeat(3,1fr);}
+  .custom-bg-grid{grid-template-columns:repeat(2,1fr);}
+  .custom-theme-card,.custom-bg-card{min-height:104px;border:none;border-radius:1.2rem;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:8px;overflow:hidden;font-family:inherit;}
+  .custom-theme-card:active,.custom-bg-card:active{opacity:.78;}
+  .theme-bubble{height:18px;border-radius:999px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.14);}
+  .theme-bubble.in{align-self:flex-start;background:rgba(255,255,255,.24);}
+  .theme-bubble.out{align-self:flex-end;}
+  .theme-bubble.w1{width:66%;}.theme-bubble.w2{width:52%;}.theme-bubble.w3{width:74%;}
+  .custom-theme-1{background:linear-gradient(160deg,#101820,#1f4f7a 52%,#5AC8FA);}
+  .custom-theme-1 .theme-bubble.out{background:linear-gradient(135deg,#58D2FF,#2477E6);}
+  .custom-theme-2{background:linear-gradient(160deg,#201522,#7c2cff 52%,#ff6bd6);}
+  .custom-theme-2 .theme-bubble.out{background:linear-gradient(135deg,#ff6bd6,#7c2cff);}
+  .custom-theme-3{background:linear-gradient(160deg,#102018,#1f8a54 52%,#8df56b);}
+  .custom-theme-3 .theme-bubble.out{background:linear-gradient(135deg,#7CFF91,#16A05C);}
+  .custom-theme-4{background:linear-gradient(160deg,#21150e,#ff8a00 52%,#ffd36b);}
+  .custom-theme-4 .theme-bubble.out{background:linear-gradient(135deg,#FFD36B,#FF7A00);}
+  .custom-theme-5{background:linear-gradient(160deg,#101227,#314DFF 52%,#00E0FF);}
+  .custom-theme-5 .theme-bubble.out{background:linear-gradient(135deg,#00E0FF,#314DFF);}
+  .custom-theme-6{background:linear-gradient(160deg,#241010,#ff3b30 52%,#ffb06b);}
+  .custom-theme-6 .theme-bubble.out{background:linear-gradient(135deg,#FFB06B,#FF3B30);}
+  .custom-section-title{color:#fff;font-size:18px;font-weight:700;margin-top:4px;text-align:left;}
+  .custom-bg-card{position:relative;min-height:120px;background:#111;}
+  .custom-bg-default{background:#111;}
+  .custom-bg-wallpaper{background:#111 url('wallpaper-mob.png') center/cover no-repeat;}
+  .custom-bg-card .theme-bubble.in{background:rgba(37,37,37,.9);}
+  .custom-bg-card .theme-bubble.out{background:#0078FF;}
+  .custom-bg-label{margin-top:auto;color:#fff;font-size:15px;font-weight:700;text-align:left;align-self:flex-start;text-shadow:0 1px 8px rgba(0,0,0,.45);}
   /* ── Шторка Устройства ── */
   #devices-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
   #devices-wrap.open{pointer-events:all;}
@@ -483,7 +525,7 @@
     }
 
     /* ── Шторки (sheets) — по центру экрана с полным блюром ── */
-    #privacy-wrap, #pwd-wrap, #del-wrap, #profile-edit-wrap, #devices-wrap {
+    #privacy-wrap, #customization-wrap, #pwd-wrap, #del-wrap, #profile-edit-wrap, #devices-wrap {
       left: 0 !important;
       right: 0 !important;
       width: auto !important;
@@ -491,7 +533,7 @@
       align-items: center !important;
       justify-content: center !important;
     }
-    #privacy-slideable, #pwd-slideable, #del-slideable, #profile-edit-slideable, #devices-slideable {
+    #privacy-slideable, #customization-slideable, #pwd-slideable, #del-slideable, #profile-edit-slideable, #devices-slideable {
       width: min(480px, 92vw) !important;
       max-width: none !important;
       margin: 0 !important;
@@ -500,6 +542,7 @@
       transition: transform 0.22s ease, opacity 0.22s ease !important;
     }
     #privacy-wrap.open #privacy-slideable,
+    #customization-wrap.open #customization-slideable,
     #pwd-wrap.open #pwd-slideable,
     #del-wrap.open #del-slideable,
     #profile-edit-wrap.open #profile-edit-slideable,
@@ -507,7 +550,7 @@
       transform: scale(1) translateY(0) !important;
       opacity: 1 !important;
     }
-    #privacy-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet, #devices-sheet {
+    #privacy-sheet, #customization-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet, #devices-sheet {
       border-radius: 1.8rem !important;
       max-height: 86dvh !important;
     }

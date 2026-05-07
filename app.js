@@ -2134,6 +2134,12 @@
   function closePrivacy(){
     document.getElementById('privacy-wrap').classList.remove('open');
   }
+  function openCustomization(){
+    document.getElementById('customization-wrap').classList.add('open');
+  }
+  function closeCustomization(){
+    document.getElementById('customization-wrap').classList.remove('open');
+  }
   let devicesSessionsCache=[];
   function backendApi(path,opts={}){
     if(typeof window.__api==='function') return window.__api(path,opts);
@@ -3107,6 +3113,12 @@
       const wrap=document.getElementById('privacy-wrap');
       wrap.classList.add('open');
       api('/me/vpsc').then(r=>{ const el=document.getElementById('privacy-code-text'); if(el) el.textContent=r.code; }).catch(()=>{});
+    };
+    window.openCustomization=function(){
+      document.getElementById('customization-wrap').classList.add('open');
+    };
+    window.closeCustomization=function(){
+      document.getElementById('customization-wrap').classList.remove('open');
     };
     window.openProfileEdit=function(){
       profileJustOpened=true;
