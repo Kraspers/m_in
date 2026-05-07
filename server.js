@@ -197,11 +197,10 @@ function verifyAdminPassword(password) {
 }
 function adminSnapshot(db) {
   ensureModeration(db);
-  const onlineIds = Array.from(new Set(Array.from(sessions.values()).map(s => s.userId)));
+  const onlineIds = Array.from(new Set(Array.from(sseClients.keys()).map(token => sessions.get(token)?.userId).filter(Boolean)));
   return {
     totalUsers: db.users.length,
     onlineUsers: onlineIds.length,
-    onlineList: onlineIds.map(id=>{ const u=db.users.find(x=>x.id===id); return u?{id:u.id,name:u.name,username:u.username}:null; }).filter(Boolean),
     totalMessages: (db.messages || []).length,
     bannedUsers: new Set(db.moderation.bans.map(b => b.userId)).size
   };

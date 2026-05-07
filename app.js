@@ -3127,12 +3127,18 @@
       const currentPassword=document.getElementById('pwd-current').value;
       const newPassword=document.getElementById('pwd-new').value;
       const newPassword2=document.getElementById('pwd-new2').value;
-      if(newPassword!==newPassword2){ alert('Пароли не совпадают'); return; }
-      await api('/me/password',{method:'PATCH',body:JSON.stringify({currentPassword,newPassword})});
-      document.getElementById('pwd-current').value='';
-      document.getElementById('pwd-new').value='';
-      document.getElementById('pwd-new2').value='';
-      closePwdSheet();
+      if(newPassword.length<6){ showTopToast('Новый пароль слишком короткий',true); return; }
+      if(newPassword!==newPassword2){ showTopToast('Пароли не совпадают',true); return; }
+      try{
+        await api('/me/password',{method:'PATCH',body:JSON.stringify({currentPassword,newPassword})});
+        document.getElementById('pwd-current').value='';
+        document.getElementById('pwd-new').value='';
+        document.getElementById('pwd-new2').value='';
+        closePwdSheet();
+        showTopToast('Пароль изменён');
+      }catch(e){
+        showTopToast(e.message||'Ошибка',true);
+      }
     };
     window.submitDeleteAccount=async function(){
       const password=document.getElementById('del-password').value;
