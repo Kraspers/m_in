@@ -136,6 +136,15 @@ function parseDeviceInfo(req) {
   const location = [city, country].filter(Boolean).join(', ') || 'Unknown';
   return { ua, ip, location };
 }
+function deviceBanKeyFromInfo(info) {
+  return crypto.createHash('sha256')
+    .update([String(info.ip || ''), String(info.ua || '')].join('::'))
+    .digest('hex');
+}
+function deviceBanKeyFromRequest(req) {
+  return deviceBanKeyFromInfo(parseDeviceInfo(req));
+}
+
 function deriveDeviceMeta(uaRaw) {
   const ua = String(uaRaw || '').toLowerCase();
   if (ua.includes('android')) return { deviceName: 'Android', osVersion: 'Android' };
@@ -199,10 +208,35 @@ function adminSnapshot(db) {
 }
 
 
+function isBanActive(ban, now = Date.now()) {
+  return !!(ban && (!ban.expiresAt || new Date(ban.expiresAt).getTime() > now));
+}
+function publicBan(ban) {
+  if (!ban) return null;
+  return {
+    id: ban.id,
+    userId: ban.userId || '',
+    reason: ban.reason || '',
+    createdAt: ban.createdAt || '',
+    expiresAt: ban.expiresAt || '',
+    permanent: !ban.expiresAt
+  };
+}
 function getActiveBan(db, userId) {
   ensureModeration(db);
-  const now = Date.now();
-  return db.moderation.bans.find(b => b.userId===userId && (!b.expiresAt || new Date(b.expiresAt).getTime()>now)) || null;
+  return db.moderation.bans.find(b => b.userId === userId && isBanActive(b)) || null;
+}
+function getActiveDeviceBan(db, req) {
+  ensureModeration(db);
+  const info = parseDeviceInfo(req);
+  const deviceKey = deviceBanKeyFromInfo(info);
+  return db.moderation.bans.find(b => isBanActive(b) && (
+    (Array.isArray(b.deviceKeys) && b.deviceKeys.includes(deviceKey)) ||
+    (Array.isArray(b.ips) && b.ips.includes(info.ip))
+  )) || null;
+}
+function sendBanResponse(res, message, ban, status = 403) {
+  return sendJson(res, status, { error: message, ban: publicBan(ban) });
 }
 function pushLog(db, action, details) {
   ensureModeration(db);
@@ -316,6 +350,12 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, { status: 'ok' });
   }
 
+  if (pathname === '/api/ban-status' && method === 'GET') {
+    const db = readDb();
+    const ban = getActiveDeviceBan(db, req);
+    return sendJson(res, 200, { banned: !!ban, ban: publicBan(ban) });
+  }
+
   if (pathname === '/api/register' && method === 'POST') {
     return readBody(req)
       .then(body => {
@@ -323,6 +363,8 @@ function handleApi(req, res, urlObj) {
         if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
         if (!isValidUsername(username)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
         const db = readDb();
+        const deviceBan = getActiveDeviceBan(db, req);
+        if (deviceBan) return sendBanResponse(res, 'Регистрация заблокирована.', deviceBan);
         if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
         }
@@ -353,8 +395,12 @@ function handleApi(req, res, urlObj) {
       .then(body => {
         const { username, password } = body;
         const db = readDb();
+        const deviceBan = getActiveDeviceBan(db, req);
+        if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
         const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        const activeBan = getActiveBan(db, user.id);
+        if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
         if (!user.vpscCode) {
           user.vpscCode = makeUniqueVpscCode(db);
           writeDb(db);
@@ -375,6 +421,8 @@ function handleApi(req, res, urlObj) {
     const uid = session.userId;
     const user = db.users.find(u => u.id === uid);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const activeBan = getActiveBan(db, user.id) || getActiveDeviceBan(db, req);
+    if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -406,8 +454,12 @@ function handleApi(req, res, urlObj) {
         const code = normalizeVpscCode(body.code);
         if (code.length !== 6) return sendJson(res, 400, { error: 'Некорректный код' });
         const db = readDb();
+        const deviceBan = getActiveDeviceBan(db, req);
+        if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
         const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        const activeBan = getActiveBan(db, user.id);
+        if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -420,6 +472,8 @@ function handleApi(req, res, urlObj) {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const activeBan = getActiveBan(db, user.id) || getActiveDeviceBan(db, req);
+    if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
     return sendJson(res, 200, { user: publicUser(user), vpscCode: user.vpscCode || '' });
   }
 
@@ -618,6 +672,7 @@ function handleApi(req, res, urlObj) {
           lastCreatedAt: last ? last.createdAt : '',
           avatarDataUrl: u ? (u.avatarDataUrl || '') : '',
           bannerDataUrl: u ? (u.bannerDataUrl || '') : '',
+          verified: !!(u && u.verified),
           avatar: u ? (u.name || u.username || 'U').charAt(0).toUpperCase() : '⌧',
           color: u ? colorForId(u.id) : 'linear-gradient(135deg,#4B5563,#1F2937)',
           isPinned: pinOrder.has(uid),
@@ -715,7 +770,8 @@ function handleApi(req, res, urlObj) {
         bio: u.bio || '',
         avatarDataUrl: u.avatarDataUrl || '',
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
-        color: colorForId(u.id)
+        color: colorForId(u.id),
+        verified: !!u.verified
       }));
     return sendJson(res, 200, { items });
   }
@@ -763,7 +819,7 @@ function handleApi(req, res, urlObj) {
       firstUnreadMessageId: firstUnread ? firstUnread.id : '',
       items: items.map(normalizeMessage),
       peer: peer
-        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', blockedByPeer, blockedPeer }
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', verified: !!peer.verified, blockedByPeer, blockedPeer }
         : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
     });
   }
@@ -920,8 +976,8 @@ function handleApi(req, res, urlObj) {
     }
     if (pathname === '/api/admin/bans' && method === 'GET') return sendJson(res,200,{items:db.moderation.bans});
     if (pathname === '/api/admin/logs' && method === 'GET') { ensureModeration(db); writeDb(db); return sendJson(res,200,{items:db.moderation.logs.slice().reverse()}); }
-    if (pathname === '/api/admin/user/verify' && method === 'POST') return readBody(req).then(body=>{ const u=db.users.find(x=>x.id===String(body.userId||'')); if(!u) return sendJson(res,404,{error:'not found'}); u.verified=!!body.verified; pushLog(db,'verify',{userId:u.id,verified:u.verified}); writeDb(db); sendEventToUser(u.id,'profile',publicUser(u)); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
-    if (pathname === '/api/admin/user/ban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); const reason=String(body.reason||'').slice(0,250); const type=String(body.type||'temp'); const u=db.users.find(x=>x.id===userId); if(!u) return sendJson(res,404,{error:'not found'}); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); const ban={id:crypto.randomUUID(),userId,reason,createdAt:new Date().toISOString(),expiresAt:type==='temp'?new Date(Date.now()+Math.max(1,Number(body.hours||1))*3600000).toISOString():''}; db.moderation.bans.push(ban); pushLog(db,'ban',ban); writeDb(db); for (const [t,se] of sessions.entries()) if(se.userId===userId){ sendEventToSessionToken(t,'force_logout',{reason:'Ваш аккаунт заблокирован',ban}); sessions.delete(t);} return sendJson(res,200,{ok:true,ban}); }).catch(err=>sendJson(res,400,{error:err.message}));
+    if (pathname === '/api/admin/user/verify' && method === 'POST') return readBody(req).then(body=>{ const u=db.users.find(x=>x.id===String(body.userId||'')); if(!u) return sendJson(res,404,{error:'not found'}); u.verified=!!body.verified; pushLog(db,'verify',{userId:u.id,verified:u.verified}); writeDb(db); const payload=publicUser(u); for (const t of sseClients.keys()) sendEventToSessionToken(t,'profile',payload); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
+    if (pathname === '/api/admin/user/ban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); const reason=String(body.reason||'').slice(0,250); const type=String(body.type||'temp'); const u=db.users.find(x=>x.id===userId); if(!u) return sendJson(res,404,{error:'not found'}); const userSessions=Array.from(sessions.values()).filter(se=>se.userId===userId); const deviceKeys=Array.from(new Set(userSessions.map(se=>deviceBanKeyFromInfo({ip:se.ip,ua:se.ua})))); const ips=Array.from(new Set(userSessions.map(se=>se.ip).filter(Boolean))); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); const ban={id:crypto.randomUUID(),userId,reason,createdAt:new Date().toISOString(),expiresAt:type==='temp'?new Date(Date.now()+Math.max(1,Number(body.hours||1))*3600000).toISOString():'',deviceKeys,ips}; db.moderation.bans.push(ban); pushLog(db,'ban',ban); writeDb(db); for (const [t,se] of Array.from(sessions.entries())) if(se.userId===userId){ sendEventToSessionToken(t,'force_logout',{reason:'Ваш аккаунт заблокирован',ban:publicBan(ban)}); sessions.delete(t); sseClients.delete(t); } return sendJson(res,200,{ok:true,ban:publicBan(ban)}); }).catch(err=>sendJson(res,400,{error:err.message}));
     if (pathname === '/api/admin/user/unban' && method === 'POST') return readBody(req).then(body=>{ const userId=String(body.userId||''); db.moderation.bans=db.moderation.bans.filter(b=>b.userId!==userId); pushLog(db,'unban',{userId}); writeDb(db); return sendJson(res,200,{ok:true}); }).catch(err=>sendJson(res,400,{error:err.message}));
   }
 

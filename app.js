@@ -2251,6 +2251,13 @@
     navigator.clipboard.writeText(code).catch(()=>{});
     showTopToast('Скопировано');
   }
+  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true"><path d="M530.8 134.1C545.1 144.5 548.3 164.5 537.9 178.8L281.9 530.8C276.4 538.4 267.9 543.1 258.5 543.9C249.1 544.7 240 541.2 233.4 534.6L105.4 406.6C92.9 394.1 92.9 373.8 105.4 361.3C117.9 348.8 138.2 348.8 150.7 361.3L252.2 462.8L486.2 141.1C496.6 126.8 516.6 123.6 530.9 134z"/></svg>';
+  function verifiedIconHtml(){ return `<span class="verified-check" title="Верифицирован">${VERIFY_ICON_SVG}</span>`; }
+  function nameWithVerificationHtml(name,verified){ return `${esc(String(name||'Пользователь'))}${verified?verifiedIconHtml():''}`; }
+  function setNameWithVerification(el,name,verified){
+    if(!el) return;
+    el.innerHTML=nameWithVerificationHtml(name,verified);
+  }
   function closeUserProfileView(){
     const view=document.getElementById('user-profile-view');
     view.classList.remove('open');
@@ -2260,7 +2267,7 @@
   }
   function openUserProfileView(p){
     window.__upvUserId=p.id||'';
-    document.getElementById('upv-name').textContent=p.name||'Профиль';
+    setNameWithVerification(document.getElementById('upv-name'),p.name||'Профиль',!!p.verified);
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
     const bioEl=document.getElementById('upv-bio');
     if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
@@ -2311,7 +2318,7 @@
   /* ── Backend sync + auth + routes ── */
   (function(){
     const API_BASE='/api';
-    if(localStorage.getItem('ban_lock_reason')){ location.href='/banned.html'; return; }
+    if(localStorage.getItem('ban_lock_permanent')==='1'){ location.href='/banned.html'; return; }
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
@@ -2323,11 +2330,49 @@
       if(authToken) headers['x-session-token']=authToken;
       return fetch(`${API_BASE}${path}`,{...opts,headers}).then(async r=>{
         const data=await r.json().catch(()=>({}));
-        if(!r.ok) throw new Error(data.error||'API error');
+        if(!r.ok){
+          const err=new Error(data.error||'API error');
+          err.status=r.status;
+          err.data=data;
+          err.ban=data&&data.ban;
+          throw err;
+        }
         return data;
       });
     }
     window.__api=api;
+    function formatBanDate(iso){
+      if(!iso) return 'без даты';
+      try{return new Date(iso).toLocaleString('ru-RU');}catch(_){return iso;}
+    }
+    function showBanModal(ban){
+      if(!ban) return;
+      if(ban.permanent||!ban.expiresAt){
+        localStorage.setItem('ban_lock_permanent','1');
+        localStorage.setItem('ban_lock_reason',String(ban.reason||''));
+        location.href='/banned.html';
+        return;
+      }
+      const modal=document.getElementById('ban-info-modal');
+      if(!modal){ alert(`Вы были заблокированы\nПричина: ${ban.reason||'Не указана'}\nДата разблокировки: ${formatBanDate(ban.expiresAt)}`); return; }
+      document.getElementById('ban-info-reason').textContent=ban.reason||'Не указана';
+      document.getElementById('ban-info-until').textContent=formatBanDate(ban.expiresAt);
+      modal.style.display='flex';
+      requestAnimationFrame(()=>modal.classList.add('open'));
+    }
+    window.closeBanInfoModal=function(){
+      const modal=document.getElementById('ban-info-modal');
+      if(!modal) return;
+      modal.classList.remove('open');
+      setTimeout(()=>{ if(!modal.classList.contains('open')) modal.style.display='none'; },180);
+    };
+    function handleBanError(e,targetId){
+      if(e&&e.ban){ showBanModal(e.ban); return true; }
+      const data=e&&e.data;
+      if(data&&data.ban){ showBanModal(data.ban); return true; }
+      if(targetId){ const el=document.getElementById(targetId); if(el) el.textContent=e.message||'Ошибка'; }
+      return false;
+    }
     function initials(name){
       const t=(name||'М').trim();
       return t ? t.charAt(0).toUpperCase() : 'М';
@@ -2355,7 +2400,7 @@
       const avatar=profile.avatarDataUrl||'';
       const banner=profile.bannerDataUrl||'';
       const mainName=document.getElementById('profile-main-name');
-      if(mainName) mainName.textContent=name;
+      setNameWithVerification(mainName,name,!!profile.verified);
       const peName=document.getElementById('pe-name');
       const peUsername=document.getElementById('pe-username');
       const peBio=document.getElementById('pe-bio');
@@ -2438,7 +2483,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
-      }catch(e){ const msg=String(e.message||''); document.getElementById('login-error').textContent=msg.includes('заблокирован')?('Ваш аккаунт заблокирован. '+msg):msg; }
+      }catch(e){ if(handleBanError(e,'login-error')) return; const msg=String(e.message||''); document.getElementById('login-error').textContent=msg; }
     };
     window.doRegister=async function(){
       const name=document.getElementById('reg-displayname').value.trim();
@@ -2461,7 +2506,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
-      }catch(e){ document.getElementById('reg-error').textContent=e.message; }
+      }catch(e){ if(handleBanError(e,'reg-error')) return; document.getElementById('reg-error').textContent=e.message; }
     };
     function updateVpscBoxes(code){
       for(let i=0;i<6;i++){
@@ -2482,7 +2527,7 @@
         applyProfileUI(res.user);
         startRealtime();
         await loadChats();
-      }catch(e){ const msg=String(e.message||''); document.getElementById('vpsc-error').textContent=msg.includes('заблокирован')?('Ваш аккаунт заблокирован. '+msg):msg; }
+      }catch(e){ if(handleBanError(e,'vpsc-error')) return; const msg=String(e.message||''); document.getElementById('vpsc-error').textContent=msg; }
     };
     let chatsRefreshTimer=null;
     let openChatRefreshTimer=null;
@@ -2546,7 +2591,7 @@
           ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
           <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             ${renderChatPreviewHtml(c.preview)}
           </div>
         </button>`;
@@ -2589,7 +2634,7 @@
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
-      if(titleFast) titleFast.textContent=optimisticPeer.name||'Чат';
+      setNameWithVerification(titleFast,optimisticPeer.name||'Чат',!!optimisticPeer.verified);
       if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
@@ -2598,14 +2643,14 @@
       currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
       const title=document.getElementById('chat-contact-name');
-      if(title) title.textContent=peer.name||'Чат';
+      setNameWithVerification(title,peer.name||'Чат',!!peer.verified);
       const card=document.getElementById('chat-peer-card');
       const cardName=document.getElementById('chat-peer-name');
       const cardU=document.getElementById('chat-peer-username');
       const cardA=document.getElementById('chat-peer-avatar');
       if(card){
         card.style.display='flex';
-        if(cardName) cardName.textContent=peer.name||'Пользователь';
+        setNameWithVerification(cardName,peer.name||'Пользователь',!!peer.verified);
         if(cardU) cardU.textContent=peer.username?`@${peer.username}`:'';
         if(cardA){
           if(peer.avatarDataUrl) cardA.innerHTML=`<img src="${esc(peer.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
@@ -2847,6 +2892,11 @@
           if(me&&p&&p.id===me.id) applyProfileUI(p);
           if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
           if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
+          if(currentChatUserId&&p&&p.id===currentChatUserId){
+            setNameWithVerification(document.getElementById('chat-contact-name'),p.name||'Чат',!!p.verified);
+            setNameWithVerification(document.getElementById('chat-peer-name'),p.name||'Пользователь',!!p.verified);
+          }
+          if(p&&p.id) scheduleChatsRefresh();
         }catch(_){}
       });
       stream.addEventListener('message',ev=>{
@@ -2905,15 +2955,14 @@
         let payload={}; try{payload=JSON.parse(ev.data||'{}');}catch(_){}
         authToken='';
         localStorage.removeItem('auth_token');
-        if(payload&&payload.ban&&payload.ban.permanent){
-          localStorage.setItem('ban_lock_reason', String(payload.ban.reason||''));
-          location.href='/banned.html';
-          return;
-        }
         try{ stream.close(); }catch(_){}
         stream=null;
+        if(payload&&payload.ban){
+          showBanModal(payload.ban);
+          if(!(payload.ban.permanent||!payload.ban.expiresAt)) openAuth('login');
+          return;
+        }
         openAuth('login');
-        location.reload();
       });
     }
 
@@ -2947,7 +2996,7 @@
           res.innerHTML=filtered.map(c=>`<button class="chat-row chat-row-item search-row-item" data-chat-id="${esc(c.id||'')}" style="display:flex;align-items:center;gap:12px;width:100%;border:none;cursor:pointer;text-align:left;">
             <div class="tg-avatar" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;flex-shrink:0;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
             <div style="flex:1;min-width:0;">
-              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${esc(c.name||'Пользователь')}</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#fff;font-size:16px;font-weight:600;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</span></div>
               <span style="color:#8E8E93;font-size:14px;">@${esc(c.username||'')}</span>
             </div>
           </button>`).join('');
@@ -3457,10 +3506,11 @@
         startRealtime();
         await loadChats();
         hideAppLoading();
-      }catch(_){
+      }catch(e){
         authToken='';
         localStorage.removeItem('auth_token');
         openAuth('login');
+        handleBanError(e);
         hideAppLoading();
       }
     })();
