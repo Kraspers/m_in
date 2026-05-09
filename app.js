@@ -909,6 +909,56 @@
   const CUSTOM_BACKGROUNDS=new Set(['default','wallpaper']);
   let currentCustomization={theme:'default',background:'default'};
 
+  const LANGUAGES=[
+    {code:'ru',flag:'🇷🇺',name:'Русский',native:'Русский'},
+    {code:'en',flag:'🇬🇧',name:'English',native:'English'},
+    {code:'be',flag:'🇧🇾',name:'Беларуская',native:'Беларуская'},
+    {code:'uk',flag:'🇺🇦',name:'Українська',native:'Українська'},
+    {code:'kk',flag:'🇰🇿',name:'Қазақ тілі',native:'Қазақ тілі'},
+    {code:'uz',flag:'🇺🇿',name:'O‘zbekcha',native:'O‘zbekcha'},
+    {code:'de',flag:'🇩🇪',name:'Deutsch',native:'Deutsch'},
+    {code:'ar',flag:'🇸🇦',name:'العربية',native:'العربية'}
+  ];
+  const I18N={
+    ru:{back:'Назад',my_profile:'Мой профиль',favorites:'Избранное',devices:'Устройства',chat_folders:'Папки с чатами',notifications:'Уведомления',privacy:'Конфиденциальность',customization:'Кастомизация',verification:'Верификация',language:'Язык',language_hint:'Выберите язык интерфейса. Изменение применится сразу.',write_message:'Напишите сообщение…',blocked_by_user:'Вы были заблокированы данным пользователем',no_chats:'Чатов пока нет',chat:'Чат',user:'Пользователь'},
+    en:{back:'Back',my_profile:'My profile',favorites:'Saved messages',devices:'Devices',chat_folders:'Chat folders',notifications:'Notifications',privacy:'Privacy',customization:'Customization',verification:'Verification',language:'Language',language_hint:'Choose the interface language. Changes apply instantly.',write_message:'Write a message…',blocked_by_user:'You were blocked by this user',no_chats:'No chats yet',chat:'Chat',user:'User'},
+    be:{back:'Назад',my_profile:'Мой профіль',favorites:'Абранае',devices:'Прылады',chat_folders:'Папкі чатаў',notifications:'Апавяшчэнні',privacy:'Канфідэнцыяльнасць',customization:'Наладжванне',verification:'Верыфікацыя',language:'Мова',language_hint:'Выберыце мову інтэрфейсу. Змена ўжываецца адразу.',write_message:'Напішыце паведамленне…',blocked_by_user:'Гэты карыстальнік вас заблакіраваў',no_chats:'Чатаў пакуль няма',chat:'Чат',user:'Карыстальнік'},
+    uk:{back:'Назад',my_profile:'Мій профіль',favorites:'Обране',devices:'Пристрої',chat_folders:'Папки чатів',notifications:'Сповіщення',privacy:'Конфіденційність',customization:'Кастомізація',verification:'Верифікація',language:'Мова',language_hint:'Виберіть мову інтерфейсу. Зміни застосуються одразу.',write_message:'Напишіть повідомлення…',blocked_by_user:'Вас заблокував цей користувач',no_chats:'Чатів поки немає',chat:'Чат',user:'Користувач'},
+    kk:{back:'Артқа',my_profile:'Менің профилім',favorites:'Таңдаулы',devices:'Құрылғылар',chat_folders:'Чат қалталары',notifications:'Хабарландырулар',privacy:'Құпиялылық',customization:'Баптау',verification:'Верификация',language:'Тіл',language_hint:'Интерфейс тілін таңдаңыз. Өзгеріс бірден қолданылады.',write_message:'Хабарлама жазыңыз…',blocked_by_user:'Бұл пайдаланушы сізді бұғаттады',no_chats:'Әзірге чат жоқ',chat:'Чат',user:'Пайдаланушы'},
+    uz:{back:'Orqaga',my_profile:'Mening profilim',favorites:'Tanlanganlar',devices:'Qurilmalar',chat_folders:'Chat papkalari',notifications:'Bildirishnomalar',privacy:'Maxfiylik',customization:'Moslashtirish',verification:'Verifikatsiya',language:'Til',language_hint:'Interfeys tilini tanlang. O‘zgarish darhol qo‘llanadi.',write_message:'Xabar yozing…',blocked_by_user:'Bu foydalanuvchi sizni bloklagan',no_chats:'Hozircha chatlar yo‘q',chat:'Chat',user:'Foydalanuvchi'},
+    de:{back:'Zurück',my_profile:'Mein Profil',favorites:'Gespeichertes',devices:'Geräte',chat_folders:'Chat-Ordner',notifications:'Benachrichtigungen',privacy:'Datenschutz',customization:'Anpassung',verification:'Verifizierung',language:'Sprache',language_hint:'Wähle die Sprache der Oberfläche. Die Änderung gilt sofort.',write_message:'Nachricht schreiben…',blocked_by_user:'Du wurdest von diesem Nutzer blockiert',no_chats:'Noch keine Chats',chat:'Chat',user:'Nutzer'},
+    ar:{back:'رجوع',my_profile:'ملفي الشخصي',favorites:'المفضلة',devices:'الأجهزة',chat_folders:'مجلدات الدردشة',notifications:'الإشعارات',privacy:'الخصوصية',customization:'التخصيص',verification:'التحقق',language:'اللغة',language_hint:'اختر لغة الواجهة. سيتم تطبيق التغيير فورًا.',write_message:'اكتب رسالة…',blocked_by_user:'لقد حظرك هذا المستخدم',no_chats:'لا توجد دردشات بعد',chat:'دردشة',user:'مستخدم'}
+  };
+  let currentLanguage=localStorage.getItem('app_language')||'ru';
+  function t(key){ return (I18N[currentLanguage]&&I18N[currentLanguage][key]) || I18N.ru[key] || key; }
+  function normalizeLanguage(code){ return LANGUAGES.some(l=>l.code===code)?code:'ru'; }
+  function applyI18n(){
+    currentLanguage=normalizeLanguage(currentLanguage);
+    localStorage.setItem('app_language',currentLanguage);
+    document.documentElement.lang=currentLanguage;
+    document.documentElement.dir=currentLanguage==='ar'?'rtl':'ltr';
+    document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.dataset.i18n); });
+    const msgInput=document.getElementById('msg-input'); if(msgInput) msgInput.placeholder=t('write_message');
+    const empty=document.querySelector('#chat-list-empty div:last-child'); if(empty) empty.textContent=t('no_chats');
+    const blocked=document.querySelector('#chat-blocked-pill span'); if(blocked) blocked.textContent=t('blocked_by_user');
+    const lang=LANGUAGES.find(l=>l.code===currentLanguage)||LANGUAGES[0];
+    const cur=document.getElementById('profile-language-current'); if(cur) cur.textContent=lang.name;
+    renderLanguageList();
+  }
+  function renderLanguageList(){
+    const box=document.getElementById('language-list');
+    if(!box) return;
+    box.innerHTML=LANGUAGES.map(l=>`<button class="language-row${l.code===currentLanguage?' selected':''}" type="button" onclick="selectLanguage('${l.code}')"><span class="language-flag">${l.flag}</span><span style="min-width:0;"><span class="language-name">${l.name}</span><span class="language-native">${l.native}</span></span><span class="language-check">✓</span></button>`).join('');
+  }
+  window.openLanguageSheet=function(){ renderLanguageList(); document.getElementById('language-wrap')?.classList.add('open'); };
+  window.closeLanguageSheet=function(){ document.getElementById('language-wrap')?.classList.remove('open'); };
+  window.selectLanguage=async function(code){
+    currentLanguage=normalizeLanguage(code);
+    applyI18n();
+    try{ if(authToken) await api('/me/language',{method:'PATCH',body:JSON.stringify({language:currentLanguage})}); }catch(_){ }
+  };
+
+
   function resetBubbleScale(el){
     el.style.transition='transform 0.18s ease';
     el.style.transform='';
@@ -2350,6 +2400,7 @@
       });
     }
     window.__api=api;
+    applyI18n();
     function formatBanDate(iso){
       if(!iso) return 'без даты';
       try{return new Date(iso).toLocaleString('ru-RU');}catch(_){return iso;}
@@ -2447,7 +2498,8 @@
     }
     function applyProfileUI(profile){
       me=profile;
-      const name=profile.name||profile.username||'Мой профиль';
+      if(profile.language){ currentLanguage=normalizeLanguage(profile.language); applyI18n(); }
+      const name=profile.name||profile.username||t('my_profile');
       const username=profile.username||'';
       const bio=profile.bio||'';
       const avatar=profile.avatarDataUrl||'';
@@ -2947,8 +2999,8 @@
           if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
           if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
           if(currentChatUserId&&p&&p.id===currentChatUserId){
-            setNameWithVerification(document.getElementById('chat-contact-name'),p.name||'Чат',!!p.verified);
-            setNameWithVerification(document.getElementById('chat-peer-name'),p.name||'Пользователь',!!p.verified);
+            setNameWithVerification(document.getElementById('chat-contact-name'),p.name||t('chat'),!!p.verified);
+            setNameWithVerification(document.getElementById('chat-peer-name'),p.name||t('user'),!!p.verified);
           }
           if(p&&p.id) scheduleChatsRefresh();
         }catch(_){}
