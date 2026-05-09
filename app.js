@@ -3812,6 +3812,15 @@
       });
     }
     
+    window.openBugReportModal=function(){
+      document.getElementById('bug-report-modal')?.classList.add('open');
+    };
+    window.closeBugReportModal=function(e){
+      const modal=document.getElementById('bug-report-modal');
+      if(!modal||e&&e.target!==modal) return;
+      modal.classList.remove('open');
+    };
+
     (function initMinMenu(){
       const trigger=document.getElementById('min-brand-trigger');
       const wrap=document.getElementById('min-menu-wrap');
