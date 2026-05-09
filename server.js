@@ -456,6 +456,7 @@ function normalizeMessage(msg) {
     forwardedFromName: msg.forwardedFromName || '',
     reactions: msg.reactions || {},
     pinnedBy: Array.isArray(msg.pinnedBy) ? msg.pinnedBy : [],
+    pinnedAt: msg.pinnedAt || '',
     editedAt: msg.editedAt || '',
     isSystem: !!msg.isSystem,
     systemType: msg.systemType || '',
@@ -1155,10 +1156,13 @@ function handleApi(req, res, urlObj) {
           else msg.reactions[emoji].push(user.id);
           if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
         } else if (action === 'pin') {
+          const now = new Date().toISOString();
           msg.pinnedBy = [msg.fromUserId, msg.toUserId];
-          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
+          msg.pinnedAt = now;
+          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: now, isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
         } else if (action === 'unpin') {
           msg.pinnedBy = [];
+          msg.pinnedAt = '';
           db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'unpin', systemText: `${user.name || user.username} открепил сообщение` });
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });

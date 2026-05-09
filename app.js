@@ -1067,7 +1067,7 @@
   function t(key){ return (I18N[currentLanguage]&&I18N[currentLanguage][key]) || I18N.ru[key] || key; }
   function applyAutoI18n(root=document.body){
     if(!root) return;
-    const skipAutoI18n=el=>!!(el&&el.closest?.('[data-no-i18n],#copy-toast,#profile-main-name,#chat-contact-name,#upv-name,.chat-row-name,.forward-row-name,.msg-quote-name'));
+    const skipAutoI18n=el=>!!(el&&el.closest?.('[data-no-i18n],#copy-toast,#profile-main-name,#chat-contact-name,#chat-presence-status,#upv-name,.chat-row-name,.forward-row-name,.msg-quote-name'));
     const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){
       if(!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
       if(node.parentElement&&['SCRIPT','STYLE','TITLE'].includes(node.parentElement.tagName)) return NodeFilter.FILTER_REJECT;
@@ -1230,6 +1230,7 @@
   function renderChatPresence(){
     const el=document.getElementById('chat-presence-status');
     if(!el||!currentChatUserId) return;
+    delete el.dataset.i18nAuto;
     const typingUntil=typingUntilByUser.get(String(currentChatUserId))||0;
     el.classList.toggle('typing',typingUntil>Date.now());
     if(typingUntil>Date.now()){ el.classList.remove('online'); el.innerHTML=renderTypingHtml(); return; }
@@ -3238,7 +3239,7 @@
       suppressReactionAnimations=false;
       bindRichTextInteractions(wrap);
       initVoicePlayers(wrap);
-      const pinned=[...items].reverse().find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
+      const pinned=[...items].filter(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0).sort((a,b)=>new Date(b.pinnedAt||b.createdAt||0).getTime()-new Date(a.pinnedAt||a.createdAt||0).getTime())[0];
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
         pinnedBubble=bubble||null;
