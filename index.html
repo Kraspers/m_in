@@ -20,11 +20,14 @@
 <!-- ════════════════ ЭКРАН 1 — ЧАТ ════════════════ -->
 
 <div id="screen-chat" class="screen">
-  <div class="header-blur" id="chat-header-open-profile" style="padding:52px 20px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;">
-    <button onclick="showScreen('screen-list')" style="background:none;border:none;cursor:pointer;padding:4px;">
+  <div class="header-blur" id="chat-header-open-profile" style="padding:48px 20px 12px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;">
+    <button onclick="showScreen('screen-list')" style="background:none;border:none;cursor:pointer;padding:4px;margin-top:1px;">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <span id="chat-contact-name" style="font-size:20px;font-weight:700;color:#fff;flex:1;text-align:center;margin-right:36px;">Чат</span>
+    <div id="chat-title-wrap">
+      <span id="chat-contact-name">Чат</span>
+      <div id="chat-presence-status"></div>
+    </div>
   </div>
 
   <div id="chat-messages" class="scroll-area" style="position:absolute;inset:0;padding:108px 12px 90px;display:flex;flex-direction:column;gap:8px;">

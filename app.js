@@ -11,7 +11,13 @@
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
   const chatLeaveAtByUser=new Map();
+  const presenceByUser=new Map();
+  const typingUntilByUser=new Map();
+  const typingTimersByUser=new Map();
   let me=null;
+  let localTypingPeerId='';
+  let localTypingStopTimer=null;
+  let presenceClockTimer=null;
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
@@ -1161,6 +1167,85 @@
       const msg=await decryptE2eeMessage({fromUserId:item.id,toUserId:me&&me.id,e2ee:item.previewE2ee,text:''});
       return {...item,preview:msg.text||''};
     }catch(_){ return item; }
+  }
+
+  function setPresenceState(uid,state={}){
+    if(!uid) return;
+    const prev=presenceByUser.get(String(uid))||{};
+    presenceByUser.set(String(uid),{...prev,online:!!state.online,lastSeenAt:state.lastSeenAt||prev.lastSeenAt||''});
+  }
+  function presenceFor(uid){ return presenceByUser.get(String(uid||''))||{online:false,lastSeenAt:''}; }
+  function pluralRu(n,one,few,many){
+    const a=Math.abs(n)%100,b=a%10;
+    if(a>10&&a<20) return many;
+    if(b>1&&b<5) return few;
+    if(b===1) return one;
+    return many;
+  }
+  function lastSeenText(lastSeenAt){
+    const ts=new Date(lastSeenAt||0).getTime();
+    if(!ts) return '';
+    const diff=Math.max(0,Date.now()-ts);
+    const min=Math.floor(diff/60000);
+    if(min<1) return 'Был(а) только что';
+    if(min<60) return `Был(а) ${min} ${pluralRu(min,'минуту','минуты','минут')} назад`;
+    const h=Math.floor(min/60);
+    if(h<24) return `Был(а) ${h} ${pluralRu(h,'час','часа','часов')} назад`;
+    const d=Math.floor(h/24);
+    if(d<7) return `Был(а) ${d} ${pluralRu(d,'день','дня','дней')} назад`;
+    return `Был(а) ${new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}`;
+  }
+  function renderTypingHtml(){ return '<span class="typing-dots"><span></span><span></span><span></span></span><span>Печатает</span>'; }
+  function renderChatPresence(){
+    const el=document.getElementById('chat-presence-status');
+    if(!el||!currentChatUserId) return;
+    const typingUntil=typingUntilByUser.get(String(currentChatUserId))||0;
+    el.classList.toggle('typing',typingUntil>Date.now());
+    if(typingUntil>Date.now()){ el.classList.remove('online'); el.innerHTML=renderTypingHtml(); return; }
+    const p=presenceFor(currentChatUserId);
+    el.classList.toggle('online',!!p.online);
+    el.textContent=p.online?'в сети':lastSeenText(p.lastSeenAt);
+  }
+  function updateChatPresenceBadges(uid){
+    const ids=uid?[String(uid)]:Array.from(presenceByUser.keys());
+    ids.forEach(id=>{
+      const online=presenceFor(id).online;
+      document.querySelectorAll('.chat-avatar-wrap').forEach(el=>{ if(el.dataset.chatId===id) el.classList.toggle('is-online',!!online); });
+    });
+    if(!uid||String(uid)===String(currentChatUserId||'')) renderChatPresence();
+  }
+  function markPeerTyping(uid,typing){
+    if(!uid) return;
+    const id=String(uid);
+    if(typing){
+      typingUntilByUser.set(id,Date.now()+3500);
+      if(typingTimersByUser.has(id)) clearTimeout(typingTimersByUser.get(id));
+      typingTimersByUser.set(id,setTimeout(()=>{ typingUntilByUser.delete(id); renderChatPresence(); },3600));
+    }else{
+      typingUntilByUser.delete(id);
+      if(typingTimersByUser.has(id)) clearTimeout(typingTimersByUser.get(id));
+      typingTimersByUser.delete(id);
+    }
+    renderChatPresence();
+  }
+  function sendTypingState(active){
+    if(!currentChatUserId||!authToken) return;
+    const peer=String(currentChatUserId);
+    if(active){
+      if(localTypingPeerId!==peer){
+        if(localTypingPeerId) api('/typing',{method:'POST',body:JSON.stringify({toUserId:localTypingPeerId,typing:false})}).catch(()=>{});
+        localTypingPeerId=peer;
+        api('/typing',{method:'POST',body:JSON.stringify({toUserId:peer,typing:true})}).catch(()=>{});
+      }
+      if(localTypingStopTimer) clearTimeout(localTypingStopTimer);
+      localTypingStopTimer=setTimeout(()=>sendTypingState(false),2500);
+    }else if(localTypingPeerId){
+      const stopPeer=localTypingPeerId;
+      localTypingPeerId='';
+      if(localTypingStopTimer) clearTimeout(localTypingStopTimer);
+      localTypingStopTimer=null;
+      api('/typing',{method:'POST',body:JSON.stringify({toUserId:stopPeer,typing:false})}).catch(()=>{});
+    }
   }
 
 
@@ -2917,12 +3002,12 @@
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
-        items.forEach(c=>usersMap.set(c.id,c));
+        items.forEach(c=>{ usersMap.set(c.id,c); setPresenceState(c.id,c); });
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
           return `<button class="chat-row chat-row-item ${c.isPinned?'chat-pinned':''}" data-chat-id="${esc(c.id||'')}">
           ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
-          <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
+          <div class="chat-avatar-wrap ${presenceFor(c.id).online?'is-online':''}" data-chat-id="${esc(c.id||'')}"><div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div><span class="online-dot"></span></div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${nameWithVerificationHtml(c.name||t('user'),!!c.verified)}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             ${renderChatPreviewHtml(c.preview)}
@@ -2962,12 +3047,15 @@
     }
     window.reloadChatsWithSkeleton=()=>loadChats('',{showSkeleton:true});
     async function openChatWith(userId,opts={}){
+      sendTypingState(false);
       const keepScreen=opts.keepScreen===true;
       currentChatUserId=userId;
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
       setNameWithVerification(titleFast,optimisticPeer.name||t('chat'),!!optimisticPeer.verified);
+      setPresenceState(userId,optimisticPeer);
+      renderChatPresence();
       if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
@@ -2975,6 +3063,9 @@
       currentChatBlockedByPeer=!!peer.blockedByPeer;
       currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
+      setPresenceState(userId,peer);
+      renderChatPresence();
+      updateChatPresenceBadges(userId);
       const title=document.getElementById('chat-contact-name');
       setNameWithVerification(title,peer.name||t('chat'),!!peer.verified);
       const card=document.getElementById('chat-peer-card');
@@ -3223,11 +3314,12 @@
         try{
           const p=JSON.parse(ev.data);
           if(me&&p&&p.id===me.id) applyProfileUI(p);
-          if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
+          if(p&&p.id){ usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p}); setPresenceState(p.id,p); updateChatPresenceBadges(p.id); }
           if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
           if(currentChatUserId&&p&&p.id===currentChatUserId){
             setNameWithVerification(document.getElementById('chat-contact-name'),p.name||t('chat'),!!p.verified);
             setNameWithVerification(document.getElementById('chat-peer-name'),p.name||t('user'),!!p.verified);
+            renderChatPresence();
           }
           if(p&&p.id) scheduleChatsRefresh();
         }catch(_){}
@@ -3274,6 +3366,22 @@
             updateChatBlockedUI();
           }
           scheduleChatsRefresh();
+        }catch(_){}
+      });
+      stream.addEventListener('presence',ev=>{
+        try{
+          const p=JSON.parse(ev.data);
+          if(!p||!p.userId) return;
+          setPresenceState(p.userId,{online:!!p.online,lastSeenAt:p.lastSeenAt||''});
+          const cached=usersMap.get(p.userId)||{};
+          usersMap.set(p.userId,{...cached,online:!!p.online,lastSeenAt:p.lastSeenAt||cached.lastSeenAt||''});
+          updateChatPresenceBadges(p.userId);
+        }catch(_){}
+      });
+      stream.addEventListener('typing',ev=>{
+        try{
+          const p=JSON.parse(ev.data);
+          if(p&&p.fromUserId) markPeerTyping(p.fromUserId,!!p.typing);
         }catch(_){}
       });
       stream.addEventListener('sessions_update',()=>{
@@ -3603,11 +3711,13 @@
         }else if(editMediaRemoved){
           payload.media=[];
         }
+        sendTypingState(false);
         legacySendMessage();
         await api(`/messages/${encodeURIComponent(editingId)}`,{method:'PATCH',body:JSON.stringify(payload)});
         return;
       }
       if(!text&&!media.length) return;
+      sendTypingState(false);
       let pendingBubble=null;
       const replyIdToSend=replyToMessageId;
       if(sendBtn) sendBtn.disabled=true;
@@ -3866,6 +3976,17 @@
     })();
 
 (async function initBackend(){
+      const typingInput=document.getElementById('msg-input');
+      if(typingInput){
+        typingInput.addEventListener('input',()=>{
+          if((typingInput.value||'').trim()) sendTypingState(true);
+          else sendTypingState(false);
+        });
+        typingInput.addEventListener('blur',()=>sendTypingState(false));
+      }
+      if(presenceClockTimer) clearInterval(presenceClockTimer);
+      presenceClockTimer=setInterval(renderChatPresence,30000);
+      window.addEventListener('beforeunload',()=>sendTypingState(false));
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
       if(!authToken){ openAuth('login'); hideAppLoading(); return; }

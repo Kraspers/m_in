@@ -368,6 +368,29 @@ function publicUser(user) {
   };
 }
 
+function isUserOnline(userId) {
+  for (const token of sseClients.keys()) {
+    const session = sessions.get(token);
+    if (session && session.userId === userId) return true;
+  }
+  return false;
+}
+function lastSeenForUser(user) {
+  let last = user && user.lastSeenAt ? String(user.lastSeenAt) : '';
+  for (const session of sessions.values()) {
+    if (!session || session.userId !== (user && user.id) || !session.lastSeenAt) continue;
+    if (!last || new Date(session.lastSeenAt).getTime() > new Date(last).getTime()) last = session.lastSeenAt;
+  }
+  return last;
+}
+function presenceForUser(user) {
+  if (!user) return { online: false, lastSeenAt: '' };
+  return { online: isUserOnline(user.id), lastSeenAt: lastSeenForUser(user) };
+}
+function publicUserWithPresence(user) {
+  return { ...publicUser(user), ...presenceForUser(user) };
+}
+
 function ensurePinnedChats(user) {
   if (!user || !Array.isArray(user.pinnedChatUserIds)) user.pinnedChatUserIds = [];
   user.pinnedChatUserIds = user.pinnedChatUserIds.filter(Boolean);
@@ -397,6 +420,12 @@ function sendEventToUser(uid, event, payload) {
   for (const [token, session] of sessions.entries()) {
     if (session.userId === uid) sendEventToSessionToken(token, event, payload);
   }
+}
+function sendEventToAll(event, payload) {
+  for (const token of sseClients.keys()) sendEventToSessionToken(token, event, payload);
+}
+function broadcastPresence(userId, online, lastSeenAt = '') {
+  sendEventToAll('presence', { userId, online: !!online, lastSeenAt });
 }
 
 function broadcastProfile(user) {
@@ -551,10 +580,21 @@ function handleApi(req, res, urlObj) {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive'
     });
-    res.write(`event: profile\ndata: ${JSON.stringify(publicUser(user))}\n\n`);
+    res.write(`event: profile\ndata: ${JSON.stringify(publicUserWithPresence(user))}\n\n`);
+    const wasOnline = isUserOnline(uid);
     sseClients.set(token, res);
+    session.lastSeenAt = new Date().toISOString();
+    if (!wasOnline) broadcastPresence(uid, true, session.lastSeenAt);
     req.on('close', () => {
+      const closedAt = new Date().toISOString();
+      session.lastSeenAt = closedAt;
       sseClients.delete(token);
+      if (!isUserOnline(uid)) {
+        const dbClose = readDb();
+        const closeUser = dbClose.users.find(u => u.id === uid);
+        if (closeUser) { closeUser.lastSeenAt = closedAt; writeDb(dbClose); }
+        broadcastPresence(uid, false, closedAt);
+      }
     });
     return;
   }
@@ -565,7 +605,11 @@ function handleApi(req, res, urlObj) {
       const s = sessions.get(token);
       sessions.delete(token);
       sseClients.delete(token);
-      if (s && s.userId) broadcastSessionsUpdate(s.userId);
+      if (s && s.userId) {
+        s.lastSeenAt = new Date().toISOString();
+        broadcastSessionsUpdate(s.userId);
+        if (!isUserOnline(s.userId)) broadcastPresence(s.userId, false, s.lastSeenAt);
+      }
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -847,7 +891,9 @@ function handleApi(req, res, urlObj) {
           pinIndex: pinOrder.has(uid) ? pinOrder.get(uid) : Number.MAX_SAFE_INTEGER,
           deleted: !u,
           unreadCount,
-          blockedPeer: !!(u && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(uid))
+          blockedPeer: !!(u && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(uid)),
+          online: !!(u && presenceForUser(u).online),
+          lastSeenAt: u ? presenceForUser(u).lastSeenAt : ''
         };
       })
       .filter(u => {
@@ -941,7 +987,8 @@ function handleApi(req, res, urlObj) {
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
         color: colorForId(u.id),
         verified: !!u.verified,
-        blockedPeer: Array.isArray(user.blockedUsers) && user.blockedUsers.includes(u.id)
+        blockedPeer: Array.isArray(user.blockedUsers) && user.blockedUsers.includes(u.id),
+        ...presenceForUser(u)
       }));
     return sendJson(res, 200, { items });
   }
@@ -999,11 +1046,27 @@ function handleApi(req, res, urlObj) {
       firstUnreadMessageId: firstUnread ? firstUnread.id : '',
       items: items.map(normalizeMessage),
       peer: peer
-        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', verified: !!peer.verified, blockedByPeer, blockedPeer }
-        : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', verified: !!peer.verified, blockedByPeer, blockedPeer, ...presenceForUser(peer) }
+        : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true, online: false, lastSeenAt: '' }
     });
   }
 
+
+  if (pathname === '/api/typing' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const toUserId = String(body.toUserId || '');
+        if (!toUserId || toUserId === user.id) return sendJson(res, 400, { error: 'toUserId required' });
+        if (!db.users.some(u => u.id === toUserId)) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        const typing = !!body.typing;
+        sendEventToUser(toUserId, 'typing', { fromUserId: user.id, toUserId, typing, at: new Date().toISOString() });
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
 
   if (pathname === '/api/messages/read' && method === 'POST') {
     return readBody(req)
