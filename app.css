@@ -319,7 +319,6 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   .theme-mini-bubble.in{background:rgba(37,37,37,.88);border-bottom-left-radius:4px;}
   .theme-mini-bubble.out{border-bottom-right-radius:4px;}
   .theme-mini-bubble.w1{width:68%;}.theme-mini-bubble.w2{width:54%;}.theme-mini-bubble.w3{width:76%;}
-  .theme-mini-time{width:12px;height:4px;border-radius:999px;background:rgba(255,255,255,.34);margin-bottom:3px;}
   .preview-bg-default .custom-theme-card{background:#111;}
   .preview-bg-wallpaper .custom-theme-card{background:#111 url('wallpaper-mob.png') center/cover no-repeat;}
   .custom-theme-1 .theme-mini-bubble.out{background:#0078FF;}
