@@ -2979,14 +2979,18 @@
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
-      const serverUnreadId=data.firstUnreadMessageId||'';
-      const leftAt=chatLeaveAtByUser.get(userId)||0;
-      let localUnreadId='';
-      if(leftAt&&!keepScreen){
-        const firstAfterLeave=(data.items||[]).find(msg=>!msg.isSystem&&me&&msg.fromUserId!==me.id&&new Date(msg.createdAt).getTime()>leftAt);
-        localUnreadId=firstAfterLeave?firstAfterLeave.id:'';
+      if(keepScreen){
+        unreadSeparatorMessageId='';
+      }else{
+        const serverUnreadId=data.firstUnreadMessageId||'';
+        const leftAt=chatLeaveAtByUser.get(userId)||0;
+        let localUnreadId='';
+        if(leftAt){
+          const firstAfterLeave=(data.items||[]).find(msg=>!msg.isSystem&&me&&msg.fromUserId!==me.id&&new Date(msg.createdAt).getTime()>leftAt);
+          localUnreadId=firstAfterLeave?firstAfterLeave.id:'';
+        }
+        unreadSeparatorMessageId=localUnreadId||serverUnreadId;
       }
-      unreadSeparatorMessageId=localUnreadId||serverUnreadId;
       renderChatMessages(await decryptE2eeMessages(data.items||[]),unreadSeparatorMessageId);
       api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
@@ -3009,7 +3013,7 @@
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
       let unreadMarkerPlaced=false;
       const firstUnreadIndex=firstUnreadMessageId?items.findIndex(x=>x&&x.id===firstUnreadMessageId):-1;
-      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>=0;
+      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0;
       const rows=items.map(m=>{
         if(m.isSystem){
           const sys=String(m.systemText||t('system_message'));
