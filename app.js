@@ -1181,7 +1181,13 @@
   function setPresenceState(uid,state={}){
     if(!uid) return;
     const prev=presenceByUser.get(String(uid))||{};
-    presenceByUser.set(String(uid),{...prev,online:!!state.online,lastSeenAt:state.lastSeenAt||prev.lastSeenAt||''});
+    const hasOnline=Object.prototype.hasOwnProperty.call(state,'online');
+    const hasLastSeen=Object.prototype.hasOwnProperty.call(state,'lastSeenAt');
+    presenceByUser.set(String(uid),{
+      ...prev,
+      online:hasOnline?!!state.online:!!prev.online,
+      lastSeenAt:hasLastSeen?(state.lastSeenAt||''):(prev.lastSeenAt||'')
+    });
   }
   function presenceFor(uid){ return presenceByUser.get(String(uid||''))||{online:false,lastSeenAt:''}; }
   function pluralRu(n,one,few,many){
