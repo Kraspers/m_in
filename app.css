@@ -140,6 +140,15 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 #search-input{flex:1;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:none;border-radius:999px;padding:10px 16px;color:#fff;font-size:15px;font-family:inherit;outline:none;-webkit-user-select:text;user-select:text;}
 #search-input::placeholder{color:rgba(255,255,255,0.35);}
 #search-cancel{background:none;border:none;color:#0078FF;font-size:16px;cursor:pointer;white-space:nowrap;padding:4px;flex-shrink:0;font-family:inherit;}
+#bug-report-modal{display:none;position:fixed;inset:0;z-index:720;background:rgba(0,0,0,0.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;opacity:0;transition:opacity .18s ease;padding:18px;box-sizing:border-box;}
+#bug-report-modal.open{display:flex;opacity:1;}
+#bug-report-card{width:min(92vw,390px);background:#1C1C1E;border-radius:24px;padding:22px 18px 18px;box-shadow:0 22px 70px rgba(0,0,0,.55);transform:translateY(12px) scale(.97);transition:transform .2s cubic-bezier(0.22,1,0.36,1);}
+#bug-report-modal.open #bug-report-card{transform:translateY(0) scale(1);}
+#bug-report-title{color:#fff;font-size:24px;font-weight:800;text-align:center;margin-bottom:16px;}
+.bug-report-step{display:flex;align-items:center;gap:14px;background:#2C2C2E;border-radius:18px;padding:15px 16px;color:#fff;font-size:16px;font-weight:600;}
+.bug-report-step+.bug-report-step{margin-top:10px;}
+.bug-report-step svg{flex-shrink:0;}
+#bug-report-submit{width:100%;margin-top:16px;background:#0078FF;border:none;border-radius:999px;padding:14px;color:#fff;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;}
 
 /* ── Контекстное меню ── */
 #ctx-overlay{position:fixed;inset:0;z-index:100;opacity:0;pointer-events:none;}
