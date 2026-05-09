@@ -946,7 +946,60 @@
     media:{ru:'Медиа',en:'Media',be:'Медыя',uk:'Медіа',kk:'Медиа',uz:'Media',de:'Medien',ar:'وسائط'},
     voice_message:{ru:'Голосовое сообщение',en:'Voice message',be:'Галасавое паведамленне',uk:'Голосове повідомлення',kk:'Дауыстық хабарлама',uz:'Ovozli xabar',de:'Sprachnachricht',ar:'رسالة صوتية'},
     message:{ru:'Сообщение',en:'Message',be:'Паведамленне',uk:'Повідомлення',kk:'Хабарлама',uz:'Xabar',de:'Nachricht',ar:'رسالة'},
-    you:{ru:'Вы',en:'You',be:'Вы',uk:'Ви',kk:'Сіз',uz:'Siz',de:'Du',ar:'أنت'}
+    you:{ru:'Вы',en:'You',be:'Вы',uk:'Ви',kk:'Сіз',uz:'Siz',de:'Du',ar:'أنت'},
+    close:{ru:'Закрыть',en:'Close',be:'Закрыць',uk:'Закрити',kk:'Жабу',uz:'Yopish',de:'Schließen',ar:'إغلاق'},
+    logout_other_sessions:{ru:'Завершить все другие сеансы',en:'Terminate all other sessions',be:'Завяршыць усе іншыя сеансы',uk:'Завершити всі інші сеанси',kk:'Барлық басқа сеанстарды аяқтау',uz:'Boshqa barcha seanslarni tugatish',de:'Alle anderen Sitzungen beenden',ar:'إنهاء كل الجلسات الأخرى'},
+    logout_other_sessions_hint:{ru:'Выйти на всех устройствах, кроме текущего.',en:'Sign out on all devices except this one.',be:'Выйсці на ўсіх прыладах, акрамя бягучай.',uk:'Вийти на всіх пристроях, крім поточного.',kk:'Ағымдағыдан басқа барлық құрылғылардан шығу.',uz:'Joriy qurilmadan tashqari barcha qurilmalardan chiqish.',de:'Auf allen Geräten außer diesem abmelden.',ar:'تسجيل الخروج من كل الأجهزة ما عدا هذا الجهاز.'},
+    active_sessions:{ru:'Активные сеансы',en:'Active sessions',be:'Актыўныя сеансы',uk:'Активні сеанси',kk:'Белсенді сеанстар',uz:'Faol seanslar',de:'Aktive Sitzungen',ar:'الجلسات النشطة'},
+    official_app_hint:{ru:'Официальное приложение Minimum доступно для Android, iOS, Windows, MacOS.',en:'The official Minimum app is available for Android, iOS, Windows, and macOS.',be:'Афіцыйная праграма Minimum даступная для Android, iOS, Windows і macOS.',uk:'Офіційний застосунок Minimum доступний для Android, iOS, Windows і macOS.',kk:'Minimum ресми қолданбасы Android, iOS, Windows және macOS үшін қолжетімді.',uz:'Minimum rasmiy ilovasi Android, iOS, Windows va macOS uchun mavjud.',de:'Die offizielle Minimum-App ist für Android, iOS, Windows und macOS verfügbar.',ar:'تطبيق Minimum الرسمي متاح لأنظمة Android و iOS و Windows و macOS.'},
+    information:{ru:'Информация',en:'Information',be:'Інфармацыя',uk:'Інформація',kk:'Ақпарат',uz:'Ma’lumot',de:'Informationen',ar:'المعلومات'},
+    geo_hint:{ru:'Данные о геопозиции основаны на IP-адресе и могут быть неточными.',en:'Location data is based on the IP address and may be inaccurate.',be:'Даныя геапазіцыі заснаваныя на IP-адрасе і могуць быць недакладнымі.',uk:'Дані геопозиції базуються на IP-адресі й можуть бути неточними.',kk:'Геодеректер IP мекенжайына негізделген және дәл болмауы мүмкін.',uz:'Joylashuv ma’lumotlari IP manzilga asoslangan va noaniq bo‘lishi mumkin.',de:'Standortdaten basieren auf der IP-Adresse und können ungenau sein.',ar:'تعتمد بيانات الموقع على عنوان IP وقد تكون غير دقيقة.'},
+    change_password:{ru:'Изменить пароль',en:'Change password',be:'Змяніць пароль',uk:'Змінити пароль',kk:'Құпиясөзді өзгерту',uz:'Parolni o‘zgartirish',de:'Passwort ändern',ar:'تغيير كلمة المرور'},
+    delete_account:{ru:'Удалить аккаунт',en:'Delete account',be:'Выдаліць акаўнт',uk:'Видалити акаунт',kk:'Аккаунтты жою',uz:'Akkauntni o‘chirish',de:'Konto löschen',ar:'حذف الحساب'},
+    logout_account:{ru:'Выйти из аккаунта',en:'Log out',be:'Выйсці з акаўнта',uk:'Вийти з акаунта',kk:'Аккаунттан шығу',uz:'Akkauntdan chiqish',de:'Abmelden',ar:'تسجيل الخروج'},
+    current_password:{ru:'Текущий пароль',en:'Current password',be:'Бягучы пароль',uk:'Поточний пароль',kk:'Қазіргі құпиясөз',uz:'Joriy parol',de:'Aktuelles Passwort',ar:'كلمة المرور الحالية'},
+    new_password:{ru:'Новый пароль',en:'New password',be:'Новы пароль',uk:'Новий пароль',kk:'Жаңа құпиясөз',uz:'Yangi parol',de:'Neues Passwort',ar:'كلمة مرور جديدة'},
+    repeat_new_password:{ru:'Повторите новый пароль',en:'Repeat new password',be:'Паўтарыце новы пароль',uk:'Повторіть новий пароль',kk:'Жаңа құпиясөзді қайталаңыз',uz:'Yangi parolni takrorlang',de:'Neues Passwort wiederholen',ar:'كرر كلمة المرور الجديدة'},
+    cancel:{ru:'Отмена',en:'Cancel',be:'Скасаваць',uk:'Скасувати',kk:'Болдырмау',uz:'Bekor qilish',de:'Abbrechen',ar:'إلغاء'},
+    delete_account_question:{ru:'Удалить аккаунт?',en:'Delete account?',be:'Выдаліць акаўнт?',uk:'Видалити акаунт?',kk:'Аккаунт жойылсын ба?',uz:'Akkaunt o‘chirilsinmi?',de:'Konto löschen?',ar:'حذف الحساب؟'},
+    irreversible:{ru:'необратимо',en:'irreversible',be:'незваротнае',uk:'незворотна',kk:'қайтымсыз',uz:'qaytarib bo‘lmaydi',de:'unumkehrbar',ar:'لا رجعة فيه'},
+    delete_account_warning:{ru:'Это действие необратимо. Ваш аккаунт, все чаты и все данные будут удалены навсегда. Восстановить аккаунт будет невозможно.',en:'This action is irreversible. Your account, all chats, and all data will be permanently deleted. Account recovery will be impossible.',be:'Гэта дзеянне незваротнае. Ваш акаўнт, усе чаты і ўсе даныя будуць выдалены назаўсёды. Аднавіць акаўнт будзе немагчыма.',uk:'Ця дія незворотна. Ваш акаунт, усі чати й усі дані буде видалено назавжди. Відновити акаунт буде неможливо.',kk:'Бұл әрекет қайтымсыз. Аккаунтыңыз, барлық чаттар және барлық деректер біржола жойылады. Аккаунтты қалпына келтіру мүмкін болмайды.',uz:'Bu amalni qaytarib bo‘lmaydi. Akkauntingiz, barcha chatlar va ma’lumotlar butunlay o‘chiriladi. Akkauntni tiklab bo‘lmaydi.',de:'Diese Aktion ist unumkehrbar. Dein Konto, alle Chats und alle Daten werden dauerhaft gelöscht. Eine Wiederherstellung ist nicht möglich.',ar:'هذا الإجراء لا رجعة فيه. سيتم حذف حسابك وكل الدردشات وكل البيانات نهائيًا. لن يمكن استعادة الحساب.'},
+    confirm_password:{ru:'Введите пароль для подтверждения',en:'Enter password to confirm',be:'Увядзіце пароль для пацвярджэння',uk:'Введіть пароль для підтвердження',kk:'Растау үшін құпиясөзді енгізіңіз',uz:'Tasdiqlash uchun parolni kiriting',de:'Passwort zur Bestätigung eingeben',ar:'أدخل كلمة المرور للتأكيد'},
+    delete_forever:{ru:'Удалить навсегда',en:'Delete forever',be:'Выдаліць назаўсёды',uk:'Видалити назавжди',kk:'Біржола жою',uz:'Butunlay o‘chirish',de:'Dauerhaft löschen',ar:'حذف نهائيًا'},
+    reply_action:{ru:'Ответить',en:'Reply',be:'Адказаць',uk:'Відповісти',kk:'Жауап беру',uz:'Javob berish',de:'Antworten',ar:'رد'},
+    copy:{ru:'Скопировать',en:'Copy',be:'Скапіраваць',uk:'Скопіювати',kk:'Көшіру',uz:'Nusxalash',de:'Kopieren',ar:'نسخ'},
+    edit:{ru:'Изменить',en:'Edit',be:'Змяніць',uk:'Змінити',kk:'Өзгерту',uz:'O‘zgartirish',de:'Bearbeiten',ar:'تعديل'},
+    pin:{ru:'Закрепить',en:'Pin',be:'Замацаваць',uk:'Закріпити',kk:'Бекіту',uz:'Qadash',de:'Anheften',ar:'تثبيت'},
+    unpin:{ru:'Открепить',en:'Unpin',be:'Адмацаваць',uk:'Відкріпити',kk:'Бекітуден алу',uz:'Qadalganini olib tashlash',de:'Lösen',ar:'إلغاء التثبيت'},
+    reaction:{ru:'Реакция',en:'Reaction',be:'Рэакцыя',uk:'Реакція',kk:'Реакция',uz:'Reaksiya',de:'Reaktion',ar:'تفاعل'},
+    forward:{ru:'Переслать',en:'Forward',be:'Пераслаць',uk:'Переслати',kk:'Қайта жіберу',uz:'Yuborish',de:'Weiterleiten',ar:'إعادة توجيه'},
+    delete:{ru:'Удалить',en:'Delete',be:'Выдаліць',uk:'Видалити',kk:'Жою',uz:'O‘chirish',de:'Löschen',ar:'حذف'},
+    search:{ru:'Поиск…',en:'Search…',be:'Пошук…',uk:'Пошук…',kk:'Іздеу…',uz:'Qidirish…',de:'Suche…',ar:'بحث…'},
+    forward_message:{ru:'Переслать сообщение',en:'Forward message',be:'Пераслаць паведамленне',uk:'Переслати повідомлення',kk:'Хабарламаны қайта жіберу',uz:'Xabarni yuborish',de:'Nachricht weiterleiten',ar:'إعادة توجيه الرسالة'},
+    profile:{ru:'Профиль',en:'Profile',be:'Профіль',uk:'Профіль',kk:'Профиль',uz:'Profil',de:'Profil',ar:'الملف الشخصي'},
+    more:{ru:'Ещё',en:'More',be:'Яшчэ',uk:'Ще',kk:'Тағы',uz:'Yana',de:'Mehr',ar:'المزيد'},
+    block:{ru:'Заблокировать',en:'Block',be:'Заблакіраваць',uk:'Заблокувати',kk:'Бұғаттау',uz:'Bloklash',de:'Blockieren',ar:'حظر'},
+    open:{ru:'Открыть',en:'Open',be:'Адкрыць',uk:'Відкрити',kk:'Ашу',uz:'Ochish',de:'Öffnen',ar:'فتح'},
+    blocked_title:{ru:'Вы были заблокированы',en:'You were blocked',be:'Вы былі заблакіраваны',uk:'Вас заблоковано',kk:'Сіз бұғатталдыңыз',uz:'Siz bloklandingiz',de:'Du wurdest blockiert',ar:'تم حظرك'},
+    reason:{ru:'Причина',en:'Reason',be:'Прычына',uk:'Причина',kk:'Себебі',uz:'Sabab',de:'Grund',ar:'السبب'},
+    unban_date:{ru:'Дата разблокировки',en:'Unblock date',be:'Дата разблакіроўкі',uk:'Дата розблокування',kk:'Бұғаттан шығару күні',uz:'Blokdan chiqarish sanasi',de:'Datum der Entsperrung',ar:'تاريخ إلغاء الحظر'},
+    ok:{ru:'Понятно',en:'OK',be:'Зразумела',uk:'Зрозуміло',kk:'Түсінікті',uz:'Tushunarli',de:'OK',ar:'حسنًا'},
+    login:{ru:'Логин',en:'Login',be:'Лагін',uk:'Логін',kk:'Логин',uz:'Login',de:'Login',ar:'تسجيل الدخول'},
+    password:{ru:'Пароль',en:'Password',be:'Пароль',uk:'Пароль',kk:'Құпиясөз',uz:'Parol',de:'Passwort',ar:'كلمة المرور'},
+    sign_in:{ru:'Войти',en:'Sign in',be:'Увайсці',uk:'Увійти',kk:'Кіру',uz:'Kirish',de:'Anmelden',ar:'تسجيل الدخول'},
+    registration:{ru:'Регистрация',en:'Registration',be:'Рэгістрацыя',uk:'Реєстрація',kk:'Тіркелу',uz:'Ro‘yxatdan o‘tish',de:'Registrierung',ar:'التسجيل'},
+    vpsc_login:{ru:'Вход по VPSC',en:'VPSC sign in',be:'Уваход праз VPSC',uk:'Вхід через VPSC',kk:'VPSC арқылы кіру',uz:'VPSC orqali kirish',de:'VPSC-Anmeldung',ar:'تسجيل الدخول عبر VPSC'},
+    vpsc_code_hint:{ru:'Введите ваш 6-значный код',en:'Enter your 6-digit code',be:'Увядзіце ваш 6-значны код',uk:'Введіть ваш 6-значний код',kk:'6 таңбалы кодыңызды енгізіңіз',uz:'6 xonali kodingizni kiriting',de:'Gib deinen 6-stelligen Code ein',ar:'أدخل رمزك المكون من 6 أرقام'},
+    display_username:{ru:'Имя пользователя',en:'User name',be:'Імя карыстальніка',uk:'Ім’я користувача',kk:'Пайдаланушы аты',uz:'Foydalanuvchi nomi',de:'Benutzername',ar:'اسم المستخدم'},
+    repeat_password:{ru:'Повторите пароль',en:'Repeat password',be:'Паўтарыце пароль',uk:'Повторіть пароль',kk:'Құпиясөзді қайталаңыз',uz:'Parolni takrorlang',de:'Passwort wiederholen',ar:'كرر كلمة المرور'},
+    register:{ru:'Зарегистрироваться',en:'Create account',be:'Зарэгістравацца',uk:'Зареєструватися',kk:'Тіркелу',uz:'Ro‘yxatdan o‘tish',de:'Registrieren',ar:'إنشاء حساب'},
+    choose_chat:{ru:'Выберите чат и начните общение!',en:'Choose a chat and start messaging!',be:'Выберыце чат і пачніце размову!',uk:'Виберіть чат і почніть спілкування!',kk:'Чатты таңдап, сөйлесуді бастаңыз!',uz:'Chatni tanlang va yozishni boshlang!',de:'Wähle einen Chat und beginne zu schreiben!',ar:'اختر دردشة وابدأ المحادثة!'},
+    chat_style_hello:{ru:'Привет! Как тебе новый стиль чата?',en:'Hi! How do you like the new chat style?',be:'Прывітанне! Як табе новы стыль чата?',uk:'Привіт! Як тобі новий стиль чату?',kk:'Сәлем! Жаңа чат стилі қалай?',uz:'Salom! Yangi chat uslubi yoqdimi?',de:'Hi! Wie gefällt dir der neue Chat-Stil?',ar:'مرحبًا! ما رأيك بنمط الدردشة الجديد؟'},
+    chat_style_good:{ru:'Выглядит отлично',en:'Looks great',be:'Выглядае выдатна',uk:'Виглядає чудово',kk:'Керемет көрінеді',uz:'Ajoyib ko‘rinadi',de:'Sieht toll aus',ar:'يبدو رائعًا'},
+    chat_style_choose:{ru:'Можно выбрать любую тему ниже',en:'You can choose any theme below',be:'Можна выбраць любую тэму ніжэй',uk:'Можна вибрати будь-яку тему нижче',kk:'Төменнен кез келген тақырыпты таңдауға болады',uz:'Quyida istalgan mavzuni tanlashingiz mumkin',de:'Du kannst unten ein beliebiges Design wählen',ar:'يمكنك اختيار أي سمة أدناه'},
+    background:{ru:'Фон',en:'Background',be:'Фон',uk:'Фон',kk:'Фон',uz:'Fon',de:'Hintergrund',ar:'الخلفية'},
+    default_bg:{ru:'Стандартный',en:'Default',be:'Стандартны',uk:'Стандартний',kk:'Стандартты',uz:'Standart',de:'Standard',ar:'افتراضي'},
+    chat_bg:{ru:'Фон чатов',en:'Chat background',be:'Фон чатаў',uk:'Фон чатів',kk:'Чат фоны',uz:'Chat foni',de:'Chat-Hintergrund',ar:'خلفية الدردشات'}
   };
   Object.keys(AUTO_I18N).forEach(key=>{ Object.keys(AUTO_I18N[key]).forEach(lang=>{ I18N[lang][key]=AUTO_I18N[key][lang]; }); });
   const I18N_REVERSE=new Map();
@@ -965,13 +1018,28 @@
       const raw=node.nodeValue.trim();
       const parent=node.parentElement;
       const key=parent?.dataset?.i18nAuto || I18N_REVERSE.get(raw);
-      if(key){ if(parent) parent.dataset.i18nAuto=key; node.nodeValue=node.nodeValue.replace(raw,t(key)); }
+      if(key){ const next=t(key); if(parent) parent.dataset.i18nAuto=key; if(raw!==next) node.nodeValue=node.nodeValue.replace(raw,next); }
     });
     root.querySelectorAll?.('input[placeholder],textarea[placeholder]').forEach(el=>{
       const raw=el.getAttribute('placeholder');
       const key=el.dataset.i18nPlaceholder || I18N_REVERSE.get(raw);
-      if(key){ el.dataset.i18nPlaceholder=key; el.setAttribute('placeholder',t(key)); }
+      if(key){ const next=t(key); el.dataset.i18nPlaceholder=key; if(raw!==next) el.setAttribute('placeholder',next); }
     });
+  }
+  let autoI18nObserverStarted=false;
+  function startAutoI18nObserver(){
+    if(autoI18nObserverStarted||!document.body||!window.MutationObserver) return;
+    autoI18nObserverStarted=true;
+    const observer=new MutationObserver(mutations=>{
+      mutations.forEach(m=>{
+        m.addedNodes.forEach(node=>{
+          if(node.nodeType===Node.ELEMENT_NODE) applyAutoI18n(node);
+          else if(node.nodeType===Node.TEXT_NODE&&node.parentElement) applyAutoI18n(node.parentElement);
+        });
+        if(m.type==='attributes'&&m.target) applyAutoI18n(m.target);
+      });
+    });
+    observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['placeholder']});
   }
   function normalizeLanguage(code){ return LANGUAGES.some(l=>l.code===code)?code:'ru'; }
   function applyI18n(){
@@ -981,6 +1049,7 @@
     document.documentElement.dir=currentLanguage==='ar'?'rtl':'ltr';
     document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.dataset.i18n); });
     applyAutoI18n();
+    startAutoI18nObserver();
     const msgInput=document.getElementById('msg-input'); if(msgInput) msgInput.placeholder=t('write_message');
     const empty=document.querySelector('#chat-list-empty div:last-child'); if(empty) empty.textContent=t('no_chats');
     const blocked=document.querySelector('#chat-blocked-pill span'); if(blocked) blocked.textContent=t('blocked_by_user');
