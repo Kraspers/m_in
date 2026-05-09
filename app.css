@@ -109,9 +109,10 @@
 /* ── Чат: шапка и инпут плавают поверх сообщений ── */
 #screen-chat{overflow:hidden;background:#111;background-image:url('wallpaper-mob.png');background-size:cover;background-position:center;background-repeat:no-repeat;}
 #screen-favorites{overflow:hidden;background:#111!important;background-image:url('wallpaper-mob.png')!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;}
-body.chat-bg-default #screen-chat,body.chat-bg-default #screen-favorites{background-image:none!important;background:#111!important;}
+body.chat-bg-default #screen-chat,body.chat-bg-default #screen-favorites,body.chat-bg-default #desktop-placeholder{background-image:none!important;background:#111!important;}
 body.chat-bg-wallpaper #screen-chat{background-image:url('wallpaper-mob.png')!important;}
 body.chat-bg-wallpaper #screen-favorites{background-image:url('wallpaper-mob.png')!important;}
+body.chat-bg-wallpaper #desktop-placeholder{background-image:url('wallpaper-mob.png')!important;}
 body.chat-theme-default{--chat-out-bg:#0078FF;}
 body.chat-theme-aurora{--chat-out-bg:linear-gradient(135deg,#ff6bd6,#7c2cff);}
 body.chat-theme-mint{--chat-out-bg:linear-gradient(135deg,#7CFF91,#16A05C);}
@@ -122,7 +123,7 @@ body.chat-theme-default .bubble-out{background:#0078FF;}
 body.chat-theme-aurora .bubble-out,body.chat-theme-mint .bubble-out,body.chat-theme-sunset .bubble-out,body.chat-theme-ocean .bubble-out,body.chat-theme-flame .bubble-out{background:var(--chat-out-bg);}
 body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 @media (min-width:768px){
-  body.chat-bg-wallpaper #screen-chat,body.chat-bg-wallpaper #screen-favorites{background-image:url('wallpaper-pc.png')!important;}
+  body.chat-bg-wallpaper #screen-chat,body.chat-bg-wallpaper #screen-favorites,body.chat-bg-wallpaper #desktop-placeholder{background-image:url('wallpaper-pc.png')!important;}
 }
 @media (min-width:768px){
   #screen-chat,#screen-favorites,#desktop-placeholder{background-size:cover;background-position:center;background-repeat:no-repeat;}
@@ -301,7 +302,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   #customization-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;}
   #customization-sheet::-webkit-scrollbar{display:none;}
   .customization-content{padding:18px 16px 32px;display:flex;flex-direction:column;gap:14px;}
-  .custom-chat-preview{border:1px solid rgba(255,255,255,.18);border-radius:1.4rem;padding:18px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;background:#111;}
+  .custom-chat-preview{border-radius:1.4rem;padding:18px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;background:#111;}
   .custom-chat-preview .msg-bubble{max-width:82%;}
   .custom-chat-preview .bubble-in{background:rgba(37,37,37,0.92);}
   .custom-chat-preview .bubble-out{background:var(--chat-out-bg,#0078FF);}
