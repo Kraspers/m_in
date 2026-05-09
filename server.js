@@ -139,8 +139,32 @@ function migrateUserSecrets(user) {
   }
   return changed;
 }
+function decryptLegacyE2eeText(e2ee, fromUserId, toUserId) {
+  if (!e2ee || !e2ee.ciphertext || !e2ee.iv) return '';
+  try {
+    const ids = [String(fromUserId || ''), String(toUserId || '')].sort().join(':');
+    const secret = `minimum:e2ee:v1:${ids}`;
+    const key = crypto.pbkdf2Sync(secret, 'minimum-chat-e2ee', 20000, 32, 'sha256');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(String(e2ee.iv), 'base64'));
+    const raw = Buffer.from(String(e2ee.ciphertext), 'base64');
+    const tag = raw.subarray(raw.length - 16);
+    const enc = raw.subarray(0, raw.length - 16);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+function plainTextFromBody(text, e2ee, fromUserId, toUserId) {
+  return (String(text || '').trim() || decryptLegacyE2eeText(e2ee, fromUserId, toUserId)).slice(0, 4000);
+}
 function secureMessageForStorage(msg) {
   if (!msg || msg.isSystem) return msg;
+  if (msg.e2ee && !messageText(msg)) {
+    const e2eeText = decryptLegacyE2eeText(msg.e2ee, msg.fromUserId, msg.toUserId);
+    if (e2eeText) { msg.textEnc = encryptString(e2eeText.slice(0, 4000)); msg.text = ''; }
+  }
+  if (msg.e2ee && messageText(msg)) msg.e2ee = null;
   if (msg.text && !msg.textEnc) { msg.textEnc = encryptString(msg.text); msg.text = ''; }
   if (Array.isArray(msg.media) && msg.media.length && !Array.isArray(msg.mediaEnc)) { msg.mediaEnc = msg.media.map(encryptString); msg.media = []; }
   return msg;
@@ -773,9 +797,11 @@ function handleApi(req, res, urlObj) {
     let securedMessages = false;
     messages.forEach(m => {
       const beforeText = m.text;
+      const beforeTextEnc = m.textEnc;
+      const beforeE2ee = JSON.stringify(m.e2ee || null);
       const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
       secureMessageForStorage(m);
-      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+      if (beforeText !== m.text || beforeTextEnc !== m.textEnc || beforeE2ee !== JSON.stringify(m.e2ee || null) || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
     });
     if (securedMessages) writeDb(db);
     const dialogUserIds = new Set(
@@ -956,9 +982,11 @@ function handleApi(req, res, urlObj) {
     let securedMessages = false;
     items.forEach(m => {
       const beforeText = m.text;
+      const beforeTextEnc = m.textEnc;
+      const beforeE2ee = JSON.stringify(m.e2ee || null);
       const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
       secureMessageForStorage(m);
-      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+      if (beforeText !== m.text || beforeTextEnc !== m.textEnc || beforeE2ee !== JSON.stringify(m.e2ee || null) || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
     });
     if (securedMessages) writeDb(db);
     if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
@@ -1001,12 +1029,13 @@ function handleApi(req, res, urlObj) {
         const user = getUserByToken(req, db);
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const toUserId = String(body.toUserId || '');
-        const text = String(body.text || '').trim();
+        const rawText = String(body.text || '').trim();
         const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
+        const text = plainTextFromBody(rawText, e2ee, user.id, toUserId);
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
         if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
@@ -1017,8 +1046,8 @@ function handleApi(req, res, urlObj) {
           fromUserId: user.id,
           toUserId,
           text: '',
-          textEnc: encryptString(e2ee ? '' : text.slice(0, 4000)),
-          e2ee,
+          textEnc: encryptString(text),
+          e2ee: null,
           media: [],
           mediaEnc: media.map(encryptString),
           voiceDurationMs,
@@ -1070,14 +1099,15 @@ function handleApi(req, res, urlObj) {
           db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'unpin', systemText: `${user.name || user.username} открепил сообщение` });
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
-          const text = String(body.text || '').trim();
+          const rawText = String(body.text || '').trim();
           const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
+          const text = plainTextFromBody(rawText, e2ee, msg.fromUserId, msg.toUserId);
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
           msg.text = '';
-          msg.textEnc = encryptString(e2ee ? '' : text.slice(0, 4000));
-          msg.e2ee = e2ee;
+          msg.textEnc = encryptString(text);
+          msg.e2ee = null;
           if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {
