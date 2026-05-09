@@ -360,23 +360,23 @@
         <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
       </div>
       <div class="customization-content">
-        <div class="custom-chat-preview">
+        <div id="custom-chat-preview" class="custom-chat-preview">
           <div style="display:flex;justify-content:flex-start;"><div class="bubble-in msg-bubble"><p class="msg-text-in">Привет! Как тебе новый стиль чата?</p><div class="msg-meta"><span class="msg-time-in">12:40</span></div></div></div>
           <div style="display:flex;justify-content:flex-end;"><div class="bubble-out msg-bubble"><p class="msg-text-out">Выглядит отлично</p><div class="msg-meta"><span class="msg-time-out">12:41</span></div></div></div>
           <div style="display:flex;justify-content:flex-start;"><div class="bubble-in msg-bubble"><p class="msg-text-in">Можно выбрать любую тему ниже</p><div class="msg-meta"><span class="msg-time-in">12:42</span></div></div></div>
         </div>
         <div class="custom-theme-grid custom-theme-grid-six">
-          <button class="custom-theme-card custom-theme-1" type="button"><span class="theme-bubble in w1"></span><span class="theme-bubble out w2"></span><span class="theme-bubble in w3"></span></button>
-          <button class="custom-theme-card custom-theme-2" type="button"><span class="theme-bubble in w2"></span><span class="theme-bubble out w1"></span><span class="theme-bubble in w3"></span></button>
-          <button class="custom-theme-card custom-theme-3" type="button"><span class="theme-bubble in w1"></span><span class="theme-bubble out w3"></span><span class="theme-bubble in w2"></span></button>
-          <button class="custom-theme-card custom-theme-4" type="button"><span class="theme-bubble in w3"></span><span class="theme-bubble out w1"></span><span class="theme-bubble in w2"></span></button>
-          <button class="custom-theme-card custom-theme-5" type="button"><span class="theme-bubble in w2"></span><span class="theme-bubble out w3"></span><span class="theme-bubble in w1"></span></button>
-          <button class="custom-theme-card custom-theme-6" type="button"><span class="theme-bubble in w1"></span><span class="theme-bubble out w2"></span><span class="theme-bubble in w3"></span></button>
+          <button class="custom-theme-card custom-theme-1" type="button" data-theme="default" onclick="selectCustomizationTheme('default')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w2"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span></button>
+          <button class="custom-theme-card custom-theme-2" type="button" data-theme="aurora" onclick="selectCustomizationTheme('aurora')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w1"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span></button>
+          <button class="custom-theme-card custom-theme-3" type="button" data-theme="mint" onclick="selectCustomizationTheme('mint')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w3"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span></button>
+          <button class="custom-theme-card custom-theme-4" type="button" data-theme="sunset" onclick="selectCustomizationTheme('sunset')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w1"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span></button>
+          <button class="custom-theme-card custom-theme-5" type="button" data-theme="ocean" onclick="selectCustomizationTheme('ocean')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w3"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span></button>
+          <button class="custom-theme-card custom-theme-6" type="button" data-theme="flame" onclick="selectCustomizationTheme('flame')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w2"></span><span class="theme-mini-time"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span></button>
         </div>
         <div class="custom-section-title">Фон</div>
         <div class="custom-theme-grid custom-bg-grid">
-          <button class="custom-bg-card custom-bg-default" type="button"><span class="theme-bubble in w1"></span><span class="theme-bubble out w2"></span><span class="custom-bg-label">Стандартный</span></button>
-          <button class="custom-bg-card custom-bg-wallpaper" type="button"><span class="theme-bubble in w2"></span><span class="theme-bubble out w1"></span><span class="custom-bg-label">Фон чатов</span></button>
+          <button class="custom-bg-card custom-bg-default" type="button" data-background="default" onclick="selectCustomizationBackground('default')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w2"></span></span><span class="custom-bg-label">Стандартный</span></button>
+          <button class="custom-bg-card custom-bg-wallpaper" type="button" data-background="wallpaper" onclick="selectCustomizationBackground('wallpaper')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w1"></span></span><span class="custom-bg-label">Фон чатов</span></button>
         </div>
       </div>
     </div>
