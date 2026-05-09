@@ -1112,6 +1112,7 @@
     applyI18n();
     try{ if(authToken) await api('/me/language',{method:'PATCH',body:JSON.stringify({language:currentLanguage})}); }catch(_){ }
   };
+  const e2eeKeyCache=new Map();
   function e2eeChatSecret(peerId){
     const ids=[String(me&&me.id||''),String(peerId||'')].sort().join(':');
     return `minimum:e2ee:v1:${ids}`;
@@ -1120,8 +1121,14 @@
   function b64ToBytes(b64){ return Uint8Array.from(atob(b64),c=>c.charCodeAt(0)); }
   async function e2eeKey(peerId){
     if(!window.crypto?.subtle||!window.TextEncoder) return null;
-    const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(e2eeChatSecret(peerId)),'PBKDF2',false,['deriveKey']);
-    return crypto.subtle.deriveKey({name:'PBKDF2',salt:new TextEncoder().encode('minimum-chat-e2ee'),iterations:120000,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    const cacheKey=String(peerId||'');
+    if(e2eeKeyCache.has(cacheKey)) return e2eeKeyCache.get(cacheKey);
+    const keyPromise=(async()=>{
+      const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(e2eeChatSecret(peerId)),'PBKDF2',false,['deriveKey']);
+      return crypto.subtle.deriveKey({name:'PBKDF2',salt:new TextEncoder().encode('minimum-chat-e2ee'),iterations:20000,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    })().catch(err=>{ e2eeKeyCache.delete(cacheKey); throw err; });
+    e2eeKeyCache.set(cacheKey,keyPromise);
+    return keyPromise;
   }
   async function encryptE2eeText(peerId,text){
     if(!text) return null;
@@ -1142,6 +1149,13 @@
     }catch(_){ return {...m,text:'🔒'}; }
   }
   async function decryptE2eeMessages(items){ return Promise.all((items||[]).map(decryptE2eeMessage)); }
+  async function decryptChatPreview(item){
+    if(!item||item.preview||!item.previewE2ee) return item;
+    try{
+      const msg=await decryptE2eeMessage({fromUserId:item.id,toUserId:me&&me.id,e2ee:item.previewE2ee,text:''});
+      return {...item,preview:msg.text||''};
+    }catch(_){ return item; }
+  }
 
 
   function resetBubbleScale(el){
@@ -2873,7 +2887,8 @@
       }
       try{
         const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
-        const items=data.items||[];
+        let items=data.items||[];
+        items=await Promise.all(items.map(decryptChatPreview));
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
@@ -2950,18 +2965,14 @@
           else cardA.innerHTML=(peer.deleted||peer.avatar==='⌧')?deletedAvatarMarkup(22):esc(String(peer.avatar||peer.name||'U').charAt(0).toUpperCase());
         }
       }
-      if(keepScreen){
-        unreadSeparatorMessageId='';
-      }else{
-        const serverUnreadId=data.firstUnreadMessageId||'';
-        const leftAt=chatLeaveAtByUser.get(userId)||0;
-        let localUnreadId='';
-        if(leftAt){
-          const firstAfterLeave=(data.items||[]).find(msg=>!msg.isSystem&&me&&msg.fromUserId!==me.id&&new Date(msg.createdAt).getTime()>leftAt);
-          localUnreadId=firstAfterLeave?firstAfterLeave.id:'';
-        }
-        unreadSeparatorMessageId=localUnreadId||serverUnreadId;
+      const serverUnreadId=data.firstUnreadMessageId||'';
+      const leftAt=chatLeaveAtByUser.get(userId)||0;
+      let localUnreadId='';
+      if(leftAt&&!keepScreen){
+        const firstAfterLeave=(data.items||[]).find(msg=>!msg.isSystem&&me&&msg.fromUserId!==me.id&&new Date(msg.createdAt).getTime()>leftAt);
+        localUnreadId=firstAfterLeave?firstAfterLeave.id:'';
       }
+      unreadSeparatorMessageId=localUnreadId||serverUnreadId;
       renderChatMessages(await decryptE2eeMessages(data.items||[]),unreadSeparatorMessageId);
       api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
@@ -2984,7 +2995,7 @@
       wrap.querySelectorAll('.rt-msg').forEach(n=>n.remove());
       let unreadMarkerPlaced=false;
       const firstUnreadIndex=firstUnreadMessageId?items.findIndex(x=>x&&x.id===firstUnreadMessageId):-1;
-      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0;
+      const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>=0;
       const rows=items.map(m=>{
         if(m.isSystem){
           const sys=String(m.systemText||t('system_message'));

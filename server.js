@@ -770,6 +770,14 @@ function handleApi(req, res, urlObj) {
     const pinnedChatUserIds = ensurePinnedChats(user);
     const pinOrder = new Map(pinnedChatUserIds.map((uid, idx) => [uid, idx]));
     const messages = db.messages || [];
+    let securedMessages = false;
+    messages.forEach(m => {
+      const beforeText = m.text;
+      const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
+      secureMessageForStorage(m);
+      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+    });
+    if (securedMessages) writeDb(db);
     const dialogUserIds = new Set(
       messages
         .filter(m => m.fromUserId === user.id || m.toUserId === user.id)
@@ -786,10 +794,12 @@ function handleApi(req, res, urlObj) {
         const last = thread[thread.length - 1];
         const name = u ? (u.name || u.username) : 'Пользователь удалён';
         const username = u ? u.username : '';
+        const lastText = last ? messageText(last).trim() : '';
+        const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length)
-            ? (String(last.media[0]||'').startsWith('data:audio')?'🎤 Голосовое сообщение':'📷 Медиа')
-            : ''))
+          ? (lastText || (last.e2ee ? '' : (lastMedia.length
+            ? (String(lastMedia[0] || '').startsWith('data:audio') ? '🎤 Голосовое сообщение' : '📷 Медиа')
+            : '')))
           : (username ? `@${username}` : '');
         const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
         const lastReadAt = String(readMap[uid] || '');
@@ -800,6 +810,7 @@ function handleApi(req, res, urlObj) {
           username,
           bio: u ? (u.bio || '') : '',
           preview,
+          previewE2ee: last && !preview && last.e2ee ? last.e2ee : null,
           lastCreatedAt: last ? last.createdAt : '',
           avatarDataUrl: u ? (u.avatarDataUrl || '') : '',
           bannerDataUrl: u ? (u.bannerDataUrl || '') : '',
