@@ -1047,7 +1047,7 @@
   function t(key){ return (I18N[currentLanguage]&&I18N[currentLanguage][key]) || I18N.ru[key] || key; }
   function applyAutoI18n(root=document.body){
     if(!root) return;
-    const skipAutoI18n=el=>!!(el&&el.closest?.('[data-no-i18n],#profile-main-name,#chat-contact-name,#upv-name,.chat-row-name,.forward-row-name,.msg-quote-name'));
+    const skipAutoI18n=el=>!!(el&&el.closest?.('[data-no-i18n],#copy-toast,#profile-main-name,#chat-contact-name,#upv-name,.chat-row-name,.forward-row-name,.msg-quote-name'));
     const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){
       if(!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
       if(node.parentElement&&['SCRIPT','STYLE','TITLE'].includes(node.parentElement.tagName)) return NodeFilter.FILTER_REJECT;
@@ -2472,6 +2472,7 @@
   function showTopToast(msg,isError=false){
     const toast=document.getElementById('copy-toast');
     if(!toast) return;
+    delete toast.dataset.i18nAuto;
     toast.textContent=msg;
     toast.style.background=isError?'rgba(255,69,58,0.95)':'rgba(255,255,255,0.95)';
     toast.style.color=isError?'#fff':'#111';
