@@ -287,7 +287,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   #screen-profile .profile-scroll > div{flex-shrink:0;}
   .profile-hero{position:relative;margin:0 -12px 0;}
   .profile-avatar-wrap{position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);}
-  .profile-sticky-name{position:sticky;top:0;z-index:3;text-align:center;margin:0 -12px 8px;padding:66px 12px 12px;}
+  .profile-name-row{text-align:center;margin:0 -12px 8px;padding:66px 12px 12px;}
   /* ── Шторка Язык ── */
   #language-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
   #language-wrap.open{pointer-events:all;}
