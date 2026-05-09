@@ -1180,9 +1180,10 @@
 
   function setPresenceState(uid,state={}){
     if(!uid) return;
-    const prev=presenceByUser.get(String(uid))||{};
     const hasOnline=Object.prototype.hasOwnProperty.call(state,'online');
     const hasLastSeen=Object.prototype.hasOwnProperty.call(state,'lastSeenAt');
+    if(!hasOnline&&!hasLastSeen) return;
+    const prev=presenceByUser.get(String(uid))||{};
     presenceByUser.set(String(uid),{
       ...prev,
       online:hasOnline?!!state.online:!!prev.online,
