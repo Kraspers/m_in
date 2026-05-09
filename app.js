@@ -17,6 +17,7 @@
   let me=null;
   let localTypingPeerId='';
   let localTypingStopTimer=null;
+  let localTypingLastSentAt=0;
   let presenceClockTimer=null;
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
@@ -1050,6 +1051,13 @@
     save_important:{ru:'Сохраняйте важное',en:'Save what matters',be:'Захоўвайце важнае',uk:'Зберігайте важливе',kk:'Маңыздыны сақтаңыз',uz:'Muhim narsalarni saqlang',de:'Wichtiges speichern',ar:'احفظ المهم'},
     delete_warning_start:{ru:'Это действие',en:'This action is',be:'Гэта дзеянне',uk:'Ця дія',kk:'Бұл әрекет',uz:'Bu amal',de:'Diese Aktion ist',ar:'هذا الإجراء'},
     delete_warning_rest:{ru:'. Ваш аккаунт, все чаты и все данные будут удалены навсегда. Восстановить аккаунт будет невозможно.',en:'. Your account, all chats, and all data will be permanently deleted. Account recovery will be impossible.',be:'. Ваш акаўнт, усе чаты і ўсе даныя будуць выдалены назаўсёды. Аднавіць акаўнт будзе немагчыма.',uk:'. Ваш акаунт, усі чати й усі дані буде видалено назавжди. Відновити акаунт буде неможливо.',kk:'. Аккаунтыңыз, барлық чаттар және барлық деректер біржола жойылады. Аккаунтты қалпына келтіру мүмкін болмайды.',uz:'. Akkauntingiz, barcha chatlar va ma’lumotlar butunlay o‘chiriladi. Akkauntni tiklab bo‘lmaydi.',de:'. Dein Konto, alle Chats und alle Daten werden dauerhaft gelöscht. Eine Wiederherstellung ist nicht möglich.',ar:'. سيتم حذف حسابك وكل الدردشات وكل البيانات نهائيًا. لن يمكن استعادة الحساب.'},
+    presence_online:{ru:'в сети',en:'online',be:'у сетцы',uk:'у мережі',kk:'желіде',uz:'onlayn',de:'online',ar:'متصل'},
+    presence_typing:{ru:'Печатает',en:'Typing',be:'Піша',uk:'Друкує',kk:'Жазып жатыр',uz:'Yozmoqda',de:'Schreibt',ar:'يكتب'},
+    last_seen_just_now:{ru:'Был(а) только что',en:'last seen just now',be:'Быў(ла) толькі што',uk:'Був(ла) щойно',kk:'Жаңа ғана болды',uz:'hozirgina ko‘rindi',de:'zuletzt gerade eben',ar:'كان متصلاً للتو'},
+    last_seen_minute_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
+    last_seen_hour_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
+    last_seen_day_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
+    last_seen_date:{ru:'Был(а) {date}',en:'last seen {date}',be:'Быў(ла) {date}',uk:'Був(ла) {date}',kk:'{date} болды',uz:'{date} ko‘rindi',de:'zuletzt {date}',ar:'كان متصلاً {date}'},
     send_error:{ru:'Ошибка отправки',en:'Send error',be:'Памылка адпраўкі',uk:'Помилка надсилання',kk:'Жіберу қатесі',uz:'Yuborish xatosi',de:'Sendefehler',ar:'خطأ في الإرسال'}
   };
   Object.keys(AUTO_I18N).forEach(key=>{ Object.keys(AUTO_I18N[key]).forEach(lang=>{ I18N[lang][key]=AUTO_I18N[key][lang]; }); });
@@ -1110,6 +1118,7 @@
     const lang=LANGUAGES.find(l=>l.code===currentLanguage)||LANGUAGES[0];
     const cur=document.getElementById('profile-language-current'); if(cur) cur.textContent=lang.name;
     renderLanguageList();
+    renderChatPresence();
   }
   function renderLanguageList(){
     const box=document.getElementById('language-list');
@@ -1182,20 +1191,33 @@
     if(b===1) return one;
     return many;
   }
+  function presenceUnit(kind,n){
+    if(currentLanguage==='ru') return kind==='minute'?pluralRu(n,'минуту','минуты','минут'):kind==='hour'?pluralRu(n,'час','часа','часов'):pluralRu(n,'день','дня','дней');
+    if(currentLanguage==='en') return kind==='minute'?(n===1?'minute':'minutes'):kind==='hour'?(n===1?'hour':'hours'):(n===1?'day':'days');
+    if(currentLanguage==='de') return kind==='minute'?(n===1?'Minute':'Minuten'):kind==='hour'?(n===1?'Stunde':'Stunden'):(n===1?'Tag':'Tage');
+    const units={
+      be:{minute:'хв.',hour:'гадз.',day:'дз.'},uk:{minute:'хв',hour:'год',day:'дн'},kk:{minute:'минут',hour:'сағат',day:'күн'},uz:{minute:'daqiqa',hour:'soat',day:'kun'},ar:{minute:'دقيقة',hour:'ساعة',day:'يوم'}
+    };
+    return (units[currentLanguage]&&units[currentLanguage][kind])||kind;
+  }
+  function presenceTemplate(key,vars={}){
+    return t(key).replace(/\{(n|unit|date)\}/g,(_,name)=>vars[name]||'');
+  }
   function lastSeenText(lastSeenAt){
     const ts=new Date(lastSeenAt||0).getTime();
     if(!ts) return '';
     const diff=Math.max(0,Date.now()-ts);
     const min=Math.floor(diff/60000);
-    if(min<1) return 'Был(а) только что';
-    if(min<60) return `Был(а) ${min} ${pluralRu(min,'минуту','минуты','минут')} назад`;
+    if(min<1) return t('last_seen_just_now');
+    if(min<60) return presenceTemplate('last_seen_minute_ago',{n:min,unit:presenceUnit('minute',min)});
     const h=Math.floor(min/60);
-    if(h<24) return `Был(а) ${h} ${pluralRu(h,'час','часа','часов')} назад`;
+    if(h<24) return presenceTemplate('last_seen_hour_ago',{n:h,unit:presenceUnit('hour',h)});
     const d=Math.floor(h/24);
-    if(d<7) return `Был(а) ${d} ${pluralRu(d,'день','дня','дней')} назад`;
-    return `Был(а) ${new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})}`;
+    if(d<7) return presenceTemplate('last_seen_day_ago',{n:d,unit:presenceUnit('day',d)});
+    const date=new Date(ts).toLocaleDateString(currentLanguage==='ru'?'ru-RU':undefined,{day:'numeric',month:'short'});
+    return presenceTemplate('last_seen_date',{date});
   }
-  function renderTypingHtml(){ return '<span class="typing-dots"><span></span><span></span><span></span></span><span>Печатает</span>'; }
+  function renderTypingHtml(){ return `<span class="typing-dots"><span></span><span></span><span></span></span><span>${esc(t('presence_typing'))}</span>`; }
   function renderChatPresence(){
     const el=document.getElementById('chat-presence-status');
     if(!el||!currentChatUserId) return;
@@ -1204,7 +1226,7 @@
     if(typingUntil>Date.now()){ el.classList.remove('online'); el.innerHTML=renderTypingHtml(); return; }
     const p=presenceFor(currentChatUserId);
     el.classList.toggle('online',!!p.online);
-    el.textContent=p.online?'в сети':lastSeenText(p.lastSeenAt);
+    el.textContent=p.online?t('presence_online'):lastSeenText(p.lastSeenAt);
   }
   function updateChatPresenceBadges(uid){
     const ids=uid?[String(uid)]:Array.from(presenceByUser.keys());
@@ -1232,9 +1254,14 @@
     if(!currentChatUserId||!authToken) return;
     const peer=String(currentChatUserId);
     if(active){
+      const now=Date.now();
       if(localTypingPeerId!==peer){
         if(localTypingPeerId) api('/typing',{method:'POST',body:JSON.stringify({toUserId:localTypingPeerId,typing:false})}).catch(()=>{});
         localTypingPeerId=peer;
+        localTypingLastSentAt=0;
+      }
+      if(now-localTypingLastSentAt>1200){
+        localTypingLastSentAt=now;
         api('/typing',{method:'POST',body:JSON.stringify({toUserId:peer,typing:true})}).catch(()=>{});
       }
       if(localTypingStopTimer) clearTimeout(localTypingStopTimer);
@@ -1242,6 +1269,7 @@
     }else if(localTypingPeerId){
       const stopPeer=localTypingPeerId;
       localTypingPeerId='';
+      localTypingLastSentAt=0;
       if(localTypingStopTimer) clearTimeout(localTypingStopTimer);
       localTypingStopTimer=null;
       api('/typing',{method:'POST',body:JSON.stringify({toUserId:stopPeer,typing:false})}).catch(()=>{});
@@ -3315,7 +3343,8 @@
           const p=JSON.parse(ev.data);
           if(me&&p&&p.id===me.id) applyProfileUI(p);
           if(p&&p.id){ usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p}); setPresenceState(p.id,p); updateChatPresenceBadges(p.id); }
-          if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
+          const upv=document.getElementById('user-profile-view');
+          if(upv&&upv.classList.contains('open')&&window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
           if(currentChatUserId&&p&&p.id===currentChatUserId){
             setNameWithVerification(document.getElementById('chat-contact-name'),p.name||t('chat'),!!p.verified);
             setNameWithVerification(document.getElementById('chat-peer-name'),p.name||t('user'),!!p.verified);
