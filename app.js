@@ -905,6 +905,9 @@
   let currentChatBlockedPeer=false;
   const usersMap=new Map();
   let api=()=>Promise.reject(new Error('API not initialized'));
+  const CUSTOM_THEMES=new Set(['default','aurora','mint','sunset','ocean','flame']);
+  const CUSTOM_BACKGROUNDS=new Set(['default','wallpaper']);
+  let currentCustomization={theme:'default',background:'default'};
 
   function resetBubbleScale(el){
     el.style.transition='transform 0.18s ease';
@@ -2134,6 +2137,12 @@
   function closePrivacy(){
     document.getElementById('privacy-wrap').classList.remove('open');
   }
+  function openCustomization(){
+    document.getElementById('customization-wrap').classList.add('open');
+  }
+  function closeCustomization(){
+    document.getElementById('customization-wrap').classList.remove('open');
+  }
   let devicesSessionsCache=[];
   function backendApi(path,opts={}){
     if(typeof window.__api==='function') return window.__api(path,opts);
@@ -2392,6 +2401,50 @@
         el.style.background=el.dataset.defaultBg;
       }
     }
+
+    function normalizeClientCustomization(value){
+      const raw=value&&typeof value==='object'?value:{};
+      return {
+        theme:CUSTOM_THEMES.has(raw.theme)?raw.theme:'default',
+        background:CUSTOM_BACKGROUNDS.has(raw.background)?raw.background:'default'
+      };
+    }
+    function setBodyToken(prefix,value,allowed){
+      document.body.classList.forEach(cls=>{ if(cls.startsWith(prefix)) document.body.classList.remove(cls); });
+      document.body.classList.add(prefix+(allowed.has(value)?value:'default'));
+    }
+    function applyCustomizationUI(value){
+      currentCustomization=normalizeClientCustomization(value);
+      setBodyToken('chat-theme-',currentCustomization.theme,CUSTOM_THEMES);
+      setBodyToken('chat-bg-',currentCustomization.background,CUSTOM_BACKGROUNDS);
+      const content=document.querySelector('.customization-content');
+      if(content){
+        content.classList.toggle('preview-bg-wallpaper',currentCustomization.background==='wallpaper');
+        content.classList.toggle('preview-bg-default',currentCustomization.background==='default');
+      }
+      const preview=document.getElementById('custom-chat-preview');
+      if(preview){
+        preview.classList.toggle('custom-bg-wallpaper',currentCustomization.background==='wallpaper');
+        preview.classList.toggle('custom-bg-default',currentCustomization.background==='default');
+      }
+      document.querySelectorAll('.custom-theme-card[data-theme]').forEach(btn=>{
+        btn.classList.toggle('selected',btn.dataset.theme===currentCustomization.theme);
+      });
+      document.querySelectorAll('.custom-bg-card[data-background]').forEach(btn=>{
+        btn.classList.toggle('selected',btn.dataset.background===currentCustomization.background);
+      });
+    }
+    async function saveCustomization(next){
+      const merged=normalizeClientCustomization({...currentCustomization,...next});
+      applyCustomizationUI(merged);
+      try{
+        const res=await api('/me/customization',{method:'PATCH',body:JSON.stringify(merged)});
+        if(res&&res.user) applyProfileUI(res.user);
+      }catch(e){
+        applyCustomizationUI(me&&me.customization?me.customization:{theme:'default',background:'default'});
+        alert(e.message||'Ошибка сохранения');
+      }
+    }
     function applyProfileUI(profile){
       me=profile;
       const name=profile.name||profile.username||'Мой профиль';
@@ -2399,6 +2452,7 @@
       const bio=profile.bio||'';
       const avatar=profile.avatarDataUrl||'';
       const banner=profile.bannerDataUrl||'';
+      applyCustomizationUI(profile.customization);
       const mainName=document.getElementById('profile-main-name');
       setNameWithVerification(mainName,name,!!profile.verified);
       const peName=document.getElementById('pe-name');
@@ -3107,6 +3161,21 @@
       const wrap=document.getElementById('privacy-wrap');
       wrap.classList.add('open');
       api('/me/vpsc').then(r=>{ const el=document.getElementById('privacy-code-text'); if(el) el.textContent=r.code; }).catch(()=>{});
+    };
+    window.openCustomization=function(){
+      applyCustomizationUI(currentCustomization);
+      document.getElementById('customization-wrap').classList.add('open');
+    };
+    window.closeCustomization=function(){
+      document.getElementById('customization-wrap').classList.remove('open');
+    };
+    window.selectCustomizationTheme=function(theme){
+      if(!CUSTOM_THEMES.has(theme)) return;
+      saveCustomization({theme});
+    };
+    window.selectCustomizationBackground=function(background){
+      if(!CUSTOM_BACKGROUNDS.has(background)) return;
+      saveCustomization({background});
     };
     window.openProfileEdit=function(){
       profileJustOpened=true;

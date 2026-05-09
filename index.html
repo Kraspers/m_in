@@ -166,6 +166,11 @@
         <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Конфиденциальность</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openCustomization()">
+        <div class="settings-icon" style="background:#5AC8FA;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M512.5 74.3L291.1 222C262 241.4 243.5 272.9 240.5 307.3C302.8 320.1 351.9 369.2 364.8 431.6C399.3 428.6 430.7 410.1 450.1 381L597.7 159.5C604.4 149.4 608 137.6 608 125.4C608 91.5 580.5 64 546.6 64C534.5 64 522.6 67.6 512.5 74.3zM320 464C320 402.1 269.9 352 208 352C146.1 352 96 402.1 96 464C96 467.9 96.2 471.8 96.6 475.6C98.4 493.1 86.4 512 68.8 512L64 512C46.3 512 32 526.3 32 544C32 561.7 46.3 576 64 576L208 576C269.9 576 320 525.9 320 464z"/></svg></div>
+        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Кастомизация</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
       <button class="settings-row">
         <div class="settings-icon" style="background:#0078FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polygon points="12,2 14.5,4 17.5,3 19,5.5 22,7 21,10 23,12.5 21,15 22,18 19,19.5 17.5,22 14.5,21 12,23 9.5,21 6.5,22 5,19.5 2,18 3,15 1,12.5 3,10 2,7 5,5.5 6.5,3 9.5,4" fill="white"/><polyline points="8,12.5 11,15.5 16,9.5" stroke="#0078FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Верификация</span>
@@ -334,6 +339,45 @@
         <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"></div>
         <!-- Выйти из аккаунта -->
         <button onclick="logoutAccount()" style="width:100%;background:none;border:2px solid #FF453A;border-radius:999px;padding:16px;color:#FF453A;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Выйти из аккаунта</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ ШТОРКА — КАСТОМИЗАЦИЯ ════════════════ -->
+
+<div id="customization-wrap">
+  <div id="customization-bg"></div>
+  <div id="customization-slideable">
+    <div id="customization-close-row" style="display:flex;align-items:center;padding:6px 16px 12px;">
+      <button onclick="closeCustomization()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Кастомизация
+      </button>
+    </div>
+    <div id="customization-sheet">
+      <div style="display:flex;justify-content:center;padding:10px 0 0;">
+        <div style="width:36px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;"></div>
+      </div>
+      <div class="customization-content">
+        <div id="custom-chat-preview" class="custom-chat-preview">
+          <div style="display:flex;justify-content:flex-start;"><div class="bubble-in msg-bubble"><p class="msg-text-in">Привет! Как тебе новый стиль чата?</p><div class="msg-meta"><span class="msg-time-in">12:40</span></div></div></div>
+          <div style="display:flex;justify-content:flex-end;"><div class="bubble-out msg-bubble"><p class="msg-text-out">Выглядит отлично</p><div class="msg-meta"><span class="msg-time-out">12:41</span></div></div></div>
+          <div style="display:flex;justify-content:flex-start;"><div class="bubble-in msg-bubble"><p class="msg-text-in">Можно выбрать любую тему ниже</p><div class="msg-meta"><span class="msg-time-in">12:42</span></div></div></div>
+        </div>
+        <div class="custom-theme-grid custom-theme-grid-six">
+          <button class="custom-theme-card custom-theme-1" type="button" data-theme="default" onclick="selectCustomizationTheme('default')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w2"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span></button>
+          <button class="custom-theme-card custom-theme-2" type="button" data-theme="aurora" onclick="selectCustomizationTheme('aurora')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w1"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span></button>
+          <button class="custom-theme-card custom-theme-3" type="button" data-theme="mint" onclick="selectCustomizationTheme('mint')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w3"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span></button>
+          <button class="custom-theme-card custom-theme-4" type="button" data-theme="sunset" onclick="selectCustomizationTheme('sunset')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w1"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span></button>
+          <button class="custom-theme-card custom-theme-5" type="button" data-theme="ocean" onclick="selectCustomizationTheme('ocean')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w3"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span></button>
+          <button class="custom-theme-card custom-theme-6" type="button" data-theme="flame" onclick="selectCustomizationTheme('flame')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w2"></span></span><span class="theme-mini-row left"><span class="theme-mini-bubble in w3"></span></span></button>
+        </div>
+        <div class="custom-section-title">Фон</div>
+        <div class="custom-theme-grid custom-bg-grid">
+          <button class="custom-bg-card custom-bg-default" type="button" data-background="default" onclick="selectCustomizationBackground('default')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w1"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w2"></span></span><span class="custom-bg-label">Стандартный</span></button>
+          <button class="custom-bg-card custom-bg-wallpaper" type="button" data-background="wallpaper" onclick="selectCustomizationBackground('wallpaper')"><span class="theme-mini-row left"><span class="theme-mini-bubble in w2"></span></span><span class="theme-mini-row right"><span class="theme-mini-bubble out w1"></span></span><span class="custom-bg-label">Фон чатов</span></button>
+        </div>
       </div>
     </div>
   </div>

@@ -242,6 +242,15 @@ function pushLog(db, action, details) {
   db.moderation.logs.push({ id: crypto.randomUUID(), action, details, createdAt: new Date().toISOString() });
 }
 
+function normalizeCustomization(value) {
+  const allowedThemes = new Set(['default', 'aurora', 'mint', 'sunset', 'ocean', 'flame']);
+  const allowedBackgrounds = new Set(['default', 'wallpaper']);
+  const raw = value && typeof value === 'object' ? value : {};
+  const theme = allowedThemes.has(raw.theme) ? raw.theme : 'default';
+  const background = allowedBackgrounds.has(raw.background) ? raw.background : 'default';
+  return { theme, background };
+}
+
 function publicUser(user) {
   return {
     id: user.id,
@@ -250,6 +259,7 @@ function publicUser(user) {
     bio: user.bio || '',
     avatarDataUrl: user.avatarDataUrl || '',
     bannerDataUrl: user.bannerDataUrl || '',
+    customization: normalizeCustomization(user.customization),
     verified: !!user.verified
   };
 }
@@ -377,7 +387,8 @@ function handleApi(req, res, urlObj) {
           pinnedChatUserIds: [],
           bio: '',
           avatarDataUrl: '',
-          bannerDataUrl: ''
+          bannerDataUrl: '',
+          customization: { theme: 'default', background: 'default' }
         };
         db.users.push(user);
         writeDb(db);
@@ -533,6 +544,23 @@ function handleApi(req, res, urlObj) {
         user.name = String(body.name || user.name || '').trim() || user.name;
         if (nextUsername) user.username = nextUsername;
         user.bio = String(body.bio || '').slice(0, 110);
+        writeDb(db);
+        broadcastProfile(user);
+        sendJson(res, 200, { user: publicUser(user) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  if (pathname === '/api/me/customization' && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        user.customization = normalizeCustomization({
+          theme: body.theme,
+          background: body.background
+        });
         writeDb(db);
         broadcastProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
