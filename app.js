@@ -2524,8 +2524,22 @@
       if(!view.classList.contains('open')) view.style.display='none';
     },260);
   }
+  function isUserBlockedByMe(uid){
+    uid=String(uid||'');
+    if(!uid) return false;
+    const cached=usersMap.get(uid);
+    if(cached&&typeof cached.blockedPeer==='boolean') return !!cached.blockedPeer;
+    return currentChatUserId===uid&&!!currentChatBlockedPeer;
+  }
+  function setCachedBlockState(uid,blocked){
+    uid=String(uid||'');
+    if(!uid) return;
+    usersMap.set(uid,{...(usersMap.get(uid)||{}),blockedPeer:!!blocked});
+    if(currentChatUserId===uid) currentChatBlockedPeer=!!blocked;
+  }
   function openUserProfileView(p){
     window.__upvUserId=p.id||'';
+    if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
     setNameWithVerification(document.getElementById('upv-name'),p.name||'Профиль',!!p.verified);
     document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
     const bioEl=document.getElementById('upv-bio');
@@ -3241,7 +3255,7 @@
           const b=JSON.parse(ev.data);
           if(currentChatUserId&&b&&(b.targetUserId===currentChatUserId||b.byUserId===currentChatUserId)){
             if(String(b.byUserId||'')===currentChatUserId) currentChatBlockedByPeer=!!b.blocked;
-            if(me&&String(b.byUserId||'')===me.id) currentChatBlockedPeer=!!b.blocked;
+            if(me&&String(b.byUserId||'')===me.id) setCachedBlockState(b.targetUserId,!!b.blocked);
             updateChatBlockedUI();
           }
           scheduleChatsRefresh();
@@ -3710,7 +3724,7 @@
       const row=upvFindChatRow(uid);
       setUpvPinUi(!!(row&&row.classList.contains('chat-pinned')));
       const blockedLbl=document.getElementById('upv-block-label');
-      if(blockedLbl) blockedLbl.textContent=currentChatBlockedPeer?t('unblock'):t('block');
+      if(blockedLbl) blockedLbl.textContent=isUserBlockedByMe(uid)?t('unblock'):t('block');
       const ov=document.getElementById('upv-ctx-overlay');
       if(!ov) return;
       ov.style.display='block';
@@ -3755,15 +3769,16 @@
     window.upvToggleBlock=async function(){
       const uid=window.__upvUserId||'';
       if(!uid) return;
-      const action=currentChatBlockedPeer?'unblock':'block';
-      await api(`/users/${encodeURIComponent(uid)}/block`,{method:'PATCH',body:JSON.stringify({action})});
-      currentChatBlockedPeer=!currentChatBlockedPeer;
+      const wasBlocked=isUserBlockedByMe(uid);
+      const action=wasBlocked?'unblock':'block';
+      const res=await api(`/users/${encodeURIComponent(uid)}/block`,{method:'PATCH',body:JSON.stringify({action})});
+      setCachedBlockState(uid,!!res.blocked);
       if(action==='block'){
         window.closeUpvCtx();
         closeUserProfileView();
       }else{
         const blockedLbl=document.getElementById('upv-block-label');
-        if(blockedLbl) blockedLbl.textContent=t('block');
+        if(blockedLbl) blockedLbl.textContent=isUserBlockedByMe(uid)?t('unblock'):t('block');
         window.closeUpvCtx();
       }
       if(currentChatUserId===uid) await openChatWith(uid);

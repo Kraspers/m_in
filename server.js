@@ -820,7 +820,8 @@ function handleApi(req, res, urlObj) {
           isPinned: pinOrder.has(uid),
           pinIndex: pinOrder.has(uid) ? pinOrder.get(uid) : Number.MAX_SAFE_INTEGER,
           deleted: !u,
-          unreadCount
+          unreadCount,
+          blockedPeer: !!(u && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(uid))
         };
       })
       .filter(u => {
@@ -913,7 +914,8 @@ function handleApi(req, res, urlObj) {
         avatarDataUrl: u.avatarDataUrl || '',
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
         color: colorForId(u.id),
-        verified: !!u.verified
+        verified: !!u.verified,
+        blockedPeer: Array.isArray(user.blockedUsers) && user.blockedUsers.includes(u.id)
       }));
     return sendJson(res, 200, { items });
   }
