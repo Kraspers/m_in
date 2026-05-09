@@ -1184,10 +1184,12 @@
     const hasLastSeen=Object.prototype.hasOwnProperty.call(state,'lastSeenAt');
     if(!hasOnline&&!hasLastSeen) return;
     const prev=presenceByUser.get(String(uid))||{};
+    const nextOnline=hasOnline?!!state.online:!!prev.online;
+    const nextLastSeen=hasLastSeen?(state.lastSeenAt||(!nextOnline?new Date().toISOString():'')):(prev.lastSeenAt||(!nextOnline?new Date().toISOString():''));
     presenceByUser.set(String(uid),{
       ...prev,
-      online:hasOnline?!!state.online:!!prev.online,
-      lastSeenAt:hasLastSeen?(state.lastSeenAt||''):(prev.lastSeenAt||'')
+      online:nextOnline,
+      lastSeenAt:nextLastSeen
     });
   }
   function presenceFor(uid){ return presenceByUser.get(String(uid||''))||{online:false,lastSeenAt:''}; }
@@ -1350,7 +1352,7 @@
 
     /* Закрепить/Открепить */
     const inFavCtx=!!el.closest('#fav-messages');
-    const isPinned=inFavCtx?(favPinnedBubble&&favPinnedBubble===el):(pinnedBubble&&pinnedBubble===el);
+    const isPinned=inFavCtx?(favPinnedBubble&&favPinnedBubble===el):(el.dataset&&el.dataset.pinned==='1');
     updatePinActionUI(!!isPinned);
 
     const clone=el.cloneNode(true);
@@ -3214,7 +3216,7 @@
         const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
         const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
         const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
-        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
+        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" data-pinned="${Array.isArray(m.pinnedBy)&&m.pinnedBy.length>0?'1':'0'}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
@@ -3236,7 +3238,7 @@
       suppressReactionAnimations=false;
       bindRichTextInteractions(wrap);
       initVoicePlayers(wrap);
-      const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
+      const pinned=[...items].reverse().find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
       if(pinned){
         const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
         pinnedBubble=bubble||null;
@@ -3857,7 +3859,7 @@
       }
       if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
       const id=currentBubble.dataset.mid;
-      const isPinned=pinnedBubble===currentBubble;
+      const isPinned=currentBubble.dataset.pinned==='1';
       closeCtxClean();
       await api(`/messages/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
       await openChatWith(currentChatUserId);
