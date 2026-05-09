@@ -910,14 +910,14 @@
   let currentCustomization={theme:'default',background:'default'};
 
   const LANGUAGES=[
-    {code:'ru',flag:'🇷🇺',name:'Русский',native:'Русский'},
-    {code:'en',flag:'🇬🇧',name:'English',native:'English'},
-    {code:'be',flag:'🇧🇾',name:'Беларуская',native:'Беларуская'},
-    {code:'uk',flag:'🇺🇦',name:'Українська',native:'Українська'},
-    {code:'kk',flag:'🇰🇿',name:'Қазақ тілі',native:'Қазақ тілі'},
-    {code:'uz',flag:'🇺🇿',name:'O‘zbekcha',native:'O‘zbekcha'},
-    {code:'de',flag:'🇩🇪',name:'Deutsch',native:'Deutsch'},
-    {code:'ar',flag:'🇸🇦',name:'العربية',native:'العربية'}
+    {code:'ru',label:'RU',name:'Русский',english:'Russian'},
+    {code:'en',label:'EN',name:'English',english:'English'},
+    {code:'be',label:'BE',name:'Беларуская',english:'Belarusian'},
+    {code:'uk',label:'UK',name:'Українська',english:'Ukrainian'},
+    {code:'kk',label:'KK',name:'Қазақ тілі',english:'Kazakh'},
+    {code:'uz',label:'UZ',name:'O‘zbekcha',english:'Uzbek'},
+    {code:'de',label:'DE',name:'Deutsch',english:'German'},
+    {code:'ar',label:'AR',name:'العربية',english:'Arabic'}
   ];
   const I18N={
     ru:{back:'Назад',my_profile:'Мой профиль',favorites:'Избранное',devices:'Устройства',chat_folders:'Папки с чатами',notifications:'Уведомления',privacy:'Конфиденциальность',customization:'Кастомизация',verification:'Верификация',language:'Язык',language_hint:'Выберите язык интерфейса. Изменение применится сразу.',write_message:'Напишите сообщение…',blocked_by_user:'Вы были заблокированы данным пользователем',no_chats:'Чатов пока нет',chat:'Чат',user:'Пользователь'},
@@ -929,8 +929,50 @@
     de:{back:'Zurück',my_profile:'Mein Profil',favorites:'Gespeichertes',devices:'Geräte',chat_folders:'Chat-Ordner',notifications:'Benachrichtigungen',privacy:'Datenschutz',customization:'Anpassung',verification:'Verifizierung',language:'Sprache',language_hint:'Wähle die Sprache der Oberfläche. Die Änderung gilt sofort.',write_message:'Nachricht schreiben…',blocked_by_user:'Du wurdest von diesem Nutzer blockiert',no_chats:'Noch keine Chats',chat:'Chat',user:'Nutzer'},
     ar:{back:'رجوع',my_profile:'ملفي الشخصي',favorites:'المفضلة',devices:'الأجهزة',chat_folders:'مجلدات الدردشة',notifications:'الإشعارات',privacy:'الخصوصية',customization:'التخصيص',verification:'التحقق',language:'اللغة',language_hint:'اختر لغة الواجهة. سيتم تطبيق التغيير فورًا.',write_message:'اكتب رسالة…',blocked_by_user:'لقد حظرك هذا المستخدم',no_chats:'لا توجد دردشات بعد',chat:'دردشة',user:'مستخدم'}
   };
+  const AUTO_I18N={
+    pinned_message:{ru:'Закреплённое сообщение',en:'Pinned message',be:'Замацаванае паведамленне',uk:'Закріплене повідомлення',kk:'Бекітілген хабарлама',uz:'Qadalgan xabar',de:'Angeheftete Nachricht',ar:'رسالة مثبتة'},
+    reply:{ru:'В ответ',en:'Reply',be:'У адказ',uk:'У відповідь',kk:'Жауап',uz:'Javob',de:'Antwort',ar:'رد'},
+    editing:{ru:'Редактирование',en:'Editing',be:'Рэдагаванне',uk:'Редагування',kk:'Өңдеу',uz:'Tahrirlash',de:'Bearbeiten',ar:'تحرير'},
+    drag_file:{ru:'Перетащите файл сюда',en:'Drag a file here',be:'Перацягніце файл сюды',uk:'Перетягніть файл сюди',kk:'Файлды осында сүйреңіз',uz:'Faylni shu yerga torting',de:'Datei hierher ziehen',ar:'اسحب الملف هنا'},
+    display_name:{ru:'Ваше отображаемое имя',en:'Your display name',be:'Ваша адлюстроўваемая назва',uk:'Ваше відображуване ім’я',kk:'Көрсетілетін атыңыз',uz:'Ko‘rinadigan ismingiz',de:'Dein Anzeigename',ar:'اسمك المعروض'},
+    name:{ru:'Имя',en:'Name',be:'Імя',uk:'Ім’я',kk:'Аты',uz:'Ism',de:'Name',ar:'الاسم'},
+    about:{ru:'О себе',en:'Bio',be:'Пра сябе',uk:'Про себе',kk:'Өзіңіз туралы',uz:'O‘zingiz haqingizda',de:'Über mich',ar:'نبذة'},
+    about_placeholder:{ru:'Расскажите немного о себе',en:'Tell a little about yourself',be:'Раскажыце крыху пра сябе',uk:'Розкажіть трохи про себе',kk:'Өзіңіз туралы қысқаша жазыңыз',uz:'O‘zingiz haqingizda qisqacha yozing',de:'Erzähle etwas über dich',ar:'اكتب نبذة قصيرة عن نفسك'},
+    username_hint:{ru:'Ваш уникальный идентификатор (только латиница, цифры и _)',en:'Your unique identifier (Latin letters, numbers and _ only)',be:'Ваш унікальны ідэнтыфікатар (толькі лацінка, лічбы і _)',uk:'Ваш унікальний ідентифікатор (лише латиниця, цифри та _)',kk:'Бірегей идентификаторыңыз (тек латын әріптері, сандар және _)',uz:'Noyob identifikatoringiz (faqat lotin harflari, raqamlar va _)',de:'Deine eindeutige Kennung (nur lateinische Buchstaben, Zahlen und _)',ar:'معرّفك الفريد (أحرف لاتينية وأرقام و _ فقط)'},
+    save:{ru:'Сохранить',en:'Save',be:'Захаваць',uk:'Зберегти',kk:'Сақтау',uz:'Saqlash',de:'Speichern',ar:'حفظ'},
+    copied:{ru:'Скопировано',en:'Copied',be:'Скапіявана',uk:'Скопійовано',kk:'Көшірілді',uz:'Nusxalandi',de:'Kopiert',ar:'تم النسخ'},
+    share_min:{ru:'Поделитесь MIN',en:'Share MIN',be:'Падзяліцеся MIN',uk:'Поділіться MIN',kk:'MIN-мен бөлісіңіз',uz:'MIN ulashing',de:'MIN teilen',ar:'شارك MIN'},
+    no_available_chats:{ru:'Нет доступных чатов',en:'No available chats',be:'Няма даступных чатаў',uk:'Немає доступних чатів',kk:'Қолжетімді чаттар жоқ',uz:'Mavjud chatlar yo‘q',de:'Keine verfügbaren Chats',ar:'لا توجد دردشات متاحة'},
+    media:{ru:'Медиа',en:'Media',be:'Медыя',uk:'Медіа',kk:'Медиа',uz:'Media',de:'Medien',ar:'وسائط'},
+    voice_message:{ru:'Голосовое сообщение',en:'Voice message',be:'Галасавое паведамленне',uk:'Голосове повідомлення',kk:'Дауыстық хабарлама',uz:'Ovozli xabar',de:'Sprachnachricht',ar:'رسالة صوتية'},
+    message:{ru:'Сообщение',en:'Message',be:'Паведамленне',uk:'Повідомлення',kk:'Хабарлама',uz:'Xabar',de:'Nachricht',ar:'رسالة'},
+    you:{ru:'Вы',en:'You',be:'Вы',uk:'Ви',kk:'Сіз',uz:'Siz',de:'Du',ar:'أنت'}
+  };
+  Object.keys(AUTO_I18N).forEach(key=>{ Object.keys(AUTO_I18N[key]).forEach(lang=>{ I18N[lang][key]=AUTO_I18N[key][lang]; }); });
+  const I18N_REVERSE=new Map();
+  Object.keys(I18N).forEach(lang=>Object.keys(I18N[lang]).forEach(key=>I18N_REVERSE.set(I18N[lang][key],key)));
   let currentLanguage=localStorage.getItem('app_language')||'ru';
   function t(key){ return (I18N[currentLanguage]&&I18N[currentLanguage][key]) || I18N.ru[key] || key; }
+  function applyAutoI18n(root=document.body){
+    if(!root) return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){
+      if(!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      if(node.parentElement&&['SCRIPT','STYLE','TITLE'].includes(node.parentElement.tagName)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }});
+    const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node=>{
+      const raw=node.nodeValue.trim();
+      const parent=node.parentElement;
+      const key=parent?.dataset?.i18nAuto || I18N_REVERSE.get(raw);
+      if(key){ if(parent) parent.dataset.i18nAuto=key; node.nodeValue=node.nodeValue.replace(raw,t(key)); }
+    });
+    root.querySelectorAll?.('input[placeholder],textarea[placeholder]').forEach(el=>{
+      const raw=el.getAttribute('placeholder');
+      const key=el.dataset.i18nPlaceholder || I18N_REVERSE.get(raw);
+      if(key){ el.dataset.i18nPlaceholder=key; el.setAttribute('placeholder',t(key)); }
+    });
+  }
   function normalizeLanguage(code){ return LANGUAGES.some(l=>l.code===code)?code:'ru'; }
   function applyI18n(){
     currentLanguage=normalizeLanguage(currentLanguage);
@@ -938,6 +980,7 @@
     document.documentElement.lang=currentLanguage;
     document.documentElement.dir=currentLanguage==='ar'?'rtl':'ltr';
     document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.dataset.i18n); });
+    applyAutoI18n();
     const msgInput=document.getElementById('msg-input'); if(msgInput) msgInput.placeholder=t('write_message');
     const empty=document.querySelector('#chat-list-empty div:last-child'); if(empty) empty.textContent=t('no_chats');
     const blocked=document.querySelector('#chat-blocked-pill span'); if(blocked) blocked.textContent=t('blocked_by_user');
@@ -948,7 +991,8 @@
   function renderLanguageList(){
     const box=document.getElementById('language-list');
     if(!box) return;
-    box.innerHTML=LANGUAGES.map(l=>`<button class="language-row${l.code===currentLanguage?' selected':''}" type="button" onclick="selectLanguage('${l.code}')"><span class="language-flag">${l.flag}</span><span style="min-width:0;"><span class="language-name">${l.name}</span><span class="language-native">${l.native}</span></span><span class="language-check">✓</span></button>`).join('');
+    const checkIcon='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true"><path d="M530.8 134.1C545.1 144.5 548.3 164.5 537.9 178.8L281.9 530.8C276.4 538.4 267.9 543.1 258.5 543.9C249.1 544.7 240 541.2 233.4 534.6L105.4 406.6C92.9 394.1 92.9 373.8 105.4 361.3C117.9 348.8 138.2 348.8 150.7 361.3L252.2 462.8L486.2 141.1C496.6 126.8 516.6 123.6 530.9 134z"/></svg>';
+    box.innerHTML=LANGUAGES.map(l=>`<button class="language-row${l.code===currentLanguage?' selected':''}" type="button" onclick="selectLanguage('${l.code}')"><span class="language-code">${l.label}</span><span style="min-width:0;flex:1;"><span class="language-name">${l.name}</span><span class="language-native">${l.english}</span></span><span class="language-check">${checkIcon}</span></button>`).join('');
   }
   window.openLanguageSheet=function(){ renderLanguageList(); document.getElementById('language-wrap')?.classList.add('open'); };
   window.closeLanguageSheet=function(){ document.getElementById('language-wrap')?.classList.remove('open'); };
@@ -957,6 +1001,46 @@
     applyI18n();
     try{ if(authToken) await api('/me/language',{method:'PATCH',body:JSON.stringify({language:currentLanguage})}); }catch(_){ }
   };
+  function bindProfileScrollHeader(){
+    const scroller=document.getElementById('profile-main-scroll');
+    if(!scroller||scroller.dataset.boundSticky) return;
+    scroller.dataset.boundSticky='1';
+    const update=()=>scroller.classList.toggle('scrolled',scroller.scrollTop>136);
+    scroller.addEventListener('scroll',update,{passive:true});
+    update();
+  }
+  document.addEventListener('DOMContentLoaded',bindProfileScrollHeader);
+
+  function e2eeChatSecret(peerId){
+    const ids=[String(me&&me.id||''),String(peerId||'')].sort().join(':');
+    return `minimum:e2ee:v1:${ids}`;
+  }
+  function bytesToB64(bytes){ let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
+  function b64ToBytes(b64){ return Uint8Array.from(atob(b64),c=>c.charCodeAt(0)); }
+  async function e2eeKey(peerId){
+    if(!window.crypto?.subtle||!window.TextEncoder) return null;
+    const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(e2eeChatSecret(peerId)),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey({name:'PBKDF2',salt:new TextEncoder().encode('minimum-chat-e2ee'),iterations:120000,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  }
+  async function encryptE2eeText(peerId,text){
+    if(!text) return null;
+    try{
+      const key=await e2eeKey(peerId); if(!key) return null;
+      const iv=crypto.getRandomValues(new Uint8Array(12));
+      const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(text));
+      return {v:1,alg:'AES-GCM',iv:bytesToB64(iv),ciphertext:bytesToB64(new Uint8Array(ct))};
+    }catch(_){ return null; }
+  }
+  async function decryptE2eeMessage(m){
+    if(!m||!m.e2ee||!m.e2ee.ciphertext) return m;
+    const peerId=me&&m.fromUserId===me.id?m.toUserId:m.fromUserId;
+    try{
+      const key=await e2eeKey(peerId); if(!key) return m;
+      const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64ToBytes(m.e2ee.iv)},key,b64ToBytes(m.e2ee.ciphertext));
+      return {...m,text:new TextDecoder().decode(plain)};
+    }catch(_){ return {...m,text:'🔒'}; }
+  }
+  async function decryptE2eeMessages(items){ return Promise.all((items||[]).map(decryptE2eeMessage)); }
 
 
   function resetBubbleScale(el){
@@ -2775,7 +2859,7 @@
         }
         unreadSeparatorMessageId=localUnreadId||serverUnreadId;
       }
-      renderChatMessages(data.items||[],unreadSeparatorMessageId);
+      renderChatMessages(await decryptE2eeMessages(data.items||[]),unreadSeparatorMessageId);
       api('/messages/read',{method:'POST',body:JSON.stringify({withUserId:userId})}).catch(()=>{});
       updateChatBlockedUI();
     }
@@ -3005,16 +3089,18 @@
           if(p&&p.id) scheduleChatsRefresh();
         }catch(_){}
       });
-      stream.addEventListener('message',ev=>{
+      stream.addEventListener('message',async ev=>{
         try{
-          const msg=JSON.parse(ev.data);
+          let msg=JSON.parse(ev.data);
+          msg=await decryptE2eeMessage(msg);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)) scheduleOpenCurrentChat();
           scheduleChatsRefresh();
         }catch(_){}
       });
-      stream.addEventListener('message_update',ev=>{
+      stream.addEventListener('message_update',async ev=>{
         try{
-          const msg=JSON.parse(ev.data);
+          let msg=JSON.parse(ev.data);
+          msg=await decryptE2eeMessage(msg);
           if(currentChatUserId&&(msg.fromUserId===currentChatUserId||msg.toUserId===currentChatUserId)){
             const bubble=msg&&msg.id?document.querySelector(`#chat-messages .msg-bubble[data-mid="${msg.id}"]`):null;
             if(bubble&&!msg.deleted){
@@ -3363,6 +3449,8 @@
       if(editingBubble&&editingBubble.dataset&&editingBubble.dataset.mid){
         const editingId=editingBubble.dataset.mid;
         const payload={action:'edit',text};
+        const e2ee=await encryptE2eeText(currentChatUserId,text);
+        if(e2ee) payload.e2ee=e2ee;
         if(media.length){
           const mediaData=[];
           for(const m of media){
@@ -3399,7 +3487,7 @@
         for(const m of media){
           if(m&&m.src) mediaData.push(await blobUrlToDataUrl(m.src));
         }
-        await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text,media:mediaData,replyToMessageId:replyIdToSend})});
+        { const e2ee=mediaData.length?null:await encryptE2eeText(currentChatUserId,text); await api('/messages',{method:'POST',body:JSON.stringify({toUserId:currentChatUserId,text:e2ee?'':text,e2ee,media:mediaData,replyToMessageId:replyIdToSend})}); }
       }catch(e){
         if(pendingBubble&&pendingBubble.parentNode) pendingBubble.remove();
         throw e;

@@ -406,7 +406,8 @@ function normalizeMessage(msg) {
     isSystem: !!msg.isSystem,
     systemType: msg.systemType || '',
     systemText: msg.systemText || '',
-    createdAt: msg.createdAt
+    createdAt: msg.createdAt,
+    e2ee: msg.e2ee || null
   };
 }
 
@@ -987,10 +988,11 @@ function handleApi(req, res, urlObj) {
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const toUserId = String(body.toUserId || '');
         const text = String(body.text || '').trim();
+        const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
         if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
@@ -1001,7 +1003,8 @@ function handleApi(req, res, urlObj) {
           fromUserId: user.id,
           toUserId,
           text: '',
-          textEnc: encryptString(text.slice(0, 4000)),
+          textEnc: encryptString(e2ee ? '' : text.slice(0, 4000)),
+          e2ee,
           media: [],
           mediaEnc: media.map(encryptString),
           voiceDurationMs,
@@ -1054,11 +1057,13 @@ function handleApi(req, res, urlObj) {
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const text = String(body.text || '').trim();
+          const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          if (!text && !hasMedia && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
           msg.text = '';
-          msg.textEnc = encryptString(text.slice(0, 4000));
+          msg.textEnc = encryptString(e2ee ? '' : text.slice(0, 4000));
+          msg.e2ee = e2ee;
           if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {
