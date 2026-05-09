@@ -1001,16 +1001,6 @@
     applyI18n();
     try{ if(authToken) await api('/me/language',{method:'PATCH',body:JSON.stringify({language:currentLanguage})}); }catch(_){ }
   };
-  function bindProfileScrollHeader(){
-    const scroller=document.getElementById('profile-main-scroll');
-    if(!scroller||scroller.dataset.boundSticky) return;
-    scroller.dataset.boundSticky='1';
-    const update=()=>scroller.classList.toggle('scrolled',scroller.scrollTop>136);
-    scroller.addEventListener('scroll',update,{passive:true});
-    update();
-  }
-  document.addEventListener('DOMContentLoaded',bindProfileScrollHeader);
-
   function e2eeChatSecret(peerId){
     const ids=[String(me&&me.id||''),String(peerId||'')].sort().join(':');
     return `minimum:e2ee:v1:${ids}`;
