@@ -7,6 +7,9 @@
 <title>MIN 2.0</title>
 <link rel="preload" as="image" href="wallpaper-mob.png">
 <link rel="preload" as="image" href="wallpaper-pc.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#111111">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
 <link rel="stylesheet" href="app.css">
 
 </head>
@@ -118,62 +121,68 @@
 <!-- ════════════════ ЭКРАН 3 — ПРОФИЛЬ ════════════════ -->
 
 <div id="screen-profile" class="screen" style="background:#111;">
-  <div style="flex-shrink:0;position:relative;">
-    <div id="profile-main-banner" style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;background-size:cover;background-position:center;"></div>
-    <div style="position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);">
-      <div id="profile-main-avatar" class="tg-avatar" style="width:96px;height:96px;background:linear-gradient(135deg,#0078FF,#005fcc);border:5px solid #111;font-size:38px;">М</div>
+  <div class="scroll-area profile-scroll" id="profile-main-scroll" style="padding:0 12px 24px;display:flex;flex-direction:column;gap:10px;">
+    <div class="profile-hero">
+      <div id="profile-main-banner" style="background:#fff;border-radius:0 0 2.8rem 2.8rem;height:160px;background-size:cover;background-position:center;"></div>
+      <div class="profile-avatar-wrap">
+        <div id="profile-main-avatar" class="tg-avatar" style="width:96px;height:96px;background:linear-gradient(135deg,#0078FF,#005fcc);border:5px solid #111;font-size:38px;">М</div>
+      </div>
+      <button id="profile-main-back" onclick="closeProfileSidebar()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span data-i18n="back">Назад</span>
+      </button>
     </div>
-    <button id="profile-main-back" onclick="closeProfileSidebar()">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      <span>Назад</span>
-    </button>
-  </div>
-  <div class="scroll-area" style="padding:66px 12px 24px;display:flex;flex-direction:column;gap:10px;">
-    <div style="text-align:center;margin-bottom:8px;"><div id="profile-main-name" style="color:#fff;font-size:20px;font-weight:700;">Мой профиль</div></div>
+    <div class="profile-name-row"><div id="profile-main-name" data-no-i18n="1" style="color:#fff;font-size:20px;font-weight:700;">Мой профиль</div></div>
     <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
       <button class="settings-row" onclick="openProfileEdit()">
         <div id="profile-row-avatar" class="tg-avatar settings-icon" style="background:linear-gradient(135deg,#e53935,#b71c1c);width:34px;height:34px;font-size:16px;">М</div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Мой профиль</span>
+        <span data-i18n="my_profile" style="color:#fff;font-size:16px;flex:1;text-align:left;">Мой профиль</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
     <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
       <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openFavorites()">
         <div class="settings-icon" style="background:linear-gradient(160deg,#4AAFF8,#2477E6);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M192 64C156.7 64 128 92.7 128 128L128 544C128 555.5 134.2 566.2 144.2 571.8C154.2 577.4 166.5 577.3 176.4 571.4L320 485.3L463.5 571.4C473.4 577.3 485.7 577.5 495.7 571.8C505.7 566.1 512 555.5 512 544L512 128C512 92.7 483.3 64 448 64L192 64z"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Избранное</span>
+        <span data-i18n="favorites" style="color:#fff;font-size:16px;flex:1;text-align:left;">Избранное</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openDevicesSheet()">
         <div class="settings-icon" style="background:#FF9500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Устройства</span>
+        <span data-i18n="devices" style="color:#fff;font-size:16px;flex:1;text-align:left;">Устройства</span>
         <span id="devices-count" style="color:#8E8E93;font-size:15px;">1</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <button class="settings-row">
         <div class="settings-icon" style="background:#5AC8FA;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M128 512L512 512C547.3 512 576 483.3 576 448L576 208C576 172.7 547.3 144 512 144L362.7 144C355.8 144 349 141.8 343.5 137.6L305.1 108.8C294 100.5 280.5 96 266.7 96L128 96C92.7 96 64 124.7 64 160L64 448C64 483.3 92.7 512 128 512z"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Папки с чатами</span>
+        <span data-i18n="chat_folders" style="color:#fff;font-size:16px;flex:1;text-align:left;">Папки с чатами</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
     <div style="background:#1A1A1A;border-radius:1.4rem;overflow:hidden;">
       <button class="settings-row" style="border-bottom:1px solid #2a2a2a;">
         <div class="settings-icon" style="background:#FF3B30;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M320 64C302.3 64 288 78.3 288 96L288 99.2C215 114 160 178.6 160 256L160 277.7C160 325.8 143.6 372.5 113.6 410.1L103.8 422.3C98.7 428.6 96 436.4 96 444.5C96 464.1 111.9 480 131.5 480L508.4 480C528 480 543.9 464.1 543.9 444.5C543.9 436.4 541.2 428.6 536.1 422.3L526.3 410.1C496.4 372.5 480 325.8 480 277.7L480 256C480 178.6 425 114 352 99.2L352 96C352 78.3 337.7 64 320 64zM258 528C265.1 555.6 290.2 576 320 576C349.8 576 374.9 555.6 382 528L258 528z"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Уведомления</span>
+        <span data-i18n="notifications" style="color:#fff;font-size:16px;flex:1;text-align:left;">Уведомления</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openPrivacy()">
         <div class="settings-icon" style="background:#636366;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M256 160L256 224L384 224L384 160C384 124.7 355.3 96 320 96C284.7 96 256 124.7 256 160zM192 224L192 160C192 89.3 249.3 32 320 32C390.7 32 448 89.3 448 160L448 224C483.3 224 512 252.7 512 288L512 512C512 547.3 483.3 576 448 576L192 576C156.7 576 128 547.3 128 512L128 288C128 252.7 156.7 224 192 224z"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Конфиденциальность</span>
+        <span data-i18n="privacy" style="color:#fff;font-size:16px;flex:1;text-align:left;">Конфиденциальность</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openCustomization()">
         <div class="settings-icon" style="background:#5AC8FA;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M512.5 74.3L291.1 222C262 241.4 243.5 272.9 240.5 307.3C302.8 320.1 351.9 369.2 364.8 431.6C399.3 428.6 430.7 410.1 450.1 381L597.7 159.5C604.4 149.4 608 137.6 608 125.4C608 91.5 580.5 64 546.6 64C534.5 64 522.6 67.6 512.5 74.3zM320 464C320 402.1 269.9 352 208 352C146.1 352 96 402.1 96 464C96 467.9 96.2 471.8 96.6 475.6C98.4 493.1 86.4 512 68.8 512L64 512C46.3 512 32 526.3 32 544C32 561.7 46.3 576 64 576L208 576C269.9 576 320 525.9 320 464z"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Кастомизация</span>
+        <span data-i18n="customization" style="color:#fff;font-size:16px;flex:1;text-align:left;">Кастомизация</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row" style="border-bottom:1px solid #2a2a2a;" onclick="openLanguageSheet()">
+        <div class="settings-icon" style="background:linear-gradient(135deg,#B9A7FF,#8E7CFF);"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="#fff"><path d="M192 64C209.7 64 224 78.3 224 96L224 128L352 128C369.7 128 384 142.3 384 160C384 177.7 369.7 192 352 192L342.4 192L334 215.1C317.6 260.3 292.9 301.6 261.8 337.1C276 345.9 290.8 353.7 306.2 360.6L356.6 383L418.8 243C423.9 231.4 435.4 224 448 224C460.6 224 472.1 231.4 477.2 243L605.2 531C612.4 547.2 605.1 566.1 589 573.2C572.9 580.3 553.9 573.1 546.8 557L526.8 512L369.3 512L349.3 557C342.1 573.2 323.2 580.4 307.1 573.2C291 566 283.7 547.1 290.9 531L330.7 441.5L280.3 419.1C257.3 408.9 235.3 396.7 214.5 382.7C193.2 399.9 169.9 414.9 145 427.4L110.3 444.6C94.5 452.5 75.3 446.1 67.4 430.3C59.5 414.5 65.9 395.3 81.7 387.4L116.2 370.1C132.5 361.9 148 352.4 162.6 341.8C148.8 329.1 135.8 315.4 123.7 300.9L113.6 288.7C102.3 275.1 104.1 254.9 117.7 243.6C131.3 232.3 151.5 234.1 162.8 247.7L173 259.9C184.5 273.8 197.1 286.7 210.4 298.6C237.9 268.2 259.6 232.5 273.9 193.2L274.4 192L64.1 192C46.3 192 32 177.7 32 160C32 142.3 46.3 128 64 128L160 128L160 96C160 78.3 174.3 64 192 64zM448 334.8L397.7 448L498.3 448L448 334.8z"/></svg></div>
+        <span data-i18n="language" style="color:#fff;font-size:16px;flex:1;text-align:left;">Язык</span>
+        <span id="profile-language-current" style="color:#8E8E93;font-size:15px;">Русский</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
       <button class="settings-row">
         <div class="settings-icon" style="background:#0078FF;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polygon points="12,2 14.5,4 17.5,3 19,5.5 22,7 21,10 23,12.5 21,15 22,18 19,19.5 17.5,22 14.5,21 12,23 9.5,21 6.5,22 5,19.5 2,18 3,15 1,12.5 3,10 2,7 5,5.5 6.5,3 9.5,4" fill="white"/><polyline points="8,12.5 11,15.5 16,9.5" stroke="#0078FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-        <span style="color:#fff;font-size:16px;flex:1;text-align:left;">Верификация</span>
+        <span data-i18n="verification" style="color:#fff;font-size:16px;flex:1;text-align:left;">Верификация</span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
@@ -344,6 +353,28 @@
   </div>
 </div>
 
+<!-- ════════════════ ШТОРКА — ЯЗЫК ════════════════ -->
+<div id="language-wrap">
+  <div id="language-bg"></div>
+  <div id="language-slideable">
+    <div id="language-close-row" style="display:flex;align-items:center;padding:6px 16px 12px;">
+      <button onclick="closeLanguageSheet()" style="background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;font-size:18px;font-weight:700;font-family:inherit;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <span data-i18n="language">Язык</span>
+      </button>
+    </div>
+    <div id="language-sheet">
+      <div style="display:flex;justify-content:center;padding:10px 0 0;">
+        <div style="width:42px;height:5px;background:#3A3A3C;border-radius:999px;"></div>
+      </div>
+      <div class="language-content">
+        <div class="language-hint" data-i18n="language_hint">Выберите язык интерфейса. Изменение применится сразу.</div>
+        <div id="language-list" class="language-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════ ШТОРКА — КАСТОМИЗАЦИЯ ════════════════ -->
 
 <div id="customization-wrap">
@@ -413,7 +444,7 @@
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div style="color:#fff;font-size:20px;font-weight:700;text-align:center;">Удалить аккаунт?</div>
-        <div style="color:rgba(255,255,255,0.65);font-size:15px;text-align:center;line-height:1.5;">Это действие <span style="color:#FF453A;font-weight:600;">необратимо</span>. Ваш аккаунт, все чаты и все данные будут удалены навсегда. Восстановить аккаунт будет невозможно.</div>
+        <div data-no-i18n="1" style="color:rgba(255,255,255,0.65);font-size:15px;text-align:center;line-height:1.5;">Это действие <span style="color:#FF453A;font-weight:600;">необратимо</span>. Ваш аккаунт, все чаты и все данные будут удалены навсегда. Восстановить аккаунт будет невозможно.</div>
         <input id="del-password" class="pe-field" type="password" placeholder="Введите пароль для подтверждения" style="border-radius:999px;background:rgba(44,44,46,0.6);border:1px solid rgba(255,255,255,0.1);padding:20px 20px;" />
         <button onclick="submitDeleteAccount()" style="width:100%;background:#FF453A;color:#fff;border:none;border-radius:999px;padding:17px;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;">Удалить навсегда</button>
         <button onclick="closeDelSheet()" style="width:100%;background:#2C2C2E;border:none;border-radius:999px;color:rgba(255,255,255,0.6);font-size:17px;font-weight:500;cursor:pointer;font-family:inherit;padding:17px;">Отмена</button>

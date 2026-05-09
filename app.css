@@ -101,7 +101,7 @@
   .chat-row-preview-system{display:inline-flex;align-items:center;gap:6px;}
   .chat-row-preview-system svg{width:13px;height:13px;flex-shrink:0;opacity:.85;}
   .chat-row:active{opacity:.7;}
-  .settings-row{width:100%;display:flex;align-items:center;gap:14px;padding:17px 16px;background:none;border:none;cursor:pointer;}
+  .settings-row{width:100%;display:flex;align-items:center;gap:14px;padding:17px 16px;background:none;border:none;cursor:pointer;min-height:68px;flex-shrink:0;}
   .settings-row:active{opacity:.7;}
   .settings-icon{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
   .tg-avatar{border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:600;color:#fff;font-family:inherit;}
@@ -282,6 +282,33 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   .pe-field::placeholder{color:rgba(255,255,255,0.32);}
   .pe-label{color:#fff;font-size:14px;font-weight:600;margin-bottom:8px;}
   .pe-hint{color:#8E8E93;font-size:12px;margin-top:5px;}
+
+  #screen-profile .profile-scroll{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)) !important;overscroll-behavior:contain;}
+  #screen-profile .profile-scroll > div{flex-shrink:0;}
+  .profile-hero{position:relative;margin:0 -12px 0;}
+  .profile-avatar-wrap{position:absolute;bottom:-50px;left:50%;transform:translateX(-50%);}
+  .profile-name-row{text-align:center;margin:0 -12px 8px;padding:66px 12px 12px;}
+  /* ── Шторка Язык ── */
+  #language-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
+  #language-wrap.open{pointer-events:all;}
+  #language-bg{position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;transition:opacity 0.2s ease;}
+  #language-wrap.open #language-bg{opacity:1;}
+  #language-slideable{position:relative;width:100%;transform:translateY(100%);transition:transform 0.36s cubic-bezier(0.25,0.46,0.45,0.94);flex-shrink:0;}
+  #language-wrap.open #language-slideable{transform:translateY(0);}
+  #language-sheet{position:relative;background:#1C1C1E;border-radius:1.6rem 1.6rem 0 0;width:100%;max-height:92dvh;overflow-y:auto;scrollbar-width:none;}
+  #language-sheet::-webkit-scrollbar{display:none;}
+  .language-content{padding:18px 16px 34px;display:flex;flex-direction:column;gap:12px;}
+  .language-hint{color:#8E8E93;font-size:14px;line-height:1.35;padding:0 4px 4px;}
+  .language-list{background:#2C2C2E;border-radius:1.3rem;overflow:hidden;}
+  .language-row{width:100%;min-height:58px;border:none;border-bottom:1px solid rgba(255,255,255,0.08);background:none;color:#fff;font-family:inherit;display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;text-align:left;}
+  .language-row:last-child{border-bottom:none;}
+  .language-row:active{opacity:.72;}
+  .language-code{width:32px;color:#8E8E93;font-size:13px;font-weight:700;line-height:1;text-align:center;letter-spacing:.4px;flex-shrink:0;}
+  .language-name{font-size:17px;font-weight:600;line-height:1.2;}
+  .language-native{display:block;color:#8E8E93;font-size:13px;margin-top:2px;}
+  .language-check{margin-left:auto;color:#0A84FF;opacity:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .language-check svg{width:21px;height:21px;display:block;fill:currentColor;}
+  .language-row.selected .language-check{opacity:1;}
   /* ── Шторка Конфиденциальность ── */
   #privacy-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
   #privacy-wrap.open{pointer-events:all;}
@@ -495,7 +522,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
     /* Поиск: убрать большой отступ сверху (был под iOS-статусбар) */
     #screen-search > div:first-child { padding-top: 10px !important; }
     /* Профиль: кнопка "назад" — скорректировать позицию */
-    #screen-profile > div:first-child > button { top: 14px !important; }
+    #profile-main-back { top: 14px !important; }
 
     /* ── Правая панель — чат и избранное ── */
     .screen:not(#screen-list):not(#screen-search):not(#screen-profile) {
@@ -543,7 +570,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
     }
 
     /* ── Шторки (sheets) — по центру экрана с полным блюром ── */
-    #privacy-wrap, #customization-wrap, #pwd-wrap, #del-wrap, #profile-edit-wrap, #devices-wrap {
+    #privacy-wrap, #customization-wrap, #language-wrap, #pwd-wrap, #del-wrap, #profile-edit-wrap, #devices-wrap {
       left: 0 !important;
       right: 0 !important;
       width: auto !important;
@@ -551,7 +578,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
       align-items: center !important;
       justify-content: center !important;
     }
-    #privacy-slideable, #customization-slideable, #pwd-slideable, #del-slideable, #profile-edit-slideable, #devices-slideable {
+    #privacy-slideable, #customization-slideable, #language-slideable, #pwd-slideable, #del-slideable, #profile-edit-slideable, #devices-slideable {
       width: min(480px, 92vw) !important;
       max-width: none !important;
       margin: 0 !important;
@@ -561,6 +588,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
     }
     #privacy-wrap.open #privacy-slideable,
     #customization-wrap.open #customization-slideable,
+    #language-wrap.open #language-slideable,
     #pwd-wrap.open #pwd-slideable,
     #del-wrap.open #del-slideable,
     #profile-edit-wrap.open #profile-edit-slideable,
@@ -568,7 +596,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
       transform: scale(1) translateY(0) !important;
       opacity: 1 !important;
     }
-    #privacy-sheet, #customization-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet, #devices-sheet {
+    #privacy-sheet, #customization-sheet, #language-sheet, #pwd-sheet, #del-sheet, #profile-edit-sheet, #devices-sheet {
       border-radius: 1.8rem !important;
       max-height: 86dvh !important;
     }

@@ -7,6 +7,8 @@ const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+const MASTER_SECRET = process.env.MINIMUM_SECRET || process.env.SESSION_SECRET || 'minimum-local-development-secret-change-me';
+const MASTER_KEY = crypto.createHash('sha256').update(MASTER_SECRET).digest();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -20,6 +22,7 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8'
 };
 
@@ -78,6 +81,76 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+function hashPasswordSecure(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const derived = crypto.pbkdf2Sync(String(password || ''), salt, 210000, 32, 'sha256').toString('hex');
+  return `pbkdf2_sha256$210000$${salt}$${derived}`;
+}
+function verifyPassword(password, stored) {
+  const value = String(stored || '');
+  if (value.startsWith('pbkdf2_sha256$')) {
+    const parts = value.split('$');
+    if (parts.length !== 4) return false;
+    const [, iterationsRaw, salt, hash] = parts;
+    const iterations = Math.max(100000, Number(iterationsRaw) || 210000);
+    const probe = crypto.pbkdf2Sync(String(password || ''), salt, iterations, 32, 'sha256').toString('hex');
+    try { return crypto.timingSafeEqual(Buffer.from(probe, 'hex'), Buffer.from(hash, 'hex')); } catch { return false; }
+  }
+  const legacy = hashPassword(password || '');
+  try { return crypto.timingSafeEqual(Buffer.from(legacy), Buffer.from(value)); } catch { return false; }
+}
+function shouldUpgradePasswordHash(stored) {
+  return !String(stored || '').startsWith('pbkdf2_sha256$210000$');
+}
+function encryptString(value) {
+  const text = String(value || '');
+  if (!text) return '';
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', MASTER_KEY, iv);
+  const enc = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString('base64')}:${tag.toString('base64')}:${enc.toString('base64')}`;
+}
+function decryptString(value) {
+  const raw = String(value || '');
+  if (!raw) return '';
+  if (!raw.startsWith('v1:')) return raw;
+  try {
+    const [, ivB64, tagB64, encB64] = raw.split(':');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', MASTER_KEY, Buffer.from(ivB64, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+    return Buffer.concat([decipher.update(Buffer.from(encB64, 'base64')), decipher.final()]).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+function getUserVpscCode(user) {
+  if (!user) return '';
+  return decryptString(user.vpscCodeEnc || user.vpscCode || '');
+}
+function setUserVpscCode(user, code) {
+  user.vpscCodeEnc = encryptString(code);
+  delete user.vpscCode;
+}
+function migrateUserSecrets(user) {
+  let changed = false;
+  if (user && user.vpscCode && !user.vpscCodeEnc) {
+    setUserVpscCode(user, user.vpscCode);
+    changed = true;
+  }
+  return changed;
+}
+function secureMessageForStorage(msg) {
+  if (!msg || msg.isSystem) return msg;
+  if (msg.text && !msg.textEnc) { msg.textEnc = encryptString(msg.text); msg.text = ''; }
+  if (Array.isArray(msg.media) && msg.media.length && !Array.isArray(msg.mediaEnc)) { msg.mediaEnc = msg.media.map(encryptString); msg.media = []; }
+  return msg;
+}
+function messageText(msg) { return decryptString(msg.textEnc || msg.text || ''); }
+function messageMedia(msg) {
+  if (Array.isArray(msg.mediaEnc) && msg.mediaEnc.length) return msg.mediaEnc.map(decryptString).filter(Boolean);
+  return Array.isArray(msg.media) ? msg.media : [];
+}
+
 function makeToken() {
   return crypto.randomBytes(24).toString('hex');
 }
@@ -99,7 +172,7 @@ function normalizeVpscCode(code) {
 }
 function makeUniqueVpscCode(db) {
   let code = makeVpscCode();
-  const used = new Set((db.users || []).map(u => normalizeVpscCode(u.vpscCode)));
+  const used = new Set((db.users || []).map(u => normalizeVpscCode(getUserVpscCode(u))));
   while (used.has(normalizeVpscCode(code))) code = makeVpscCode();
   return code;
 }
@@ -242,6 +315,12 @@ function pushLog(db, action, details) {
   db.moderation.logs.push({ id: crypto.randomUUID(), action, details, createdAt: new Date().toISOString() });
 }
 
+function normalizeLanguage(value) {
+  const allowed = new Set(['ru', 'en', 'be', 'uk', 'kk', 'uz', 'de', 'ar']);
+  const code = String(value || '').trim().toLowerCase();
+  return allowed.has(code) ? code : 'ru';
+}
+
 function normalizeCustomization(value) {
   const allowedThemes = new Set(['default', 'aurora', 'mint', 'sunset', 'ocean', 'flame']);
   const allowedBackgrounds = new Set(['default', 'wallpaper']);
@@ -260,6 +339,7 @@ function publicUser(user) {
     avatarDataUrl: user.avatarDataUrl || '',
     bannerDataUrl: user.bannerDataUrl || '',
     customization: normalizeCustomization(user.customization),
+    language: normalizeLanguage(user.language),
     verified: !!user.verified
   };
 }
@@ -308,12 +388,14 @@ function broadcastSessionsUpdate(userId) {
 }
 
 function normalizeMessage(msg) {
+  const plainText = msg.isSystem ? (msg.text || '') : messageText(msg);
+  const plainMedia = msg.isSystem ? (Array.isArray(msg.media) ? msg.media : []) : messageMedia(msg);
   return {
     id: msg.id,
     fromUserId: msg.fromUserId,
     toUserId: msg.toUserId,
-    text: msg.text || '',
-    media: Array.isArray(msg.media) ? msg.media : [],
+    text: plainText,
+    media: plainMedia,
     voiceDurationMs: Number(msg.voiceDurationMs) || 0,
     voiceWaveform: Array.isArray(msg.voiceWaveform) ? msg.voiceWaveform : [],
     listenedBy: Array.isArray(msg.listenedBy) ? msg.listenedBy : [],
@@ -325,7 +407,8 @@ function normalizeMessage(msg) {
     isSystem: !!msg.isSystem,
     systemType: msg.systemType || '',
     systemText: msg.systemText || '',
-    createdAt: msg.createdAt
+    createdAt: msg.createdAt,
+    e2ee: msg.e2ee || null
   };
 }
 
@@ -381,14 +464,15 @@ function handleApi(req, res, urlObj) {
           id: crypto.randomUUID(),
           name: name || username,
           username,
-          passwordHash: hashPassword(password),
-          vpscCode: makeUniqueVpscCode(db),
+          passwordHash: hashPasswordSecure(password),
+          vpscCodeEnc: encryptString(makeUniqueVpscCode(db)),
           blockedUsers: [],
           pinnedChatUserIds: [],
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: '',
-          customization: { theme: 'default', background: 'default' }
+          customization: { theme: 'default', background: 'default' },
+          language: normalizeLanguage(body.language)
         };
         db.users.push(user);
         writeDb(db);
@@ -407,14 +491,17 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
-        const user = db.users.find(u => u.username === username && u.passwordHash === hashPassword(password || ''));
+        const user = db.users.find(u => u.username === username && verifyPassword(password || '', u.passwordHash));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        let secretsChanged = migrateUserSecrets(user);
+        if (shouldUpgradePasswordHash(user.passwordHash)) { user.passwordHash = hashPasswordSecure(password || ''); secretsChanged = true; }
         const activeBan = getActiveBan(db, user.id);
         if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
-        if (!user.vpscCode) {
-          user.vpscCode = makeUniqueVpscCode(db);
-          writeDb(db);
+        if (!getUserVpscCode(user)) {
+          setUserVpscCode(user, makeUniqueVpscCode(db));
+          secretsChanged = true;
         }
+        if (secretsChanged) writeDb(db);
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -431,6 +518,7 @@ function handleApi(req, res, urlObj) {
     const uid = session.userId;
     const user = db.users.find(u => u.id === uid);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (migrateUserSecrets(user)) writeDb(db);
     const activeBan = getActiveBan(db, user.id) || getActiveDeviceBan(db, req);
     if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
 
@@ -466,7 +554,7 @@ function handleApi(req, res, urlObj) {
         const db = readDb();
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
-        const user = db.users.find(u => normalizeVpscCode(u.vpscCode) === code);
+        const user = db.users.find(u => normalizeVpscCode(getUserVpscCode(u)) === code);
         if (!user) return sendJson(res, 401, { error: 'Код не найден' });
         const activeBan = getActiveBan(db, user.id);
         if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
@@ -484,7 +572,8 @@ function handleApi(req, res, urlObj) {
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const activeBan = getActiveBan(db, user.id) || getActiveDeviceBan(db, req);
     if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
-    return sendJson(res, 200, { user: publicUser(user), vpscCode: user.vpscCode || '' });
+    if (migrateUserSecrets(user)) writeDb(db);
+    return sendJson(res, 200, { user: publicUser(user) });
   }
 
   if (pathname === '/api/me/sessions' && method === 'GET') {
@@ -568,6 +657,20 @@ function handleApi(req, res, urlObj) {
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
+  if (pathname === '/api/me/language' && method === 'PATCH') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        user.language = normalizeLanguage(body.language);
+        writeDb(db);
+        broadcastProfile(user);
+        sendJson(res, 200, { user: publicUser(user) });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
   if (pathname === '/api/me/avatar' && method === 'POST') {
     return readBody(req)
       .then(body => {
@@ -604,20 +707,21 @@ function handleApi(req, res, urlObj) {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
-    if (!user.vpscCode) {
-      user.vpscCode = makeVpscCode();
+    if (!getUserVpscCode(user)) {
+      setUserVpscCode(user, makeUniqueVpscCode(db));
       writeDb(db);
     }
-    return sendJson(res, 200, { code: user.vpscCode });
+    return sendJson(res, 200, { code: getUserVpscCode(user) });
   }
 
   if (pathname === '/api/me/vpsc' && method === 'POST') {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
-    user.vpscCode = makeUniqueVpscCode(db);
+    const code = makeUniqueVpscCode(db);
+    setUserVpscCode(user, code);
     writeDb(db);
-    return sendJson(res, 200, { code: user.vpscCode });
+    return sendJson(res, 200, { code });
   }
 
   if (pathname === '/api/me/password' && method === 'PATCH') {
@@ -628,9 +732,9 @@ function handleApi(req, res, urlObj) {
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const currentPassword = String(body.currentPassword || '');
         const newPassword = String(body.newPassword || '');
-        if (hashPassword(currentPassword) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный текущий пароль' });
+        if (!verifyPassword(currentPassword, user.passwordHash)) return sendJson(res, 400, { error: 'Неверный текущий пароль' });
         if (newPassword.length < 6) return sendJson(res, 400, { error: 'Новый пароль слишком короткий' });
-        user.passwordHash = hashPassword(newPassword);
+        user.passwordHash = hashPasswordSecure(newPassword);
         writeDb(db);
         return sendJson(res, 200, { ok: true });
       })
@@ -644,7 +748,7 @@ function handleApi(req, res, urlObj) {
         const user = getUserByToken(req, db);
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const password = String(body.password || '');
-        if (hashPassword(password) !== user.passwordHash) return sendJson(res, 400, { error: 'Неверный пароль' });
+        if (!verifyPassword(password, user.passwordHash)) return sendJson(res, 400, { error: 'Неверный пароль' });
         db.users = db.users.filter(u => u.id !== user.id);
         writeDb(db);
         for (const [token, s] of sessions.entries()) {
@@ -666,6 +770,14 @@ function handleApi(req, res, urlObj) {
     const pinnedChatUserIds = ensurePinnedChats(user);
     const pinOrder = new Map(pinnedChatUserIds.map((uid, idx) => [uid, idx]));
     const messages = db.messages || [];
+    let securedMessages = false;
+    messages.forEach(m => {
+      const beforeText = m.text;
+      const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
+      secureMessageForStorage(m);
+      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+    });
+    if (securedMessages) writeDb(db);
     const dialogUserIds = new Set(
       messages
         .filter(m => m.fromUserId === user.id || m.toUserId === user.id)
@@ -682,10 +794,12 @@ function handleApi(req, res, urlObj) {
         const last = thread[thread.length - 1];
         const name = u ? (u.name || u.username) : 'Пользователь удалён';
         const username = u ? u.username : '';
+        const lastText = last ? messageText(last).trim() : '';
+        const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (String(last.text || '').trim() || ((Array.isArray(last.media) && last.media.length)
-            ? (String(last.media[0]||'').startsWith('data:audio')?'🎤 Голосовое сообщение':'📷 Медиа')
-            : ''))
+          ? (lastText || (last.e2ee ? '' : (lastMedia.length
+            ? (String(lastMedia[0] || '').startsWith('data:audio') ? '🎤 Голосовое сообщение' : '📷 Медиа')
+            : '')))
           : (username ? `@${username}` : '');
         const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
         const lastReadAt = String(readMap[uid] || '');
@@ -696,6 +810,7 @@ function handleApi(req, res, urlObj) {
           username,
           bio: u ? (u.bio || '') : '',
           preview,
+          previewE2ee: last && !preview && last.e2ee ? last.e2ee : null,
           lastCreatedAt: last ? last.createdAt : '',
           avatarDataUrl: u ? (u.avatarDataUrl || '') : '',
           bannerDataUrl: u ? (u.bannerDataUrl || '') : '',
@@ -705,7 +820,8 @@ function handleApi(req, res, urlObj) {
           isPinned: pinOrder.has(uid),
           pinIndex: pinOrder.has(uid) ? pinOrder.get(uid) : Number.MAX_SAFE_INTEGER,
           deleted: !u,
-          unreadCount
+          unreadCount,
+          blockedPeer: !!(u && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(uid))
         };
       })
       .filter(u => {
@@ -798,7 +914,8 @@ function handleApi(req, res, urlObj) {
         avatarDataUrl: u.avatarDataUrl || '',
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
         color: colorForId(u.id),
-        verified: !!u.verified
+        verified: !!u.verified,
+        blockedPeer: Array.isArray(user.blockedUsers) && user.blockedUsers.includes(u.id)
       }));
     return sendJson(res, 200, { items });
   }
@@ -836,6 +953,14 @@ function handleApi(req, res, urlObj) {
       (m.fromUserId === user.id && m.toUserId === withUserId) ||
       (m.fromUserId === withUserId && m.toUserId === user.id)
     );
+    let securedMessages = false;
+    items.forEach(m => {
+      const beforeText = m.text;
+      const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
+      secureMessageForStorage(m);
+      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+    });
+    if (securedMessages) writeDb(db);
     if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
     const blockedByPeer = !!(peer && Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id));
     const blockedPeer = !!(peer && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(peer.id));
@@ -877,10 +1002,11 @@ function handleApi(req, res, urlObj) {
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const toUserId = String(body.toUserId || '');
         const text = String(body.text || '').trim();
+        const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
         if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
@@ -890,8 +1016,11 @@ function handleApi(req, res, urlObj) {
           id: crypto.randomUUID(),
           fromUserId: user.id,
           toUserId,
-          text: text.slice(0, 4000),
-          media,
+          text: '',
+          textEnc: encryptString(e2ee ? '' : text.slice(0, 4000)),
+          e2ee,
+          media: [],
+          mediaEnc: media.map(encryptString),
           voiceDurationMs,
           voiceWaveform,
           listenedBy: [user.id],
@@ -942,11 +1071,14 @@ function handleApi(req, res, urlObj) {
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const text = String(body.text || '').trim();
+          const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
-          msg.text = text.slice(0, 4000);
-          if (Array.isArray(media)) msg.media = media;
+          if (!text && !hasMedia && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          msg.text = '';
+          msg.textEnc = encryptString(e2ee ? '' : text.slice(0, 4000));
+          msg.e2ee = e2ee;
+          if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {
           if (!Array.isArray(msg.listenedBy)) msg.listenedBy = [];
