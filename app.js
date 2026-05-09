@@ -888,6 +888,8 @@
   let scaleTimer=null;
   let editingBubble=null;
   let pinnedBubble=null;
+  let pinnedMessages=[];
+  let pinnedCycleIndex=0;
   let favPinnedBubble=null;
   let forwardingBubble=null;
   let forwardingSenderName='';
@@ -910,6 +912,28 @@
     setPinActionLabel(document.getElementById('chatlist-pin-label'),isPinned);
     const ico=document.getElementById('chatlist-pin-icon');
     if(ico) ico.innerHTML=isPinned?unpinSvg:pinSvg;
+  }
+  function updatePinnedBar(){
+    const bar=document.getElementById('pinned-bar');
+    const preview=document.getElementById('pinned-bar-preview');
+    const stack=document.getElementById('pinned-bar-stack');
+    if(!bar||!preview) return;
+    if(!pinnedMessages.length){
+      pinnedBubble=null;
+      pinnedCycleIndex=0;
+      bar.classList.remove('show');
+      if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
+      return;
+    }
+    if(pinnedCycleIndex>=pinnedMessages.length) pinnedCycleIndex=0;
+    const item=pinnedMessages[pinnedCycleIndex];
+    pinnedBubble=item.bubble||null;
+    preview.textContent=String(item.preview||t('message')).slice(0,60);
+    bar.classList.add('show');
+    if(stack){
+      stack.classList.toggle('show',pinnedMessages.length>1);
+      stack.innerHTML=pinnedMessages.length>1?pinnedMessages.map((_,idx)=>`<span class="${idx===pinnedCycleIndex?'active':''}"></span>`).join(''):'';
+    }
   }
   let authToken='';
   let currentChatUserId='';
@@ -1699,7 +1723,11 @@
 
   function unpinMessage(){
     pinnedBubble=null;
+    pinnedMessages=[];
+    pinnedCycleIndex=0;
     document.getElementById('pinned-bar').classList.remove('show');
+    const stack=document.getElementById('pinned-bar-stack');
+    if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
     updatePinActionUI(false);
   }
 
@@ -1710,14 +1738,21 @@
   }
 
   function scrollToPinned(){
-    if(!pinnedBubble)return;
-    pinnedBubble.scrollIntoView({behavior:'smooth',block:'center'});
+    if(!pinnedMessages.length)return;
+    const item=pinnedMessages[pinnedCycleIndex]||pinnedMessages[0];
+    const bubble=item&&item.bubble;
+    if(!bubble)return;
+    bubble.scrollIntoView({behavior:'smooth',block:'center'});
     setTimeout(()=>{
-      pinnedBubble.classList.remove('msg-flash');
-      void pinnedBubble.offsetWidth;
-      pinnedBubble.classList.add('msg-flash');
-      setTimeout(()=>pinnedBubble.classList.remove('msg-flash'),1200);
+      bubble.classList.remove('msg-flash');
+      void bubble.offsetWidth;
+      bubble.classList.add('msg-flash');
+      setTimeout(()=>bubble.classList.remove('msg-flash'),1200);
     },350);
+    if(pinnedMessages.length>1){
+      pinnedCycleIndex=(pinnedCycleIndex+1)%pinnedMessages.length;
+      updatePinnedBar();
+    }
   }
 
   function scrollToFavPinned(){
@@ -3239,16 +3274,17 @@
       suppressReactionAnimations=false;
       bindRichTextInteractions(wrap);
       initVoicePlayers(wrap);
-      const pinned=[...items].filter(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0).sort((a,b)=>new Date(b.pinnedAt||b.createdAt||0).getTime()-new Date(a.pinnedAt||a.createdAt||0).getTime())[0];
-      if(pinned){
-        const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
-        pinnedBubble=bubble||null;
-        const pinPrev=(pinned.text||((Array.isArray(pinned.media)&&String(pinned.media[0]||'').startsWith('data:audio'))?t('voice_message'):'📷 '+t('media')));
-        document.getElementById('pinned-bar-preview').textContent=pinPrev.slice(0,60);
-        document.getElementById('pinned-bar').classList.add('show');
-      }else{
-        unpinMessage();
-      }
+      pinnedMessages=[...items]
+        .filter(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0)
+        .sort((a,b)=>new Date(b.pinnedAt||b.createdAt||0).getTime()-new Date(a.pinnedAt||a.createdAt||0).getTime())
+        .map(msg=>{
+          const bubble=wrap.querySelector(`.msg-bubble[data-mid="${msg.id}"]`);
+          const preview=(msg.text||((Array.isArray(msg.media)&&String(msg.media[0]||'').startsWith('data:audio'))?t('voice_message'):'📷 '+t('media')));
+          return {id:msg.id,bubble,preview};
+        });
+      pinnedCycleIndex=0;
+      if(pinnedMessages.length) updatePinnedBar();
+      else unpinMessage();
       enrichLinkPreviews(wrap);
       bottom.scrollIntoView({behavior:'auto'});
     }
