@@ -2779,9 +2779,9 @@
     const unameEl=document.getElementById('upv-username');
     if(unameEl){
       unameEl.textContent=p.username?`@${p.username}`:'';
-      unameEl.style.color='#0078FF';
-      unameEl.style.cursor=p.username?'pointer':'default';
-      unameEl.onclick=p.username?()=>copyTextWithToast(`${location.origin}/m-in/${p.username}`):null;
+      unameEl.style.color='';
+      unameEl.style.cursor='';
+      unameEl.onclick=null;
     }
     const bioEl=document.getElementById('upv-bio');
     if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);

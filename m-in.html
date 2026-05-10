@@ -1,17 +1,17 @@
 <!doctype html><html lang='ru'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Minimum</title><link rel="preload" href="/wallpaper-pc.png" as="image" fetchpriority="high"><style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;background:#111 url('/wallpaper-pc.png') center/cover no-repeat;color:#fff;display:flex;flex-direction:column}
-.top{margin:10px 12px 0;padding:22px 16px 14px;display:flex;align-items:center;justify-content:space-between;background:rgba(100,100,110,.28);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-radius:18px}
-.top .center{font-size:22px;font-weight:700;flex:1;text-align:center}
-.top .left{width:26px}.top img{height:26px;width:26px;border-radius:6px;object-fit:contain}
+.top{margin:10px 12px 0;padding:22px 16px 14px;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(100,100,110,.28);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-radius:18px}
+.top .center{font-size:22px;font-weight:700}
+.top img{height:26px;width:26px;border-radius:6px;object-fit:contain}
 .wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:16px}.card{width:min(92vw,480px);min-height:320px;background:rgba(26,26,26,.72);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:24px;padding:22px;display:flex;align-items:center;justify-content:center}
 #content{display:none;flex-direction:column;align-items:center;width:100%}#empty{display:none;flex-direction:column;align-items:center;gap:12px;color:#fff}
 .avatar{width:92px;height:92px;border-radius:50%;background:linear-gradient(135deg,#0078FF,#005fcc);display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden}
-.name{margin-top:10px;font-size:28px;font-weight:700;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.username{margin-top:4px;color:#0078FF;font-size:16px;cursor:pointer;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.name{margin-top:10px;font-size:28px;font-weight:700;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;justify-content:center;gap:4px}.username{margin-top:4px;color:#8E8E93;font-size:16px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bio{margin-top:8px;color:#8E8E93;font-size:14px;text-align:center;max-width:90%;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.btn{margin-top:14px;border:none;background:#0078FF;color:#fff;border-radius:999px;padding:11px 24px;font-size:15px;font-weight:700;cursor:pointer}
 #toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:99;background:rgba(255,255,255,.95);backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#111;font-size:17px;font-weight:700;opacity:0;transition:.18s}#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style></head><body>
 <img src="/wallpaper-pc.png" alt="" style="position:fixed;inset:0;width:1px;height:1px;opacity:0;pointer-events:none;" fetchpriority="high" decoding="sync">
-<div class='top'><div class='left'></div><div class='center'>Minimum</div><img src='/logo_app.png' alt='logo'></div>
+<div class='top'><div class='center'>Minimum</div><img src='/logo_app.png' alt='logo'></div>
 <div class='wrap'><div class='card'>
 <div id='empty'><div style='width:56px;height:56px'>
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 640' fill='rgba(255,255,255,0.95)'><path d='M168.1 531.1L156.9 540.1C153.7 542.6 149.8 544 145.8 544C136 544 128 536 128 526.2L128 256C128 150 214 64 320 64C426 64 512 150 512 256L512 526.2C512 536 504 544 494.2 544C490.2 544 486.3 542.6 483.1 540.1L471.9 531.1C458.5 520.4 439.1 522.1 427.8 535L397.3 570C394 573.8 389.1 576 384 576C378.9 576 374.1 573.8 370.7 570L344.1 539.5C331.4 524.9 308.7 524.9 295.9 539.5L269.3 570C266 573.8 261.1 576 256 576C250.9 576 246.1 573.8 242.7 570L212.2 535C200.9 522.1 181.5 520.4 168.1 531.1zM288 256C288 238.3 273.7 224 256 224C238.3 224 224 238.3 224 256C224 273.7 238.3 288 256 288C273.7 288 288 273.7 288 256zM384 288C401.7 288 416 273.7 416 256C416 238.3 401.7 224 384 224C366.3 224 352 238.3 352 256C352 273.7 366.3 288 384 288z'/></svg>
@@ -22,11 +22,18 @@
 const toast=document.getElementById('toast'); let tmr=null;
 function showToast(msg='Скопировано'){toast.textContent=msg;toast.classList.add('show');clearTimeout(tmr);tmr=setTimeout(()=>toast.classList.remove('show'),1800)}
 function copyText(txt){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(()=>showToast()).catch(()=>showToast());return;}showToast();}
-(async()=>{const m=location.pathname.match(/^\/m-in\/([A-Za-z0-9_]{5,70})$/);const username=m?m[1]:'';if(!username){document.getElementById('empty').style.display='flex';return;}let u=null;try{const r=await fetch('/api/public-profile?username='+encodeURIComponent(username));const d=await r.json();u=d&&d.user?d.user:null;}catch(_){u=null}
-if(!u){document.getElementById('empty').style.display='flex';return;}
+(async()=>{const m=location.pathname.match(/^\/m-in\/([A-Za-z0-9_]{5,70})$/);const username=m?m[1]:'';if(!username){document.getElementById('empty').style.display='flex';return;}
 const ghost=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 640' fill='rgba(255,255,255,0.95)'><path d='M168.1 531.1L156.9 540.1C153.7 542.6 149.8 544 145.8 544C136 544 128 536 128 526.2L128 256C128 150 214 64 320 64C426 64 512 150 512 256L512 526.2C512 536 504 544 494.2 544C490.2 544 486.3 542.6 483.1 540.1L471.9 531.1C458.5 520.4 439.1 522.1 427.8 535L397.3 570C394 573.8 389.1 576 384 576C378.9 576 374.1 573.8 370.7 570L344.1 539.5C331.4 524.9 308.7 524.9 295.9 539.5L269.3 570C266 573.8 261.1 576 256 576C250.9 576 246.1 573.8 242.7 570L212.2 535C200.9 522.1 181.5 520.4 168.1 531.1zM288 256C288 238.3 273.7 224 256 224C238.3 224 224 238.3 224 256C224 273.7 238.3 288 256 288C273.7 288 288 273.7 288 256zM384 288C401.7 288 416 273.7 416 256C416 238.3 401.7 224 384 224C366.3 224 352 238.3 352 256C352 273.7 366.3 288 384 288z'/></svg>`;
-const av=document.getElementById('avatar');av.innerHTML=u.avatarDataUrl?`<img src='${u.avatarDataUrl}' style='width:100%;height:100%;object-fit:cover'>`:(u.deleted?ghost:String((u.name||u.username||'U')[0]).toUpperCase());
-document.getElementById('name').textContent=u.name||u.username||'Профиль';const unEl=document.getElementById('username');unEl.textContent='@'+u.username;unEl.onclick=()=>copyText(location.origin+'/m-in/'+u.username);document.getElementById('bio').textContent=(u.bio||'').slice(0,110);document.getElementById('content').style.display='flex';
-document.getElementById('write').onclick=()=>{const token=localStorage.getItem('auth_token')||'';if(token){location.href='/list?openProfileU='+encodeURIComponent(u.username);return;}location.href='/login?openProfileU='+encodeURIComponent(u.username);};
+async function refreshUser(){
+  let u=null;try{const r=await fetch('/api/public-profile?username='+encodeURIComponent(username));const d=await r.json();u=d&&d.user?d.user:null;}catch(_){u=null}
+  if(!u){document.getElementById('content').style.display='none';document.getElementById('empty').style.display='flex';return;}
+  document.getElementById('empty').style.display='none';
+  const av=document.getElementById('avatar');av.innerHTML=u.avatarDataUrl?`<img src='${u.avatarDataUrl}' style='width:100%;height:100%;object-fit:cover'>`:(u.deleted?ghost:String((u.name||u.username||'U')[0]).toUpperCase());
+  const v=u.verified?`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 640 640' fill='#0A84FF'><path d='M320 64L390.6 114.9L476.5 109.9L497.7 193.3L570.1 240L533.3 317.7L570.1 395.4L497.7 442.1L476.5 525.5L390.6 520.5L320 571.4L249.4 520.5L163.5 525.5L142.3 442.1L69.9 395.4L106.7 317.7L69.9 240L142.3 193.3L163.5 109.9L249.4 114.9L320 64zM287.1 407.7L474.4 220.4L429.2 175.2L287.1 317.3L210.8 241L165.6 286.2L287.1 407.7z'/></svg>`:'';
+  document.getElementById('name').innerHTML=(u.name||u.username||'Профиль')+v;const unEl=document.getElementById('username');unEl.textContent='@'+u.username;document.getElementById('bio').textContent=(u.bio||'').slice(0,110);document.getElementById('content').style.display='flex';
+  document.getElementById('write').onclick=()=>{const token=localStorage.getItem('auth_token')||'';if(token){location.href='/list?openProfileU='+encodeURIComponent(u.username);return;}location.href='/login?openProfileU='+encodeURIComponent(u.username);};
+}
+await refreshUser();
+setInterval(refreshUser,5000);
 })();
 </script></body></html>
