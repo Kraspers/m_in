@@ -498,7 +498,7 @@ function handleApi(req, res, urlObj) {
 
   if (pathname === '/api/ban-status' && method === 'GET') {
     const db = readDb();
-    const userId = String(parsed.searchParams.get('userId') || '');
+    const userId = String(searchParams.get('userId') || '');
     const userBan = userId ? getActiveBan(db, userId) : null;
     const ban = userBan || getActiveDeviceBan(db, req);
     return sendJson(res, 200, { banned: !!ban, ban: publicBan(ban) });
@@ -996,7 +996,8 @@ function handleApi(req, res, urlObj) {
     return sendJson(res, 200, { items });
   }
   if (pathname === '/api/public-profile' && method === 'GET') {
-    const username = String(parsed.searchParams.get('username') || '').trim().toLowerCase();
+    const db = readDb();
+    const username = String(searchParams.get('username') || '').trim().toLowerCase();
     if (!username) return sendJson(res, 200, { user: null });
     const u = db.users.find(x => String(x.username || '').toLowerCase() === username);
     if (!u) return sendJson(res, 200, { user: null });
