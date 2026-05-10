@@ -4129,40 +4129,6 @@
     })();
 
 (async function initBackend(){
-      const publicMatch=location.pathname.match(/^\/m-in\/([A-Za-z0-9_]{5,70})$/);
-      if(publicMatch){
-        const username=publicMatch[1];
-        document.body.classList.add('public-profile-mode');
-        const page=document.getElementById('public-profile-page');
-        if(page) page.style.display='flex';
-        try{
-          const info=await fetch(`/api/public-profile?username=${encodeURIComponent(username)}`).then(r=>r.json());
-          const u=info&&info.user?info.user:null;
-          const ghost=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="rgba(255,255,255,0.95)"><path d="M168.1 531.1L156.9 540.1C153.7 542.6 149.8 544 145.8 544C136 544 128 536 128 526.2L128 256C128 150 214 64 320 64C426 64 512 150 512 256L512 526.2C512 536 504 544 494.2 544C490.2 544 486.3 542.6 483.1 540.1L471.9 531.1C458.5 520.4 439.1 522.1 427.8 535L397.3 570C394 573.8 389.1 576 384 576C378.9 576 374.1 573.8 370.7 570L344.1 539.5C331.4 524.9 308.7 524.9 295.9 539.5L269.3 570C266 573.8 261.1 576 256 576C250.9 576 246.1 573.8 242.7 570L212.2 535C200.9 522.1 181.5 520.4 168.1 531.1zM288 256C288 238.3 273.7 224 256 224C238.3 224 224 238.3 224 256C224 273.7 238.3 288 256 288C273.7 288 288 273.7 288 256zM384 288C401.7 288 416 273.7 416 256C416 238.3 401.7 224 384 224C366.3 224 352 238.3 352 256C352 273.7 366.3 288 384 288z"/></svg>`;
-          if(!u){
-            document.getElementById('public-profile-empty').style.display='flex';
-          }else{
-            document.getElementById('public-profile-empty').style.display='none';
-            document.getElementById('public-profile-content').style.display='flex';
-            const av=document.getElementById('public-profile-avatar');
-            av.innerHTML=u.avatarDataUrl?`<img src="${u.avatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(u.deleted?ghost:esc((u.name||u.username||'U').charAt(0).toUpperCase()));
-            setNameWithVerification(document.getElementById('public-profile-name'),u.name||u.username||'Профиль',!!u.verified);
-            const un=document.getElementById('public-profile-username');
-            un.textContent='@'+u.username;
-            un.onclick=()=>copyTextWithToast(`${location.origin}/m-in/${u.username}`);
-            document.getElementById('public-profile-bio').textContent=(u.bio||'').slice(0,110);
-            document.getElementById('public-profile-chat-btn').onclick=()=>{
-              if(authToken){ history.replaceState(null,'',`/list?openProfileU=${encodeURIComponent(u.username)}`); location.reload(); return; }
-              history.replaceState(null,'','/login?openProfileU='+encodeURIComponent(u.username));
-              location.reload();
-            };
-          }
-        }catch(_){
-          document.getElementById('public-profile-empty').style.display='flex';
-        }
-        hideAppLoading();
-        return;
-      }
       const typingInput=document.getElementById('msg-input');
       if(typingInput){
         typingInput.addEventListener('input',()=>{

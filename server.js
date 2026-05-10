@@ -1291,7 +1291,7 @@ const server = http.createServer((req, res) => {
   const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
   const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
   const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' || isPublicProfileRoute ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname))); 
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' ? '/index.html' : (isPublicProfileRoute ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))); 
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
