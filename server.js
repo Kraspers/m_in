@@ -36,6 +36,7 @@ function ensureDb() {
     const defaultDb = {
       users: [],
       chats: [],
+      groups: [],
       messages: [],
       moderation: { bans: [], logs: [], adminRoutes: [] }
     };
@@ -45,7 +46,11 @@ function ensureDb() {
 
 function readDb() {
   ensureDb();
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (!Array.isArray(db.groups)) db.groups = [];
+  if (!Array.isArray(db.messages)) db.messages = [];
+  if (!Array.isArray(db.users)) db.users = [];
+  return db;
 }
 
 function writeDb(db) {
@@ -397,6 +402,49 @@ function ensurePinnedChats(user) {
   return user.pinnedChatUserIds;
 }
 
+
+function makeGroupInviteCode(db) {
+  const used = new Set((db.groups || []).map(g => String(g.inviteCode || '')));
+  let code = crypto.randomBytes(6).toString('base64url');
+  while (used.has(code)) code = crypto.randomBytes(6).toString('base64url');
+  return code;
+}
+function publicGroup(group, db, viewerId = '') {
+  const usersById = new Map((db.users || []).map(u => [u.id, u]));
+  const members = (Array.isArray(group.members) ? group.members : []).map(uid => {
+    const u = usersById.get(uid);
+    return u ? { ...publicUserWithPresence(u), role: uid === group.ownerId ? 'owner' : 'member' } : { id: uid, name: 'Пользователь удалён', username: '', avatarDataUrl: '', verified: false, deleted: true, role: uid === group.ownerId ? 'owner' : 'member' };
+  });
+  return {
+    id: group.id,
+    isGroup: true,
+    name: group.name || 'Группа',
+    username: '',
+    bio: `${members.length} участник${members.length === 1 ? '' : 'ов'}`,
+    avatarDataUrl: group.avatarDataUrl || '',
+    bannerDataUrl: '',
+    verified: false,
+    avatar: (group.name || 'G').charAt(0).toUpperCase(),
+    color: 'linear-gradient(135deg,#7c3aed,#0078FF)',
+    ownerId: group.ownerId,
+    isOwner: viewerId === group.ownerId,
+    inviteCode: group.inviteCode || '',
+    inviteUrl: `/m-in/group/${group.inviteCode || ''}`,
+    members
+  };
+}
+function groupMessageRecipients(group) {
+  return Array.from(new Set([...(Array.isArray(group.members) ? group.members : []), group.ownerId].filter(Boolean)));
+}
+function pushGroupSystemMessage(db, group, text, type, actorId = '') {
+  const msg = { id: crypto.randomUUID(), fromUserId: actorId || group.ownerId || '', toUserId: group.id, groupId: group.id, text: '', media: [], listenedBy: actorId ? [actorId] : [], reactions: {}, pinnedBy: [], editedAt: '', createdAt: new Date().toISOString(), isSystem: true, systemType: type || 'group', systemText: text };
+  db.messages.push(msg);
+  return normalizeMessage(msg);
+}
+function sendGroupEvent(group, event, payload) {
+  groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, event, payload));
+}
+
 function colorForId(id) {
   const palette = [
     'linear-gradient(135deg,#0078FF,#005fcc)',
@@ -447,6 +495,7 @@ function normalizeMessage(msg) {
     id: msg.id,
     fromUserId: msg.fromUserId,
     toUserId: msg.toUserId,
+    groupId: msg.groupId || '',
     text: plainText,
     media: plainMedia,
     voiceDurationMs: Number(msg.voiceDurationMs) || 0,
@@ -853,7 +902,7 @@ function handleApi(req, res, urlObj) {
     if (securedMessages) writeDb(db);
     const dialogUserIds = new Set(
       messages
-        .filter(m => m.fromUserId === user.id || m.toUserId === user.id)
+        .filter(m => !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id))
         .map(m => (m.fromUserId === user.id ? m.toUserId : m.fromUserId))
     );
     const userById = new Map((db.users || []).map(u => [u.id, u]));
@@ -899,6 +948,15 @@ function handleApi(req, res, urlObj) {
           lastSeenAt: u ? presenceForUser(u).lastSeenAt : ''
         };
       })
+      .concat((db.groups || []).filter(g => Array.isArray(g.members) && g.members.includes(user.id)).map(g => {
+        const thread = messages.filter(m => m.groupId === g.id || m.toUserId === g.id);
+        const last = thread[thread.length - 1];
+        const lastText = last ? (last.isSystem ? (last.systemText || '') : messageText(last).trim()) : '';
+        const lastMedia = last ? messageMedia(last) : [];
+        const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
+        const lastReadAt = String(readMap[g.id] || '');
+        return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? '📷 Медиа' : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
+      }))
       .filter(u => {
         const n = String(u.name || '').toLowerCase();
         const un = String((u.username || '')).toLowerCase();
@@ -995,6 +1053,15 @@ function handleApi(req, res, urlObj) {
       }));
     return sendJson(res, 200, { items });
   }
+
+  if (pathname === '/api/public-group' && method === 'GET') {
+    const db = readDb();
+    const code = String(searchParams.get('code') || '').trim();
+    const g = (db.groups || []).find(x => x.inviteCode === code);
+    if (!g) return sendJson(res, 404, { error: 'Not found' });
+    return sendJson(res, 200, { group: { id: g.id, name: g.name || 'Группа', avatarDataUrl: g.avatarDataUrl || '', inviteCode: g.inviteCode || '', membersCount: Array.isArray(g.members) ? g.members.length : 0 } });
+  }
+
   if (pathname === '/api/public-profile' && method === 'GET') {
     const db = readDb();
     const username = String(searchParams.get('username') || '').trim().toLowerCase();
@@ -1027,15 +1094,125 @@ function handleApi(req, res, urlObj) {
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
+
+  if (pathname === '/api/chats/started' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const q = String(searchParams.get('q') || '').toLowerCase();
+    const ids = new Set((db.messages || []).filter(m => !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id)).map(m => m.fromUserId === user.id ? m.toUserId : m.fromUserId));
+    const items = [...ids].map(id => db.users.find(u => u.id === id)).filter(Boolean).filter(u => !q || [u.name,u.username].join(' ').toLowerCase().includes(q)).map(u => ({ ...publicUserWithPresence(u), avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(), color: colorForId(u.id) }));
+    return sendJson(res, 200, { items });
+  }
+
+  if (pathname === '/api/groups' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      const name = String(body.name || '').trim().slice(0, 80);
+      if (!name) return sendJson(res, 400, { error: 'Название группы обязательно' });
+      const picked = Array.isArray(body.memberIds) ? body.memberIds.map(String) : [];
+      const valid = new Set((db.users || []).map(u => u.id));
+      const members = Array.from(new Set([user.id, ...picked.filter(id => valid.has(id))]));
+      const group = { id: `group_${crypto.randomUUID()}`, name, avatarDataUrl: String(body.avatarDataUrl || '').slice(0, 3_000_000), ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString() };
+      db.groups.push(group);
+      const sys = pushGroupSystemMessage(db, group, 'Группа создана', 'group_created', user.id);
+      writeDb(db);
+      sendGroupEvent(group, 'message', sys);
+      groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
+      return sendJson(res, 201, { group: publicGroup(group, db, user.id) });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+  const groupJoinMatch = pathname.match(/^\/api\/groups\/join\/([^/]+)$/);
+  if (groupJoinMatch && method === 'POST') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const group = (db.groups || []).find(g => g.inviteCode === groupJoinMatch[1]);
+    if (!group) return sendJson(res, 404, { error: 'Группа не найдена' });
+    if (!Array.isArray(group.members)) group.members = [];
+    if (!group.members.includes(user.id)) {
+      group.members.push(user.id);
+      const msg = pushGroupSystemMessage(db, group, `${user.name || user.username} зашёл в группу`, 'group_join', user.id);
+      writeDb(db);
+      sendGroupEvent(group, 'message', msg);
+      groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
+    }
+    return sendJson(res, 200, { group: publicGroup(group, db, user.id) });
+  }
+
+  const groupMatch = pathname.match(/^\/api\/groups\/([^/]+)(?:\/([^/]+))?$/);
+  if (groupMatch && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const group = (db.groups || []).find(g => g.id === groupMatch[1]);
+    if (!group || !Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 404, { error: 'Группа не найдена' });
+    return sendJson(res, 200, { group: publicGroup(group, db, user.id) });
+  }
+  if (groupMatch && groupMatch[2] === 'members' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      const group = (db.groups || []).find(g => g.id === groupMatch[1]);
+      if (!group || !Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 404, { error: 'Группа не найдена' });
+      const ids = Array.isArray(body.memberIds) ? body.memberIds.map(String) : [];
+      const valid = new Set((db.users || []).map(u => u.id));
+      ids.forEach(id => { if (valid.has(id) && !group.members.includes(id)) group.members.push(id); });
+      writeDb(db);
+      groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
+      return sendJson(res, 200, { group: publicGroup(group, db, user.id) });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (groupMatch && groupMatch[2] === 'leave' && method === 'POST') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const group = (db.groups || []).find(g => g.id === groupMatch[1]);
+    if (!group || !Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 404, { error: 'Группа не найдена' });
+    group.members = group.members.filter(id => id !== user.id);
+    const msg = pushGroupSystemMessage(db, group, `${user.name || user.username} покинул группу`, 'group_leave', user.id);
+    writeDb(db);
+    sendGroupEvent({ ...group, members: [...group.members, user.id] }, 'message', msg);
+    groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
+    sendEventToUser(user.id, 'chat_group_update', { id: group.id, left: true });
+    return sendJson(res, 200, { ok: true });
+  }
+  if (groupMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const group = (db.groups || []).find(g => g.id === groupMatch[1]);
+    if (!group || group.ownerId !== user.id) return sendJson(res, 403, { error: 'Только владелец может удалить группу' });
+    const recipients = groupMessageRecipients(group);
+    db.groups = db.groups.filter(g => g.id !== group.id);
+    db.messages = (db.messages || []).filter(m => m.groupId !== group.id && m.toUserId !== group.id);
+    writeDb(db);
+    recipients.forEach(uid => sendEventToUser(uid, 'chat_group_update', { id: group.id, deleted: true }));
+    return sendJson(res, 200, { ok: true });
+  }
+
   if (pathname === '/api/messages' && method === 'GET') {
     const db = readDb();
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const withUserId = String(searchParams.get('withUserId') || '');
+    const group = (db.groups || []).find(g => g.id === withUserId);
+    if (group) {
+      if (!Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 403, { error: 'Нет доступа к группе' });
+      const items = (db.messages || []).filter(m => m.groupId === group.id || m.toUserId === group.id);
+      const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
+      const lastReadAt = String(readMap[withUserId] || '');
+      const firstUnread = items.find(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime()));
+      return sendJson(res, 200, { firstUnreadMessageId: firstUnread ? firstUnread.id : '', items: items.map(normalizeMessage), peer: publicGroup(group, db, user.id) });
+    }
     const peer = db.users.find(u => u.id === withUserId);
     const items = (db.messages || []).filter(m =>
-      (m.fromUserId === user.id && m.toUserId === withUserId) ||
-      (m.fromUserId === withUserId && m.toUserId === user.id)
+      !m.groupId && ((m.fromUserId === user.id && m.toUserId === withUserId) ||
+      (m.fromUserId === withUserId && m.toUserId === user.id))
     );
     let securedMessages = false;
     items.forEach(m => {
@@ -1110,15 +1287,21 @@ function handleApi(req, res, urlObj) {
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
         if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
-        const peer = db.users.find(u => u.id === toUserId);
-        if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
-        if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
-          return sendJson(res, 403, { error: 'Вы были заблокированы данным пользователем' });
+        const group = (db.groups || []).find(g => g.id === toUserId);
+        const peer = group ? null : db.users.find(u => u.id === toUserId);
+        if (group) {
+          if (!Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 403, { error: 'Нет доступа к группе' });
+        } else {
+          if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
+          if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
+            return sendJson(res, 403, { error: 'Вы были заблокированы данным пользователем' });
+          }
         }
         const msg = {
           id: crypto.randomUUID(),
           fromUserId: user.id,
           toUserId,
+          groupId: group ? group.id : '',
           text: '',
           textEnc: encryptString(text),
           e2ee: null,
@@ -1137,8 +1320,8 @@ function handleApi(req, res, urlObj) {
         db.messages.push(msg);
         writeDb(db);
         const n = normalizeMessage(msg);
-        sendEventToUser(user.id, 'message', n);
-        sendEventToUser(toUserId, 'message', n);
+        if (group) sendGroupEvent(group, 'message', n);
+        else { sendEventToUser(user.id, 'message', n); sendEventToUser(toUserId, 'message', n); }
         return sendJson(res, 201, { message: n });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -1292,7 +1475,8 @@ const server = http.createServer((req, res) => {
   const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
   const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
   const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' ? '/index.html' : (isPublicProfileRoute ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))); 
+  const isGroupInviteRoute = /^\/m-in\/group\/[A-Za-z0-9_-]{6,32}$/.test(requestUrl.pathname);
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' ? '/index.html' : ((isPublicProfileRoute || isGroupInviteRoute) ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname))));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
