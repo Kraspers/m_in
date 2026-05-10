@@ -930,7 +930,9 @@
     const visible=Math.min(total,4);
     stack.classList.toggle('show',total>1);
     if(total<=1){ stack.innerHTML=''; return; }
-    const activeVisual=visible-1-(activeIndex%visible);
+    const maxStart=Math.max(0,total-visible);
+    const start=Math.min(Math.max(0,activeIndex-visible+1),maxStart);
+    const activeVisual=(visible-1)-(activeIndex-start);
     stack.innerHTML=Array.from({length:visible}).map((_,idx)=>`<span class="${idx===activeVisual?'active':''}"></span>`).join('');
   }
   function updatePinnedBar(){
