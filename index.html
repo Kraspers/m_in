@@ -123,6 +123,11 @@
       <div>Чатов пока нет</div>
     </div>
   </div>
+
+  <button id="new-chat-fab" onclick="openNewChatMenu()" aria-label="Новый чат">
+    <svg class="fab-comment" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg>
+    <svg class="fab-plus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/></svg>
+  </button>
 </div>
 
 <!-- ════════════════ ЭКРАН 3 — ПРОФИЛЬ ════════════════ -->
@@ -514,6 +519,48 @@
 </div>
 
 <!-- ════════════════ ЭКРАН 4 — ПОИСК ════════════════ -->
+
+<!-- ════════════════ МЕНЮ НОВОГО ЧАТА / ГРУППЫ ════════════════ -->
+<div id="new-chat-wrap" class="mi-sheet-wrap">
+  <div class="mi-sheet-bg" onclick="closeNewChatMenu()"></div>
+  <div class="mi-sheet-slideable">
+    <div class="mi-sheet-close-row"><button onclick="closeNewChatMenu()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span id="new-chat-close-label">Создать группу</span></button></div>
+    <div class="mi-sheet">
+      <div class="mi-sheet-grip"></div>
+      <div id="new-chat-main-view">
+        <div id="new-chat-search-wrap"><input id="new-chat-search" type="text" placeholder="Поиск…" oninput="searchStartedChats(this.value)" autocomplete="off" /></div>
+        <button class="mi-action-row" onclick="openGroupPickMenu('create')"><span class="mi-action-icon mi-action-icon-plain"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M96 192C96 130.1 146.1 80 208 80C269.9 80 320 130.1 320 192C320 253.9 269.9 304 208 304C146.1 304 96 253.9 96 192zM32 528C32 430.8 110.8 352 208 352C305.2 352 384 430.8 384 528L384 534C384 557.2 365.2 576 342 576L74 576C50.8 576 32 557.2 32 534L32 528zM464 128C517 128 560 171 560 224C560 277 517 320 464 320C411 320 368 277 368 224C368 171 411 128 464 128zM464 368C543.5 368 608 432.5 608 512L608 534.4C608 557.4 589.4 576 566.4 576L421.6 576C428.2 563.5 432 549.2 432 534L432 528C432 476.5 414.6 429.1 385.5 391.3C408.1 376.6 435.1 368 464 368z"/></svg></span><span>Создать группу</span></button>
+        <div id="new-chat-results" class="mi-sheet-list"></div>
+      </div>
+      <div id="group-pick-view" style="display:none;">
+        <div class="mi-sheet-title" id="group-pick-title">Участники</div>
+        <button id="group-invite-link-btn" class="mi-action-row" style="display:none;" onclick="copyCurrentGroupInvite()"><span class="mi-action-icon mi-action-icon-plain"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M451.5 160C434.9 160 418.8 164.5 404.7 172.7C388.9 156.7 370.5 143.3 350.2 133.2C378.4 109.2 414.3 96 451.5 96C537.9 96 608 166 608 252.5C608 294 591.5 333.8 562.2 363.1L491.1 434.2C461.8 463.5 422 480 380.5 480C294.1 480 224 410 224 323.5C224 322 224 320.5 224.1 319C224.6 301.3 239.3 287.4 257 287.9C274.7 288.4 288.6 303.1 288.1 320.8C288.1 321.7 288.1 322.6 288.1 323.4C288.1 374.5 329.5 415.9 380.6 415.9C405.1 415.9 428.6 406.2 446 388.8L517.1 317.7C534.4 300.4 544.2 276.8 544.2 252.3C544.2 201.2 502.8 159.8 451.7 159.8zM307.2 237.3C305.3 236.5 303.4 235.4 301.7 234.2C289.1 227.7 274.7 224 259.6 224C235.1 224 211.6 233.7 194.2 251.1L123.1 322.2C105.8 339.5 96 363.1 96 387.6C96 438.7 137.4 480.1 188.5 480.1C205 480.1 221.1 475.7 235.2 467.5C251 483.5 269.4 496.9 289.8 507C261.6 530.9 225.8 544.2 188.5 544.2C102.1 544.2 32 474.2 32 387.7C32 346.2 48.5 306.4 77.8 277.1L148.9 206C178.2 176.7 218 160.2 259.5 160.2C346.1 160.2 416 230.8 416 317.1C416 318.4 416 319.7 416 321C415.6 338.7 400.9 352.6 383.2 352.2C365.5 351.8 351.6 337.1 352 319.4C352 318.6 352 317.9 352 317.1C352 283.4 334 253.8 307.2 237.5z"/></svg></span><span>Ссылка на вступление</span></button>
+        <div id="group-pick-list" class="mi-sheet-list"></div>
+        <button class="mi-primary-pill" onclick="continueGroupCreate()">Далее</button>
+      </div>
+      <div id="group-details-view" style="display:none;">
+        <div class="group-details-card">
+          <div id="group-avatar-picker" class="tg-avatar" onclick="document.getElementById('group-avatar-input').click()">Г<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
+          <input id="group-avatar-input" type="file" accept="image/*" style="display:none" onchange="setGroupAvatar(this)">
+          <input id="group-name-input" class="pe-field" type="text" placeholder="Название группы">
+        </div>
+        <button class="mi-primary-pill" onclick="createGroupNow()">Создать группу</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="group-members-wrap" class="mi-sheet-wrap">
+  <div class="mi-sheet-bg" onclick="closeGroupMembersMenu()"></div>
+  <div class="mi-sheet-slideable">
+    <div class="mi-sheet-close-row"><button onclick="closeGroupMembersMenu()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Участники</button></div>
+    <div class="mi-sheet">
+      <div class="mi-sheet-grip"></div>
+      <div id="group-members-list" class="mi-sheet-list"></div>
+    </div>
+  </div>
+</div>
+
 <div id="screen-search" class="screen">
   <div style="padding:52px 0 0;flex-shrink:0;">
     <div id="search-bar-wrap">
@@ -690,8 +737,9 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg>
           <em>Чат</em>
         </button>
-        <button id="upv-more-btn" class="upv-action"><span>⋯</span><em>Ещё</em></button>
+        <button id="upv-members-btn" class="upv-action" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M96 192C96 130.1 146.1 80 208 80C269.9 80 320 130.1 320 192C320 253.9 269.9 304 208 304C146.1 304 96 253.9 96 192zM32 528C32 430.8 110.8 352 208 352C305.2 352 384 430.8 384 528L384 534C384 557.2 365.2 576 342 576L74 576C50.8 576 32 557.2 32 534L32 528zM464 128C517 128 560 171 560 224C560 277 517 320 464 320C411 320 368 277 368 224C368 171 411 128 464 128zM464 368C543.5 368 608 432.5 608 512L608 534.4C608 557.4 589.4 576 566.4 576L421.6 576C428.2 563.5 432 549.2 432 534L432 528C432 476.5 414.6 429.1 385.5 391.3C408.1 376.6 435.1 368 464 368z"/></svg><em>Участники</em></button><button id="upv-more-btn" class="upv-action"><span>⋯</span><em>Ещё</em></button>
       </div>
+      <div id="upv-members-wrap" class="upv-members" style="display:none;"></div>
     </div>
   </div>
 </div>
