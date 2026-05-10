@@ -48,9 +48,6 @@
       <div id="pinned-bar-label">Закреплённое сообщение</div>
       <div id="pinned-bar-preview"></div>
     </div>
-    <button id="pinned-bar-close" onclick="event.stopPropagation();unpinPinnedMessageRemote()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
   </div>
 
   <div class="input-bar">
@@ -536,15 +533,21 @@
         <div class="mi-sheet-title" id="group-pick-title">Участники</div>
         <button id="group-invite-link-btn" class="mi-action-row" style="display:none;" onclick="copyCurrentGroupInvite()"><span class="mi-action-icon mi-action-icon-plain"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M451.5 160C434.9 160 418.8 164.5 404.7 172.7C388.9 156.7 370.5 143.3 350.2 133.2C378.4 109.2 414.3 96 451.5 96C537.9 96 608 166 608 252.5C608 294 591.5 333.8 562.2 363.1L491.1 434.2C461.8 463.5 422 480 380.5 480C294.1 480 224 410 224 323.5C224 322 224 320.5 224.1 319C224.6 301.3 239.3 287.4 257 287.9C274.7 288.4 288.6 303.1 288.1 320.8C288.1 321.7 288.1 322.6 288.1 323.4C288.1 374.5 329.5 415.9 380.6 415.9C405.1 415.9 428.6 406.2 446 388.8L517.1 317.7C534.4 300.4 544.2 276.8 544.2 252.3C544.2 201.2 502.8 159.8 451.7 159.8zM307.2 237.3C305.3 236.5 303.4 235.4 301.7 234.2C289.1 227.7 274.7 224 259.6 224C235.1 224 211.6 233.7 194.2 251.1L123.1 322.2C105.8 339.5 96 363.1 96 387.6C96 438.7 137.4 480.1 188.5 480.1C205 480.1 221.1 475.7 235.2 467.5C251 483.5 269.4 496.9 289.8 507C261.6 530.9 225.8 544.2 188.5 544.2C102.1 544.2 32 474.2 32 387.7C32 346.2 48.5 306.4 77.8 277.1L148.9 206C178.2 176.7 218 160.2 259.5 160.2C346.1 160.2 416 230.8 416 317.1C416 318.4 416 319.7 416 321C415.6 338.7 400.9 352.6 383.2 352.2C365.5 351.8 351.6 337.1 352 319.4C352 318.6 352 317.9 352 317.1C352 283.4 334 253.8 307.2 237.5z"/></svg></span><span>Ссылка на вступление</span></button>
         <div id="group-pick-list" class="mi-sheet-list"></div>
+        <button id="group-send-invites-btn" class="mi-primary-pill" style="display:none;" onclick="sendGroupInvites()">Отправить</button>
         <button class="mi-primary-pill" onclick="continueGroupCreate()">Далее</button>
       </div>
       <div id="group-details-view" style="display:none;">
-        <div class="group-details-card">
-          <div id="group-avatar-picker" class="tg-avatar" onclick="document.getElementById('group-avatar-input').click()">Г<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
-          <input id="group-avatar-input" type="file" accept="image/*" style="display:none" onchange="setGroupAvatar(this)">
-          <input id="group-name-input" class="pe-field" type="text" placeholder="Название группы">
+        <div class="group-details-card group-details-card-stack">
+          <div id="group-banner-picker" onclick="document.getElementById('group-banner-input').click()"><img id="group-banner-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;"><div id="group-banner-overlay"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
+          <input id="group-banner-input" type="file" accept="image/*" style="display:none" onchange="setGroupBanner(this)">
+          <div class="group-details-row">
+            <div id="group-avatar-picker" class="tg-avatar" onclick="document.getElementById('group-avatar-input').click()">Г<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
+            <input id="group-avatar-input" type="file" accept="image/*" style="display:none" onchange="setGroupAvatar(this)">
+            <input id="group-name-input" class="pe-field" type="text" placeholder="Название группы">
+          </div>
+          <textarea id="group-bio-input" class="pe-field" placeholder="Описание группы" rows="3" maxlength="110" style="resize:none;"></textarea>
         </div>
-        <button class="mi-primary-pill" onclick="createGroupNow()">Создать группу</button>
+        <button id="create-group-btn" class="mi-primary-pill" onclick="createGroupNow()">Создать группу</button>
       </div>
     </div>
   </div>
@@ -636,9 +639,6 @@
       <div id="fav-pinned-bar-label">Закреплённое сообщение</div>
       <div id="fav-pinned-bar-preview"></div>
     </div>
-    <button id="fav-pinned-bar-close" onclick="event.stopPropagation();unpinFavMessage()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
   </div>
 
   <div class="input-bar" style="position:absolute;bottom:0;left:0;right:0;z-index:5;">

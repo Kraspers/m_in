@@ -435,9 +435,9 @@ function publicGroup(group, db, viewerId = '') {
     membersCount,
     onlineCount,
     statusText: `${membersCount} ${groupMembersWord(membersCount)}, ${onlineCount} онлайн`,
-    bio: `${membersCount} ${groupMembersWord(membersCount)}`,
+    bio: group.bio || `${membersCount} ${groupMembersWord(membersCount)}`,
     avatarDataUrl: group.avatarDataUrl || '',
-    bannerDataUrl: '',
+    bannerDataUrl: group.bannerDataUrl || '',
     verified: false,
     avatar: (group.name || 'G').charAt(0).toUpperCase(),
     color: 'linear-gradient(135deg,#7c3aed,#0078FF)',
@@ -915,10 +915,12 @@ function handleApi(req, res, urlObj) {
       if (beforeText !== m.text || beforeTextEnc !== m.textEnc || beforeE2ee !== JSON.stringify(m.e2ee || null) || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
     });
     if (securedMessages) writeDb(db);
+    const groupIds = new Set((db.groups || []).map(g => g.id).filter(Boolean));
     const dialogUserIds = new Set(
       messages
         .filter(m => !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id))
         .map(m => (m.fromUserId === user.id ? m.toUserId : m.fromUserId))
+        .filter(id => id && !String(id).startsWith('group_') && !groupIds.has(id))
     );
     const userById = new Map((db.users || []).map(u => [u.id, u]));
     const items = [...dialogUserIds]
@@ -963,7 +965,7 @@ function handleApi(req, res, urlObj) {
           lastSeenAt: u ? presenceForUser(u).lastSeenAt : ''
         };
       })
-      .concat((db.groups || []).filter(g => Array.isArray(g.members) && g.members.includes(user.id)).map(g => {
+      .concat(Array.from(new Map((db.groups || []).filter(g => g && g.id && Array.isArray(g.members) && g.members.includes(user.id)).map(g => [g.id, g])).values()).map(g => {
         const thread = messages.filter(m => m.groupId === g.id || m.toUserId === g.id);
         const last = thread[thread.length - 1];
         const lastText = last ? (last.isSystem ? (last.systemText || '') : messageText(last).trim()) : '';
@@ -1075,7 +1077,7 @@ function handleApi(req, res, urlObj) {
     const g = (db.groups || []).find(x => x.inviteCode === code);
     if (!g) return sendJson(res, 404, { error: 'Not found' });
     const membersCount = Array.isArray(g.members) ? g.members.length : 0;
-    return sendJson(res, 200, { group: { id: g.id, name: g.name || 'Группа', avatarDataUrl: g.avatarDataUrl || '', inviteCode: g.inviteCode || '', membersCount, membersText: `${membersCount} ${groupMembersWord(membersCount)}` } });
+    return sendJson(res, 200, { group: { id: g.id, name: g.name || 'Группа', bio: g.bio || '', avatarDataUrl: g.avatarDataUrl || '', bannerDataUrl: g.bannerDataUrl || '', inviteCode: g.inviteCode || '', membersCount, membersText: `${membersCount} ${groupMembersWord(membersCount)}` } });
   }
 
   if (pathname === '/api/public-profile' && method === 'GET') {
@@ -1131,7 +1133,7 @@ function handleApi(req, res, urlObj) {
       const picked = Array.isArray(body.memberIds) ? body.memberIds.map(String) : [];
       const valid = new Set((db.users || []).map(u => u.id));
       const members = Array.from(new Set([user.id, ...picked.filter(id => valid.has(id))]));
-      const group = { id: `group_${crypto.randomUUID()}`, name, avatarDataUrl: String(body.avatarDataUrl || '').slice(0, 3_000_000), ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString() };
+      const group = { id: `group_${crypto.randomUUID()}`, name, bio: String(body.bio || '').trim().slice(0, 110), avatarDataUrl: String(body.avatarDataUrl || '').slice(0, 3_000_000), bannerDataUrl: String(body.bannerDataUrl || '').slice(0, 3_000_000), ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString() };
       db.groups.push(group);
       const sys = pushGroupSystemMessage(db, group, 'Группа создана', 'group_created', user.id);
       writeDb(db);
@@ -1360,7 +1362,10 @@ function handleApi(req, res, urlObj) {
         const msgId = msgMatch[1];
         const msg = (db.messages || []).find(m => m.id === msgId);
         if (!msg) return sendJson(res, 404, { error: 'Сообщение не найдено' });
-        if (msg.fromUserId !== user.id && msg.toUserId !== user.id) return sendJson(res, 403, { error: 'Forbidden' });
+        const group = (db.groups || []).find(g => g.id === (msg.groupId || msg.toUserId));
+        if (group) {
+          if (!Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 403, { error: 'Forbidden' });
+        } else if (msg.fromUserId !== user.id && msg.toUserId !== user.id) return sendJson(res, 403, { error: 'Forbidden' });
         const action = String(body.action || '');
         if (action === 'react') {
           const emoji = String(body.emoji || '').trim().slice(0, 8);
@@ -1373,13 +1378,13 @@ function handleApi(req, res, urlObj) {
           if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
         } else if (action === 'pin') {
           const now = new Date().toISOString();
-          msg.pinnedBy = [msg.fromUserId, msg.toUserId];
+          msg.pinnedBy = group ? groupMessageRecipients(group) : [msg.fromUserId, msg.toUserId];
           msg.pinnedAt = now;
-          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: now, isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
+          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: group ? group.id : (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), groupId: group ? group.id : '', text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: now, isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
         } else if (action === 'unpin') {
           msg.pinnedBy = [];
           msg.pinnedAt = '';
-          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'unpin', systemText: `${user.name || user.username} открепил сообщение` });
+          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: group ? group.id : (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), groupId: group ? group.id : '', text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'unpin', systemText: `${user.name || user.username} открепил сообщение` });
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const rawText = String(body.text || '').trim();
@@ -1401,8 +1406,8 @@ function handleApi(req, res, urlObj) {
         }
         writeDb(db);
         const n = normalizeMessage(msg);
-        sendEventToUser(msg.fromUserId, 'message_update', n);
-        sendEventToUser(msg.toUserId, 'message_update', n);
+        if (group) sendGroupEvent(group, 'message_update', n);
+        else { sendEventToUser(msg.fromUserId, 'message_update', n); sendEventToUser(msg.toUserId, 'message_update', n); }
         return sendJson(res, 200, { message: n });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -1418,9 +1423,10 @@ function handleApi(req, res, urlObj) {
     if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно удалить только своё сообщение' });
     db.messages = (db.messages || []).filter(m => m.id !== msgId);
     writeDb(db);
-    const payload = { id: msgId, deleted: true, fromUserId: msg.fromUserId, toUserId: msg.toUserId };
-    sendEventToUser(msg.fromUserId, 'message_update', payload);
-    sendEventToUser(msg.toUserId, 'message_update', payload);
+    const group = (db.groups || []).find(g => g.id === (msg.groupId || msg.toUserId));
+    const payload = { id: msgId, deleted: true, fromUserId: msg.fromUserId, toUserId: msg.toUserId, groupId: group ? group.id : (msg.groupId || '') };
+    if (group) sendGroupEvent(group, 'message_update', payload);
+    else { sendEventToUser(msg.fromUserId, 'message_update', payload); sendEventToUser(msg.toUserId, 'message_update', payload); }
     return sendJson(res, 200, { ok: true });
   }
 

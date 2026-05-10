@@ -713,3 +713,15 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 .mi-sheet-list .mi-chat-row{background:#2C2C2E;border-radius:999px;padding:12px 16px;}
 .mi-sheet-list .mi-chat-row:active{opacity:.7;}
 .voice-bubble .group-sender-name{flex-basis:100%;margin-left:0;margin-right:0;}
+#new-chat-search{border-radius:999px;}
+#create-group-btn,.mi-primary-pill{border-radius:999px;}
+.group-details-card-stack{display:flex;flex-direction:column;align-items:stretch;gap:14px;}
+.group-details-row{display:flex;align-items:center;gap:14px;}
+#group-banner-picker{height:130px;background:#2C2C2E;border-radius:1.8rem;position:relative;overflow:hidden;cursor:pointer;}
+#group-banner-overlay{position:absolute;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;border-radius:1.8rem;transition:background .18s ease;}
+#group-banner-overlay svg{opacity:0;transition:opacity .18s ease;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));}
+#group-banner-picker:hover #group-banner-overlay{background:rgba(0,0,0,.35);}
+#group-banner-picker:hover #group-banner-overlay svg{opacity:1;}
+.group-sender-name{margin-left:6px;max-width:260px;}
+.msg-bubble .group-sender-name:first-child + .msg-media-grid,
+.msg-bubble .group-sender-name:first-child + div .msg-media-grid{border-top-left-radius:0!important;border-top-right-radius:0!important;}
