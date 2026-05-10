@@ -14,6 +14,8 @@
   const presenceByUser=new Map();
   const typingUntilByUser=new Map();
   const typingTimersByUser=new Map();
+  const groupTypingByChat=new Map();
+  const groupTypingTimers=new Map();
   let me=null;
   let localTypingPeerId='';
   let localTypingStopTimer=null;
@@ -1288,11 +1290,40 @@
     const date=new Date(ts).toLocaleDateString(currentLanguage==='ru'?'ru-RU':undefined,{day:'numeric',month:'short'});
     return presenceTemplate('last_seen_date',{date});
   }
-  function renderTypingHtml(){ return `<span class="typing-dots"><span></span><span></span><span></span></span><span>${esc(t('presence_typing'))}</span>`; }
+  function participantsWord(count){
+    const n=Math.abs(Number(count)||0),m10=n%10,m100=n%100;
+    if(m10===1&&m100!==11) return 'участник';
+    if(m10>=2&&m10<=4&&(m100<12||m100>14)) return 'участника';
+    return 'участников';
+  }
+  function renderTypingHtml(label='') { return `<span class="group-typing-prefix"><span class="typing-dots"><span></span><span></span><span></span></span><span>${esc(label||t('presence_typing'))}</span></span>`; }
+  function activeGroupTyping(chatId){
+    const now=Date.now();
+    const bucket=groupTypingByChat.get(String(chatId))||new Map();
+    Array.from(bucket.entries()).forEach(([uid,item])=>{ if(!item||item.until<=now) bucket.delete(uid); });
+    return Array.from(bucket.values());
+  }
   function renderChatPresence(){
     const el=document.getElementById('chat-presence-status');
     if(!el||!currentChatUserId) return;
     delete el.dataset.i18nAuto;
+    const chat=usersMap.get(String(currentChatUserId))||{};
+    if(chat.isGroup){
+      const active=activeGroupTyping(currentChatUserId);
+      el.classList.toggle('typing',active.length>0);
+      el.classList.remove('online');
+      if(active.length){
+        const first=active[0]||{};
+        const name=first.name||'Пользователь';
+        const more=active.length>1?` и +${active.length-1}`:'';
+        el.innerHTML=renderTypingHtml(`${name}${more} печата${active.length>1?'ют':'ет'}`);
+        return;
+      }
+      const members=Number(chat.membersCount||((chat.members||[]).length)||0);
+      const online=Number(chat.onlineCount||((chat.members||[]).filter(m=>m.online).length)||0);
+      el.textContent=`${members} ${participantsWord(members)}, ${online} онлайн`;
+      return;
+    }
     const typingUntil=typingUntilByUser.get(String(currentChatUserId))||0;
     el.classList.toggle('typing',typingUntil>Date.now());
     if(typingUntil>Date.now()){ el.classList.remove('online'); el.innerHTML=renderTypingHtml(); return; }
@@ -1319,6 +1350,23 @@
       typingUntilByUser.delete(id);
       if(typingTimersByUser.has(id)) clearTimeout(typingTimersByUser.get(id));
       typingTimersByUser.delete(id);
+    }
+    renderChatPresence();
+  }
+  function markGroupTyping(groupId,uid,name,typing){
+    if(!groupId||!uid) return;
+    groupId=String(groupId); uid=String(uid);
+    if(!groupTypingByChat.has(groupId)) groupTypingByChat.set(groupId,new Map());
+    const bucket=groupTypingByChat.get(groupId);
+    const key=`${groupId}:${uid}`;
+    if(typing){
+      bucket.set(uid,{uid,name:name||displayNameForMessageUser(uid),until:Date.now()+3500});
+      if(groupTypingTimers.has(key)) clearTimeout(groupTypingTimers.get(key));
+      groupTypingTimers.set(key,setTimeout(()=>{ bucket.delete(uid); groupTypingTimers.delete(key); renderChatPresence(); },3600));
+    }else{
+      bucket.delete(uid);
+      if(groupTypingTimers.has(key)) clearTimeout(groupTypingTimers.get(key));
+      groupTypingTimers.delete(key);
     }
     renderChatPresence();
   }
@@ -2787,22 +2835,22 @@
     const isGroup=!!p.isGroup;
     const unameEl=document.getElementById('upv-username');
     if(unameEl){
-      unameEl.textContent=isGroup?(p.inviteCode?`${location.origin}/m-in/group/${p.inviteCode}`:''):(p.username?`@${p.username}`:'');
+      unameEl.textContent=isGroup?'':(p.username?`@${p.username}`:'');
       unameEl.style.color='#8E8E93';
-      unameEl.style.cursor=(isGroup&&p.inviteCode)||p.username?'pointer':'';
-      unameEl.onclick=isGroup&&p.inviteCode?()=>copyTextWithToast(`${location.origin}/m-in/group/${p.inviteCode}`):(p.username?()=>copyTextWithToast(`${location.origin}/m-in/${p.username}`):null);
+      unameEl.style.cursor=(!isGroup&&p.username)?'pointer':'';
+      unameEl.onclick=(!isGroup&&p.username)?()=>copyTextWithToast(`${location.origin}/m-in/${p.username}`):null;
     }
     const bioEl=document.getElementById('upv-bio');
-    if(bioEl) bioEl.textContent=isGroup?`${(p.members||[]).length} участников`:(p.bio||'').slice(0,110);
-    const chatBtn=document.getElementById('upv-chat-btn');
-    if(chatBtn){ chatBtn.querySelector('em').textContent=isGroup?'Добавить участника':'Чат'; const svg=chatBtn.querySelector('svg'); if(isGroup&&svg) svg.outerHTML=GROUP_ADD_ICON; }
-    const membersWrap=document.getElementById('upv-members-wrap');
-    if(membersWrap){
-      if(isGroup){
-        membersWrap.style.display='block';
-        membersWrap.innerHTML=`<div class="group-member-title">Участники</div>${(p.members||[]).map(m=>`<div class="upv-member-row">${rowAvatarHtml(m,34)}<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.name||m.username||'Пользователь')}</span>${m.role==='owner'?'<span class="owner-pill">Владелец</span>':''}</div>`).join('')}`;
-      } else { membersWrap.style.display='none'; membersWrap.innerHTML=''; }
+    if(bioEl){
+      const members=Number(p.membersCount||((p.members||[]).length)||0), online=Number(p.onlineCount||((p.members||[]).filter(m=>m.online).length)||0);
+      bioEl.textContent=isGroup?`${members} ${participantsWord(members)}, ${online} онлайн`:(p.bio||'').slice(0,110);
     }
+    const chatBtn=document.getElementById('upv-chat-btn');
+    if(chatBtn){ chatBtn.innerHTML=isGroup?`${GROUP_ADD_ICON}<em>Добавить участника</em>`:`<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg><em>Чат</em>`; }
+    const membersBtn=document.getElementById('upv-members-btn');
+    if(membersBtn) membersBtn.style.display=isGroup?'flex':'none';
+    const membersWrap=document.getElementById('upv-members-wrap');
+    if(membersWrap){ membersWrap.style.display='none'; membersWrap.innerHTML=''; }
     const banner=document.getElementById('upv-banner');
     banner.style.backgroundImage=p.bannerDataUrl?`url('${p.bannerDataUrl}')`:'none';
     banner.style.backgroundColor=p.bannerDataUrl?'transparent':'#2C2C2E';
@@ -3169,7 +3217,7 @@
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
-        items.forEach(c=>{ usersMap.set(c.id,c); setPresenceState(c.id,c); });
+        items.forEach(c=>{ usersMap.set(c.id,c); setPresenceState(c.id,c); if(c&&c.isGroup&&Array.isArray(c.members)) c.members.forEach(m=>{ if(m&&m.id){ usersMap.set(m.id,{...(usersMap.get(m.id)||{}),...m}); setPresenceState(m.id,m); } }); });
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
           return `<button class="chat-row chat-row-item ${c.isPinned?'chat-pinned':''}" data-chat-id="${esc(c.id||'')}">
@@ -3230,6 +3278,7 @@
       currentChatBlockedByPeer=!!peer.blockedByPeer;
       currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
+      if(peer&&peer.isGroup&&Array.isArray(peer.members)) peer.members.forEach(m=>{ if(m&&m.id) { usersMap.set(m.id,{...(usersMap.get(m.id)||{}),...m}); setPresenceState(m.id,m); } });
       setPresenceState(userId,peer);
       renderChatPresence();
       updateChatPresenceBadges(userId);
@@ -3283,7 +3332,7 @@
       let unreadMarkerPlaced=false;
       const firstUnreadIndex=firstUnreadMessageId?items.findIndex(x=>x&&x.id===firstUnreadMessageId):-1;
       const showUnreadSeparator=!!firstUnreadMessageId&&firstUnreadIndex>0;
-      const rows=items.map(m=>{
+      const rows=items.map((m,idx)=>{
         if(m.isSystem){
           const sys=String(m.systemText||t('system_message'));
           const low=sys.toLowerCase();
@@ -3299,6 +3348,10 @@
         if(showUnreadSeparator&&!unreadMarkerPlaced&&m.id===firstUnreadMessageId){ unreadMarkerPlaced=true; prefix=`<div class="new-msg-sep">${t('new_messages')}</div>`; }
         messageMap.set(m.id,m);
         const mine=me&&m.fromUserId===me.id;
+        const chatMeta=usersMap.get(String(currentChatUserId||''))||{};
+        const prev=idx>0?items[idx-1]:null;
+        const showGroupSender=!!(chatMeta.isGroup&&!mine&&(!prev||prev.isSystem||prev.fromUserId!==m.fromUserId));
+        const senderNameHtml=showGroupSender?`<div class="group-sender-name">${esc(displayNameForMessageUser(m.fromUserId))}</div>`:'';
         const timeText=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         const tick='<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
@@ -3325,7 +3378,7 @@
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
           const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:timeText,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||'',quoteHtml:replyHtml||''});
-          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
+          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${senderNameHtml}${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
           const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">${t('forwarded')}</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">${t('from')} <b>${esc(m.forwardedFromName)}</b></div>`;
@@ -3333,7 +3386,7 @@
           const gridHtml=buildMediaGrid(mediaArr,m.id,'0 0 0 0',false);
           const mediaWrap=`<div style="margin:0 3px;overflow:hidden;">${gridHtml}</div>`;
           const metaStyle=m.text?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
-          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
+          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;">${senderNameHtml}<div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
         }
         const mediaRadiusBase=mine
           ?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)'
@@ -3349,7 +3402,7 @@
         const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
         const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
         const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
-        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" data-pinned="${Array.isArray(m.pinnedBy)&&m.pinnedBy.length>0?'1':'0'}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
+        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};">${senderNameHtml}<div data-mid="${esc(m.id)}" data-pinned="${Array.isArray(m.pinnedBy)&&m.pinnedBy.length>0?'1':'0'}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
@@ -3547,13 +3600,25 @@
           setPresenceState(p.userId,{online:!!p.online,lastSeenAt:p.lastSeenAt||''});
           const cached=usersMap.get(p.userId)||{};
           usersMap.set(p.userId,{...cached,online:!!p.online,lastSeenAt:p.lastSeenAt||cached.lastSeenAt||''});
+          usersMap.forEach((g,gid)=>{
+            if(!g||!g.isGroup||!Array.isArray(g.members)) return;
+            let changed=false;
+            const members=g.members.map(m=>{
+              if(String(m.id)!==String(p.userId)) return m;
+              changed=true;
+              return {...m,online:!!p.online,lastSeenAt:p.lastSeenAt||m.lastSeenAt||''};
+            });
+            if(changed) usersMap.set(gid,{...g,members,onlineCount:members.filter(m=>m.online).length,membersCount:members.length});
+          });
           updateChatPresenceBadges(p.userId);
+          renderChatPresence();
         }catch(_){}
       });
       stream.addEventListener('typing',ev=>{
         try{
           const p=JSON.parse(ev.data);
-          if(p&&p.fromUserId) markPeerTyping(p.fromUserId,!!p.typing);
+          if(p&&p.fromUserId&&p.groupId) markGroupTyping(p.groupId,p.fromUserId,p.fromName,!!p.typing);
+          else if(p&&p.fromUserId) markPeerTyping(p.fromUserId,!!p.typing);
         }catch(_){}
       });
       stream.addEventListener('sessions_update',()=>{
@@ -4017,7 +4082,7 @@
         const uid=window.__upvUserId;
         const u=usersMap.get(uid)||{};
         closeUserProfileView();
-        if(u.isGroup) return openGroupPickMenu('add',u);
+        if(u.isGroup) return window.openGroupPickMenu('add',u);
         if(uid) await openChatWith(uid);
       });
     }
@@ -4038,15 +4103,14 @@
       setUpvPinUi(!!(row&&row.classList.contains('chat-pinned')));
       const blockedBtn=document.getElementById('upv-block-btn');
       const blockedLbl=document.getElementById('upv-block-label');
-      const deleteBtn=document.querySelector('#upv-ctx-menu button[onclick="upvDeleteChat()"]');
+      const deleteBtn=document.querySelector('#upv-ctx-menu button:last-child');
       if(u.isGroup){
-        if(blockedBtn){ blockedBtn.style.display='flex'; blockedBtn.setAttribute('onclick','leaveCurrentGroup()'); }
-        if(blockedLbl) blockedLbl.textContent='Покинуть группу';
+        if(blockedBtn){ blockedBtn.style.display='flex'; blockedBtn.setAttribute('onclick','leaveCurrentGroup()'); blockedBtn.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#FF453A"><path d="M224 160C241.7 160 256 145.7 256 128C256 110.3 241.7 96 224 96L160 96C107 96 64 139 64 192L64 448C64 501 107 544 160 544L224 544C241.7 544 256 529.7 256 512C256 494.3 241.7 480 224 480L160 480C142.3 480 128 465.7 128 448L128 192C128 174.3 142.3 160 160 160L224 160zM566.6 342.6C579.1 330.1 579.1 309.8 566.6 297.3L438.6 169.3C426.1 156.8 405.8 156.8 393.3 169.3C380.8 181.8 380.8 202.1 393.3 214.6L466.7 288L256 288C238.3 288 224 302.3 224 320C224 337.7 238.3 352 256 352L466.7 352L393.3 425.4C380.8 437.9 380.8 458.2 393.3 470.7C405.8 483.2 426.1 483.2 438.6 470.7L566.6 342.7z"/></svg><span id="upv-block-label">Покинуть группу</span>'; }
         if(deleteBtn){ deleteBtn.style.display=u.isOwner?'flex':'none'; deleteBtn.setAttribute('onclick','deleteCurrentGroup()'); }
       }else{
-        if(blockedBtn){ blockedBtn.style.display='flex'; blockedBtn.setAttribute('onclick','upvToggleBlock()'); }
+        if(blockedBtn){ blockedBtn.style.display='flex'; blockedBtn.setAttribute('onclick','upvToggleBlock()'); blockedBtn.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#FF453A"><path d="M431.2 476.5L163.5 208.8C141.1 240.2 128 278.6 128 320C128 426 214 512 320 512C361.5 512 399.9 498.9 431.2 476.5zM476.5 431.2C498.9 399.8 512 361.4 512 320C512 214 426 128 320 128C278.5 128 240.1 141.1 208.8 163.5L476.5 431.2zM64 320C64 178.6 178.6 64 320 64C461.4 64 576 178.6 576 320C576 461.4 461.4 576 320 576C178.6 576 64 461.4 64 320z"/></svg><span id="upv-block-label">Заблокировать</span>'; }
         if(deleteBtn){ deleteBtn.style.display='flex'; deleteBtn.setAttribute('onclick','upvDeleteChat()'); }
-        setActionLabel(blockedLbl,isUserBlockedByMe(uid)?'unblock':'block');
+        setActionLabel(document.getElementById('upv-block-label'),isUserBlockedByMe(uid)?'unblock':'block');
       }
       const ov=document.getElementById('upv-ctx-overlay');
       if(!ov) return;
@@ -4107,6 +4171,8 @@
       if(currentChatUserId===uid) await openChatWith(uid);
       await loadChats('',{showSkeleton:false});
     };
+    const upvMembersBtn=document.getElementById('upv-members-btn');
+    if(upvMembersBtn) upvMembersBtn.addEventListener('click',()=>window.openGroupMembersMenu(usersMap.get(window.__upvUserId)||{}));
     const upvMoreBtn=document.getElementById('upv-more-btn');
     if(upvMoreBtn) upvMoreBtn.addEventListener('click',openUpvCtx);
     document.querySelectorAll('#profile-edit-sheet > div[style*="background:#1A1A1A"]').forEach(el=>{ el.style.flexShrink='0'; });
@@ -4278,14 +4344,27 @@
   const GROUP_CREATED_ICON='<span style="position:relative;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="rgba(255,255,255,.9)" style="width:17px;height:17px;"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="#1C1C1E" style="position:absolute;width:9px;height:9px;right:0;bottom:0;"><path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/></svg></span>';
   let groupPickMode='create', groupPickedIds=new Set(), groupAvatarDataUrl='', currentGroupForInvite=null;
   function rowAvatarHtml(c,size=48){return `<div class="tg-avatar" style="width:${size}px;height:${size}px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:${Math.round(size*.42)}px;overflow:hidden;flex-shrink:0;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc((c.avatar||c.name||'U').charAt(0).toUpperCase())}</div>`;}
-  window.openNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; w.style.display='block'; requestAnimationFrame(()=>w.classList.add('open')); document.getElementById('new-chat-main-view').style.display='block'; document.getElementById('group-pick-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; searchStartedChats(''); setTimeout(()=>document.getElementById('new-chat-search')?.focus(),120);};
+  window.openNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; const lbl=document.getElementById('new-chat-close-label'); if(lbl) lbl.textContent='Создать группу'; w.style.display='block'; requestAnimationFrame(()=>w.classList.add('open')); document.getElementById('new-chat-main-view').style.display='block'; document.getElementById('group-pick-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; searchStartedChats(''); setTimeout(()=>document.getElementById('new-chat-search')?.focus(),120);};
   window.closeNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; w.classList.remove('open'); setTimeout(()=>{if(!w.classList.contains('open'))w.style.display='none';},240);};
   window.searchStartedChats=async function(q=''){const box=document.getElementById('new-chat-results'); if(!box)return; try{const data=await api(`/chats/started?q=${encodeURIComponent(String(q||'').trim())}`); const items=data.items||[]; box.innerHTML=items.length?items.map(c=>`<button class="group-pick-row" data-uid="${esc(c.id)}">${rowAvatarHtml(c)}<div style="min-width:0;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</div><div style="color:#8E8E93;font-size:13px;">@${esc(c.username||'')}</div></div></button>`).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">Ничего не найдено</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{closeNewChatMenu();window.openChatWith(b.dataset.uid);});}catch(_){box.innerHTML='<div style="color:#ff453a;text-align:center;padding:24px;">Ошибка поиска</div>';}};
-  async function loadPickList(){const box=document.getElementById('group-pick-list'); if(!box)return; const data=await api('/chats/started'); const items=(data.items||[]).filter(c=>!currentGroupForInvite||!(currentGroupForInvite.members||[]).some(m=>m.id===c.id)); box.innerHTML=items.length?items.map(c=>`<button class="group-pick-row ${groupPickedIds.has(c.id)?'selected':''}" data-uid="${esc(c.id)}">${rowAvatarHtml(c)}<div style="min-width:0;flex:1;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</div><div style="color:#8E8E93;font-size:13px;">@${esc(c.username||'')}</div></div><span class="pick-check">${groupPickedIds.has(c.id)?'✓':''}</span></button>`).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">Нет доступных чатов</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{const id=b.dataset.uid; groupPickedIds.has(id)?groupPickedIds.delete(id):groupPickedIds.add(id); loadPickList();});}
-  window.openGroupPickMenu=async function(mode='create',group=null){groupPickMode=mode; currentGroupForInvite=group; groupPickedIds=new Set(); document.getElementById('new-chat-wrap').style.display='block'; requestAnimationFrame(()=>document.getElementById('new-chat-wrap').classList.add('open')); document.getElementById('new-chat-main-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; document.getElementById('group-pick-view').style.display='block'; document.getElementById('group-pick-title').textContent=mode==='add'?'Добавить участников':'Участники'; document.getElementById('group-invite-link-btn').style.display=mode==='add'?'flex':'none'; await loadPickList();};
+  async function loadPickList(){const box=document.getElementById('group-pick-list'); if(!box)return; const data=await api('/chats/started'); const items=(data.items||[]).filter(c=>!currentGroupForInvite||!(currentGroupForInvite.members||[]).some(m=>m.id===c.id)); box.innerHTML=items.length?items.map(c=>`<button class="group-pick-row ${groupPickedIds.has(c.id)?'selected':''}" data-uid="${esc(c.id)}">${rowAvatarHtml(c)}<div style="min-width:0;flex:1;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</div><div style="color:#8E8E93;font-size:13px;">@${esc(c.username||'')}</div></div><span class="pick-check">${groupPickedIds.has(c.id)?'✓':''}</span></button>`).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">Нет доступных чатов</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=async()=>{const id=b.dataset.uid; if(groupPickMode==='add'){ if(currentGroupForInvite){ await api(`/groups/${encodeURIComponent(currentGroupForInvite.id)}/members`,{method:'POST',body:JSON.stringify({memberIds:[id]})}); closeNewChatMenu(); if(currentChatUserId) window.openChatWith(currentChatUserId,{keepScreen:true}); } return; } groupPickedIds.has(id)?groupPickedIds.delete(id):groupPickedIds.add(id); loadPickList();});}
+  window.openGroupPickMenu=async function(mode='create',group=null){groupPickMode=mode; currentGroupForInvite=group; groupPickedIds=new Set(); document.getElementById('new-chat-wrap').style.display='block'; requestAnimationFrame(()=>document.getElementById('new-chat-wrap').classList.add('open')); document.getElementById('new-chat-main-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; document.getElementById('group-pick-view').style.display='block'; document.getElementById('group-pick-title').textContent=mode==='add'?'Добавить участников':'Участники'; document.getElementById('group-invite-link-btn').style.display=mode==='add'?'flex':'none'; const next=document.querySelector('#group-pick-view .mi-primary-pill'); if(next) next.style.display=mode==='add'?'none':'block'; const lbl=document.getElementById('new-chat-close-label'); if(lbl) lbl.textContent=mode==='add'?'Добавить участника':'Создать группу'; await loadPickList();};
   window.continueGroupCreate=async function(){ if(groupPickMode==='add'){ if(currentGroupForInvite&&groupPickedIds.size){ await api(`/groups/${encodeURIComponent(currentGroupForInvite.id)}/members`,{method:'POST',body:JSON.stringify({memberIds:[...groupPickedIds]})}); } closeNewChatMenu(); if(currentChatUserId) window.openChatWith(currentChatUserId,{keepScreen:true}); return; } document.getElementById('group-pick-view').style.display='none'; document.getElementById('group-details-view').style.display='block';};
-  window.setGroupAvatar=async function(input){ if(!input.files||!input.files[0])return; groupAvatarDataUrl=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(input.files[0]);}); const av=document.getElementById('group-avatar-picker'); if(av) av.innerHTML=`<img src="${groupAvatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`; input.value='';};
-  window.createGroupNow=async function(){const name=document.getElementById('group-name-input').value.trim(); if(!name){alert('Название группы обязательно');return;} const res=await api('/groups',{method:'POST',body:JSON.stringify({name,avatarDataUrl:groupAvatarDataUrl,memberIds:[...groupPickedIds]})}); closeNewChatMenu(); if(res.group) window.openChatWith(res.group.id); groupAvatarDataUrl=''; document.getElementById('group-name-input').value=''; document.getElementById('group-avatar-picker').textContent='Г';};
+  window.setGroupAvatar=async function(input){ if(!input.files||!input.files[0])return; groupAvatarDataUrl=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(input.files[0]);}); const av=document.getElementById('group-avatar-picker'); if(av) av.innerHTML=`<img src="${groupAvatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`+'<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>'; input.value='';};
+  window.createGroupNow=async function(){const name=document.getElementById('group-name-input').value.trim(); if(!name){alert('Название группы обязательно');return;} const res=await api('/groups',{method:'POST',body:JSON.stringify({name,avatarDataUrl:groupAvatarDataUrl,memberIds:[...groupPickedIds]})}); closeNewChatMenu(); if(res.group) window.openChatWith(res.group.id); groupAvatarDataUrl=''; document.getElementById('group-name-input').value=''; document.getElementById('group-avatar-picker').innerHTML='Г'+'<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>';};
+
+  window.openGroupMembersMenu=function(group=null){
+    group=group||(usersMap.get(currentChatUserId)||{});
+    if(!group||!group.isGroup) return;
+    const w=document.getElementById('group-members-wrap');
+    const list=document.getElementById('group-members-list');
+    if(!w||!list) return;
+    list.innerHTML=(group.members||[]).map(m=>`<button class="group-pick-row" data-uid="${esc(m.id)}">${rowAvatarHtml(m)}<div style="min-width:0;flex:1;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(m.name||m.username||'Пользователь',!!m.verified)}${m.role==='owner'?'<span class="owner-pill">Владелец</span>':''}</div><div style="color:#8E8E93;font-size:13px;">${m.username?'@'+esc(m.username):''}</div></div></button>`).join('')||'<div style="color:#8E8E93;text-align:center;padding:24px;">Нет участников</div>';
+    list.querySelectorAll('[data-uid]').forEach(b=>b.onclick=async()=>{ closeGroupMembersMenu(); closeUserProfileView(); if(b.dataset.uid&&(!me||b.dataset.uid!==me.id)) await window.openChatWith(b.dataset.uid); });
+    w.style.display='block'; requestAnimationFrame(()=>w.classList.add('open'));
+  };
+  window.closeGroupMembersMenu=function(){const w=document.getElementById('group-members-wrap'); if(!w)return; w.classList.remove('open'); setTimeout(()=>{if(!w.classList.contains('open'))w.style.display='none';},240);};
+
   window.copyCurrentGroupInvite=async function(){ if(!currentGroupForInvite)return; const url=`${location.origin}/m-in/group/${currentGroupForInvite.inviteCode}`; try{await navigator.clipboard.writeText(url); showTopToast('Ссылка скопирована');}catch(_){prompt('Ссылка на вступление',url);} };
   window.leaveCurrentGroup=async function(){ if(!currentChatUserId||!currentChatUserId.startsWith('group_'))return; if(!confirm('Покинуть группу?'))return; await api(`/groups/${encodeURIComponent(currentChatUserId)}/leave`,{method:'POST'}); closeUserProfileView(); showScreen('screen-list'); window.reloadChatsWithSkeleton&&window.reloadChatsWithSkeleton(); };
   window.deleteCurrentGroup=async function(){ if(!currentChatUserId||!currentChatUserId.startsWith('group_'))return; if(!confirm('Удалить группу у всех?'))return; await api(`/groups/${encodeURIComponent(currentChatUserId)}`,{method:'DELETE'}); closeUserProfileView(); showScreen('screen-list'); window.reloadChatsWithSkeleton&&window.reloadChatsWithSkeleton(); };

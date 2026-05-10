@@ -409,18 +409,33 @@ function makeGroupInviteCode(db) {
   while (used.has(code)) code = crypto.randomBytes(6).toString('base64url');
   return code;
 }
+
+function groupMembersWord(count) {
+  const n = Math.abs(Number(count) || 0);
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'участник';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'участника';
+  return 'участников';
+}
+
 function publicGroup(group, db, viewerId = '') {
   const usersById = new Map((db.users || []).map(u => [u.id, u]));
   const members = (Array.isArray(group.members) ? group.members : []).map(uid => {
     const u = usersById.get(uid);
     return u ? { ...publicUserWithPresence(u), role: uid === group.ownerId ? 'owner' : 'member' } : { id: uid, name: 'Пользователь удалён', username: '', avatarDataUrl: '', verified: false, deleted: true, role: uid === group.ownerId ? 'owner' : 'member' };
   });
+  const membersCount = members.length;
+  const onlineCount = members.filter(m => !!m.online).length;
   return {
     id: group.id,
     isGroup: true,
     name: group.name || 'Группа',
     username: '',
-    bio: `${members.length} участник${members.length === 1 ? '' : 'ов'}`,
+    membersCount,
+    onlineCount,
+    statusText: `${membersCount} ${groupMembersWord(membersCount)}, ${onlineCount} онлайн`,
+    bio: `${membersCount} ${groupMembersWord(membersCount)}`,
     avatarDataUrl: group.avatarDataUrl || '',
     bannerDataUrl: '',
     verified: false,
@@ -1059,7 +1074,8 @@ function handleApi(req, res, urlObj) {
     const code = String(searchParams.get('code') || '').trim();
     const g = (db.groups || []).find(x => x.inviteCode === code);
     if (!g) return sendJson(res, 404, { error: 'Not found' });
-    return sendJson(res, 200, { group: { id: g.id, name: g.name || 'Группа', avatarDataUrl: g.avatarDataUrl || '', inviteCode: g.inviteCode || '', membersCount: Array.isArray(g.members) ? g.members.length : 0 } });
+    const membersCount = Array.isArray(g.members) ? g.members.length : 0;
+    return sendJson(res, 200, { group: { id: g.id, name: g.name || 'Группа', avatarDataUrl: g.avatarDataUrl || '', inviteCode: g.inviteCode || '', membersCount, membersText: `${membersCount} ${groupMembersWord(membersCount)}` } });
   }
 
   if (pathname === '/api/public-profile' && method === 'GET') {
@@ -1248,9 +1264,16 @@ function handleApi(req, res, urlObj) {
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const toUserId = String(body.toUserId || '');
         if (!toUserId || toUserId === user.id) return sendJson(res, 400, { error: 'toUserId required' });
-        if (!db.users.some(u => u.id === toUserId)) return sendJson(res, 404, { error: 'Пользователь не найден' });
         const typing = !!body.typing;
-        sendEventToUser(toUserId, 'typing', { fromUserId: user.id, toUserId, typing, at: new Date().toISOString() });
+        const payload = { fromUserId: user.id, fromName: user.name || user.username || 'Пользователь', toUserId, typing, at: new Date().toISOString() };
+        const group = (db.groups || []).find(g => g.id === toUserId);
+        if (group) {
+          if (!Array.isArray(group.members) || !group.members.includes(user.id)) return sendJson(res, 403, { error: 'Нет доступа к группе' });
+          groupMessageRecipients(group).filter(uid => uid !== user.id).forEach(uid => sendEventToUser(uid, 'typing', { ...payload, groupId: group.id }));
+          return sendJson(res, 200, { ok: true });
+        }
+        if (!db.users.some(u => u.id === toUserId)) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        sendEventToUser(toUserId, 'typing', payload);
         return sendJson(res, 200, { ok: true });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
