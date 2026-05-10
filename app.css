@@ -91,6 +91,21 @@
   .msg-meta{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:4px;align-self:flex-end;}
   .msg-time-in{color:#8E8E93;font-size:11px;}
   .msg-time-out{color:rgba(255,255,255,.6);font-size:11px;}
+
+  #chat-title-wrap{flex:1;margin-right:36px;min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  #chat-contact-name{font-size:20px;font-weight:700;color:#fff;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:4px;line-height:1.12;}
+  #chat-presence-status{min-height:17px;color:#8E8E93;font-size:13px;font-weight:600;line-height:17px;display:flex;align-items:center;justify-content:center;gap:5px;}
+  #chat-presence-status.online{color:#0A84FF;}
+  #chat-presence-status.typing{color:#0A84FF;}
+  .typing-dots{display:inline-flex;align-items:flex-end;gap:3px;height:11px;}
+  .typing-dots span{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.35;animation:typingDot 1.05s ease-in-out infinite;}
+  .typing-dots span:nth-child(2){animation-delay:.15s;}
+  .typing-dots span:nth-child(3){animation-delay:.3s;}
+  @keyframes typingDot{0%,60%,100%{transform:translateY(0);opacity:.35;}30%{transform:translateY(-4px);opacity:1;}}
+  .chat-avatar-wrap{position:relative;width:54px;height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:center;}
+  .chat-avatar-wrap .tg-avatar{flex:0 0 auto;}
+  .online-dot{position:absolute;right:2px;bottom:2px;width:12px;height:12px;border-radius:50%;background:#34C759;box-shadow:0 0 0 4px #1A1A1A;opacity:0;transform:scale(.55);transition:opacity .18s ease,transform .18s ease;pointer-events:none;}
+  .chat-avatar-wrap.is-online .online-dot{opacity:1;transform:scale(1);}
   .chat-row{display:flex;align-items:center;gap:12px;background:#1A1A1A;border:none;border-radius:999px;padding:12px 16px;cursor:pointer;text-align:left;width:100%;}
   .chat-row-item{transition:transform .22s ease,opacity .22s ease;}
   .chat-row-item.chat-pin-anim{transform:scale(.985);opacity:.86;}
@@ -233,6 +248,10 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   #fav-reply-close{background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.5);padding:4px;flex-shrink:0;}
   #fav-pinned-bar{display:none;position:absolute;top:116px;left:12px;right:12px;z-index:4;align-items:center;gap:10px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:1.1rem;padding:10px 14px;border-left:3px solid #0078FF;cursor:pointer;}
   #fav-pinned-bar.show{display:flex;}
+  #fav-pinned-bar-stack{width:3px;height:34px;display:none;flex-direction:column;gap:3px;flex-shrink:0;}
+  #fav-pinned-bar-stack.show{display:flex;}
+  #fav-pinned-bar-stack span{flex:1;min-height:3px;border-radius:999px;background:rgba(0,120,255,0.35);transition:background .18s ease,opacity .18s ease;}
+  #fav-pinned-bar-stack span.active{background:#0078FF;}
   #fav-pinned-bar-info{flex:1;min-width:0;}
   #fav-pinned-bar-label{color:#0078FF;font-size:12px;font-weight:600;margin-bottom:2px;}
   #fav-pinned-bar-preview{color:rgba(255,255,255,0.7);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -246,6 +265,10 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   /* ── Закреплённое сообщение (бар под шапкой) ── */
   #pinned-bar{display:none;position:absolute;top:116px;left:12px;right:12px;z-index:4;align-items:center;gap:10px;background:rgba(44,44,46,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:1.1rem;padding:10px 14px;border-left:3px solid #0078FF;cursor:pointer;}
   #pinned-bar.show{display:flex;}
+  #pinned-bar-stack{width:3px;height:34px;display:none;flex-direction:column;gap:3px;flex-shrink:0;}
+  #pinned-bar-stack.show{display:flex;}
+  #pinned-bar-stack span{flex:1;min-height:3px;border-radius:999px;background:rgba(0,120,255,0.35);transition:background .18s ease,opacity .18s ease;}
+  #pinned-bar-stack span.active{background:#0078FF;}
   #pinned-bar-info{flex:1;min-width:0;}
   #pinned-bar-label{color:#0078FF;font-size:12px;font-weight:600;margin-bottom:2px;}
   #pinned-bar-preview{color:rgba(255,255,255,0.7);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

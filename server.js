@@ -139,8 +139,32 @@ function migrateUserSecrets(user) {
   }
   return changed;
 }
+function decryptLegacyE2eeText(e2ee, fromUserId, toUserId) {
+  if (!e2ee || !e2ee.ciphertext || !e2ee.iv) return '';
+  try {
+    const ids = [String(fromUserId || ''), String(toUserId || '')].sort().join(':');
+    const secret = `minimum:e2ee:v1:${ids}`;
+    const key = crypto.pbkdf2Sync(secret, 'minimum-chat-e2ee', 20000, 32, 'sha256');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(String(e2ee.iv), 'base64'));
+    const raw = Buffer.from(String(e2ee.ciphertext), 'base64');
+    const tag = raw.subarray(raw.length - 16);
+    const enc = raw.subarray(0, raw.length - 16);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+function plainTextFromBody(text, e2ee, fromUserId, toUserId) {
+  return (String(text || '').trim() || decryptLegacyE2eeText(e2ee, fromUserId, toUserId)).slice(0, 4000);
+}
 function secureMessageForStorage(msg) {
   if (!msg || msg.isSystem) return msg;
+  if (msg.e2ee && !messageText(msg)) {
+    const e2eeText = decryptLegacyE2eeText(msg.e2ee, msg.fromUserId, msg.toUserId);
+    if (e2eeText) { msg.textEnc = encryptString(e2eeText.slice(0, 4000)); msg.text = ''; }
+  }
+  if (msg.e2ee && messageText(msg)) msg.e2ee = null;
   if (msg.text && !msg.textEnc) { msg.textEnc = encryptString(msg.text); msg.text = ''; }
   if (Array.isArray(msg.media) && msg.media.length && !Array.isArray(msg.mediaEnc)) { msg.mediaEnc = msg.media.map(encryptString); msg.media = []; }
   return msg;
@@ -344,6 +368,29 @@ function publicUser(user) {
   };
 }
 
+function isUserOnline(userId) {
+  for (const token of sseClients.keys()) {
+    const session = sessions.get(token);
+    if (session && session.userId === userId) return true;
+  }
+  return false;
+}
+function lastSeenForUser(user) {
+  let last = user && user.lastSeenAt ? String(user.lastSeenAt) : '';
+  for (const session of sessions.values()) {
+    if (!session || session.userId !== (user && user.id) || !session.lastSeenAt) continue;
+    if (!last || new Date(session.lastSeenAt).getTime() > new Date(last).getTime()) last = session.lastSeenAt;
+  }
+  return last;
+}
+function presenceForUser(user) {
+  if (!user) return { online: false, lastSeenAt: '' };
+  return { online: isUserOnline(user.id), lastSeenAt: lastSeenForUser(user) };
+}
+function publicUserWithPresence(user) {
+  return { ...publicUser(user), ...presenceForUser(user) };
+}
+
 function ensurePinnedChats(user) {
   if (!user || !Array.isArray(user.pinnedChatUserIds)) user.pinnedChatUserIds = [];
   user.pinnedChatUserIds = user.pinnedChatUserIds.filter(Boolean);
@@ -374,6 +421,12 @@ function sendEventToUser(uid, event, payload) {
     if (session.userId === uid) sendEventToSessionToken(token, event, payload);
   }
 }
+function sendEventToAll(event, payload) {
+  for (const token of sseClients.keys()) sendEventToSessionToken(token, event, payload);
+}
+function broadcastPresence(userId, online, lastSeenAt = '') {
+  sendEventToAll('presence', { userId, online: !!online, lastSeenAt });
+}
 
 function broadcastProfile(user) {
   sendEventToUser(user.id, 'profile', publicUser(user));
@@ -403,6 +456,7 @@ function normalizeMessage(msg) {
     forwardedFromName: msg.forwardedFromName || '',
     reactions: msg.reactions || {},
     pinnedBy: Array.isArray(msg.pinnedBy) ? msg.pinnedBy : [],
+    pinnedAt: msg.pinnedAt || '',
     editedAt: msg.editedAt || '',
     isSystem: !!msg.isSystem,
     systemType: msg.systemType || '',
@@ -527,10 +581,21 @@ function handleApi(req, res, urlObj) {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive'
     });
-    res.write(`event: profile\ndata: ${JSON.stringify(publicUser(user))}\n\n`);
+    res.write(`event: profile\ndata: ${JSON.stringify(publicUserWithPresence(user))}\n\n`);
+    const wasOnline = isUserOnline(uid);
     sseClients.set(token, res);
+    session.lastSeenAt = new Date().toISOString();
+    if (!wasOnline) broadcastPresence(uid, true, session.lastSeenAt);
     req.on('close', () => {
+      const closedAt = new Date().toISOString();
+      session.lastSeenAt = closedAt;
       sseClients.delete(token);
+      if (!isUserOnline(uid)) {
+        const dbClose = readDb();
+        const closeUser = dbClose.users.find(u => u.id === uid);
+        if (closeUser) { closeUser.lastSeenAt = closedAt; writeDb(dbClose); }
+        broadcastPresence(uid, false, closedAt);
+      }
     });
     return;
   }
@@ -541,7 +606,11 @@ function handleApi(req, res, urlObj) {
       const s = sessions.get(token);
       sessions.delete(token);
       sseClients.delete(token);
-      if (s && s.userId) broadcastSessionsUpdate(s.userId);
+      if (s && s.userId) {
+        s.lastSeenAt = new Date().toISOString();
+        broadcastSessionsUpdate(s.userId);
+        if (!isUserOnline(s.userId)) broadcastPresence(s.userId, false, s.lastSeenAt);
+      }
     }
     return sendJson(res, 200, { ok: true });
   }
@@ -773,9 +842,11 @@ function handleApi(req, res, urlObj) {
     let securedMessages = false;
     messages.forEach(m => {
       const beforeText = m.text;
+      const beforeTextEnc = m.textEnc;
+      const beforeE2ee = JSON.stringify(m.e2ee || null);
       const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
       secureMessageForStorage(m);
-      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+      if (beforeText !== m.text || beforeTextEnc !== m.textEnc || beforeE2ee !== JSON.stringify(m.e2ee || null) || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
     });
     if (securedMessages) writeDb(db);
     const dialogUserIds = new Set(
@@ -821,7 +892,9 @@ function handleApi(req, res, urlObj) {
           pinIndex: pinOrder.has(uid) ? pinOrder.get(uid) : Number.MAX_SAFE_INTEGER,
           deleted: !u,
           unreadCount,
-          blockedPeer: !!(u && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(uid))
+          blockedPeer: !!(u && Array.isArray(user.blockedUsers) && user.blockedUsers.includes(uid)),
+          online: !!(u && presenceForUser(u).online),
+          lastSeenAt: u ? presenceForUser(u).lastSeenAt : ''
         };
       })
       .filter(u => {
@@ -915,7 +988,8 @@ function handleApi(req, res, urlObj) {
         avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(),
         color: colorForId(u.id),
         verified: !!u.verified,
-        blockedPeer: Array.isArray(user.blockedUsers) && user.blockedUsers.includes(u.id)
+        blockedPeer: Array.isArray(user.blockedUsers) && user.blockedUsers.includes(u.id),
+        ...presenceForUser(u)
       }));
     return sendJson(res, 200, { items });
   }
@@ -956,9 +1030,11 @@ function handleApi(req, res, urlObj) {
     let securedMessages = false;
     items.forEach(m => {
       const beforeText = m.text;
+      const beforeTextEnc = m.textEnc;
+      const beforeE2ee = JSON.stringify(m.e2ee || null);
       const beforeMediaLen = Array.isArray(m.media) ? m.media.length : 0;
       secureMessageForStorage(m);
-      if (beforeText !== m.text || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
+      if (beforeText !== m.text || beforeTextEnc !== m.textEnc || beforeE2ee !== JSON.stringify(m.e2ee || null) || beforeMediaLen !== (Array.isArray(m.media) ? m.media.length : 0)) securedMessages = true;
     });
     if (securedMessages) writeDb(db);
     if (!peer && !items.length) return sendJson(res, 404, { error: 'Пользователь не найден' });
@@ -971,11 +1047,27 @@ function handleApi(req, res, urlObj) {
       firstUnreadMessageId: firstUnread ? firstUnread.id : '',
       items: items.map(normalizeMessage),
       peer: peer
-        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', verified: !!peer.verified, blockedByPeer, blockedPeer }
-        : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true }
+        ? { id: peer.id, name: peer.name || peer.username, username: peer.username, bio: peer.bio || '', avatarDataUrl: peer.avatarDataUrl || '', bannerDataUrl: peer.bannerDataUrl || '', verified: !!peer.verified, blockedByPeer, blockedPeer, ...presenceForUser(peer) }
+        : { id: withUserId, name: 'Пользователь удалён', username: '', bio: '', avatarDataUrl: '', bannerDataUrl: '', deleted: true, online: false, lastSeenAt: '' }
     });
   }
 
+
+  if (pathname === '/api/typing' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const toUserId = String(body.toUserId || '');
+        if (!toUserId || toUserId === user.id) return sendJson(res, 400, { error: 'toUserId required' });
+        if (!db.users.some(u => u.id === toUserId)) return sendJson(res, 404, { error: 'Пользователь не найден' });
+        const typing = !!body.typing;
+        sendEventToUser(toUserId, 'typing', { fromUserId: user.id, toUserId, typing, at: new Date().toISOString() });
+        return sendJson(res, 200, { ok: true });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
+  }
 
   if (pathname === '/api/messages/read' && method === 'POST') {
     return readBody(req)
@@ -1001,12 +1093,13 @@ function handleApi(req, res, urlObj) {
         const user = getUserByToken(req, db);
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const toUserId = String(body.toUserId || '');
-        const text = String(body.text || '').trim();
+        const rawText = String(body.text || '').trim();
         const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
+        const text = plainTextFromBody(rawText, e2ee, user.id, toUserId);
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const peer = db.users.find(u => u.id === toUserId);
         if (!peer) return sendJson(res, 404, { error: 'Пользователь не найден' });
         if (Array.isArray(peer.blockedUsers) && peer.blockedUsers.includes(user.id)) {
@@ -1017,8 +1110,8 @@ function handleApi(req, res, urlObj) {
           fromUserId: user.id,
           toUserId,
           text: '',
-          textEnc: encryptString(e2ee ? '' : text.slice(0, 4000)),
-          e2ee,
+          textEnc: encryptString(text),
+          e2ee: null,
           media: [],
           mediaEnc: media.map(encryptString),
           voiceDurationMs,
@@ -1063,21 +1156,25 @@ function handleApi(req, res, urlObj) {
           else msg.reactions[emoji].push(user.id);
           if (!msg.reactions[emoji].length) delete msg.reactions[emoji];
         } else if (action === 'pin') {
+          const now = new Date().toISOString();
           msg.pinnedBy = [msg.fromUserId, msg.toUserId];
-          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
+          msg.pinnedAt = now;
+          db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: now, isSystem: true, systemType: 'pin', systemText: `${user.name || user.username} закрепил сообщение` });
         } else if (action === 'unpin') {
           msg.pinnedBy = [];
+          msg.pinnedAt = '';
           db.messages.push({ id: crypto.randomUUID(), fromUserId: user.id, toUserId: (msg.fromUserId===user.id?msg.toUserId:msg.fromUserId), text: '', media: [], listenedBy:[user.id], reactions:{}, pinnedBy:[], editedAt:'', createdAt: new Date().toISOString(), isSystem: true, systemType: 'unpin', systemText: `${user.name || user.username} открепил сообщение` });
         } else if (action === 'edit') {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
-          const text = String(body.text || '').trim();
+          const rawText = String(body.text || '').trim();
           const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
+          const text = plainTextFromBody(rawText, e2ee, msg.fromUserId, msg.toUserId);
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
           msg.text = '';
-          msg.textEnc = encryptString(e2ee ? '' : text.slice(0, 4000));
-          msg.e2ee = e2ee;
+          msg.textEnc = encryptString(text);
+          msg.e2ee = null;
           if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {

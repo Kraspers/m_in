@@ -11,7 +11,14 @@
   let pendingAvatarDataUrl='';
   let pendingBannerDataUrl='';
   const chatLeaveAtByUser=new Map();
+  const presenceByUser=new Map();
+  const typingUntilByUser=new Map();
+  const typingTimersByUser=new Map();
   let me=null;
+  let localTypingPeerId='';
+  let localTypingStopTimer=null;
+  let localTypingLastSentAt=0;
+  let presenceClockTimer=null;
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
@@ -881,7 +888,11 @@
   let scaleTimer=null;
   let editingBubble=null;
   let pinnedBubble=null;
+  let pinnedMessages=[];
+  let pinnedCycleIndex=0;
   let favPinnedBubble=null;
+  let favPinnedMessages=[];
+  let favPinnedCycleIndex=0;
   let forwardingBubble=null;
   let forwardingSenderName='';
   const pinSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg>`;
@@ -903,6 +914,64 @@
     setPinActionLabel(document.getElementById('chatlist-pin-label'),isPinned);
     const ico=document.getElementById('chatlist-pin-icon');
     if(ico) ico.innerHTML=isPinned?unpinSvg:pinSvg;
+  }
+  function pinnedPreviewForBubble(bubble){
+    if(!bubble) return t('message');
+    const pEl=bubble.querySelector('p');
+    const hasMedia=!!bubble.querySelector('.msg-media-grid');
+    const hasVoice=!!bubble.classList.contains('voice-bubble');
+    if(pEl&&pEl.textContent.trim()) return pEl.textContent.trim().slice(0,60);
+    if(hasVoice) return t('voice_message');
+    if(hasMedia) return '📷 '+t('media');
+    return t('message');
+  }
+  function renderPinnedStack(stack,total,activeIndex){
+    if(!stack) return;
+    const visible=Math.min(total,4);
+    stack.classList.toggle('show',total>1);
+    if(total<=1){ stack.innerHTML=''; return; }
+    const maxStart=Math.max(0,total-visible);
+    const start=Math.min(Math.max(0,activeIndex-visible+1),maxStart);
+    const activeVisual=(visible-1)-(activeIndex-start);
+    stack.innerHTML=Array.from({length:visible}).map((_,idx)=>`<span class="${idx===activeVisual?'active':''}"></span>`).join('');
+  }
+  function updatePinnedBar(){
+    const bar=document.getElementById('pinned-bar');
+    const preview=document.getElementById('pinned-bar-preview');
+    const stack=document.getElementById('pinned-bar-stack');
+    if(!bar||!preview) return;
+    if(!pinnedMessages.length){
+      pinnedBubble=null;
+      pinnedCycleIndex=0;
+      bar.classList.remove('show');
+      if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
+      return;
+    }
+    if(pinnedCycleIndex>=pinnedMessages.length) pinnedCycleIndex=0;
+    const item=pinnedMessages[pinnedCycleIndex];
+    pinnedBubble=item.bubble||null;
+    preview.textContent=String(item.preview||t('message')).slice(0,60);
+    bar.classList.add('show');
+    renderPinnedStack(stack,pinnedMessages.length,pinnedCycleIndex);
+  }
+  function updateFavPinnedBar(){
+    const bar=document.getElementById('fav-pinned-bar');
+    const preview=document.getElementById('fav-pinned-bar-preview');
+    const stack=document.getElementById('fav-pinned-bar-stack');
+    if(!bar||!preview) return;
+    if(!favPinnedMessages.length){
+      favPinnedBubble=null;
+      favPinnedCycleIndex=0;
+      bar.classList.remove('show');
+      if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
+      return;
+    }
+    if(favPinnedCycleIndex>=favPinnedMessages.length) favPinnedCycleIndex=0;
+    const item=favPinnedMessages[favPinnedCycleIndex];
+    favPinnedBubble=item.bubble||null;
+    preview.textContent=String(item.preview||t('message')).slice(0,60);
+    bar.classList.add('show');
+    renderPinnedStack(stack,favPinnedMessages.length,favPinnedCycleIndex);
   }
   let authToken='';
   let currentChatUserId='';
@@ -1044,6 +1113,13 @@
     save_important:{ru:'Сохраняйте важное',en:'Save what matters',be:'Захоўвайце важнае',uk:'Зберігайте важливе',kk:'Маңыздыны сақтаңыз',uz:'Muhim narsalarni saqlang',de:'Wichtiges speichern',ar:'احفظ المهم'},
     delete_warning_start:{ru:'Это действие',en:'This action is',be:'Гэта дзеянне',uk:'Ця дія',kk:'Бұл әрекет',uz:'Bu amal',de:'Diese Aktion ist',ar:'هذا الإجراء'},
     delete_warning_rest:{ru:'. Ваш аккаунт, все чаты и все данные будут удалены навсегда. Восстановить аккаунт будет невозможно.',en:'. Your account, all chats, and all data will be permanently deleted. Account recovery will be impossible.',be:'. Ваш акаўнт, усе чаты і ўсе даныя будуць выдалены назаўсёды. Аднавіць акаўнт будзе немагчыма.',uk:'. Ваш акаунт, усі чати й усі дані буде видалено назавжди. Відновити акаунт буде неможливо.',kk:'. Аккаунтыңыз, барлық чаттар және барлық деректер біржола жойылады. Аккаунтты қалпына келтіру мүмкін болмайды.',uz:'. Akkauntingiz, barcha chatlar va ma’lumotlar butunlay o‘chiriladi. Akkauntni tiklab bo‘lmaydi.',de:'. Dein Konto, alle Chats und alle Daten werden dauerhaft gelöscht. Eine Wiederherstellung ist nicht möglich.',ar:'. سيتم حذف حسابك وكل الدردشات وكل البيانات نهائيًا. لن يمكن استعادة الحساب.'},
+    presence_online:{ru:'в сети',en:'online',be:'у сетцы',uk:'у мережі',kk:'желіде',uz:'onlayn',de:'online',ar:'متصل'},
+    presence_typing:{ru:'Печатает',en:'Typing',be:'Піша',uk:'Друкує',kk:'Жазып жатыр',uz:'Yozmoqda',de:'Schreibt',ar:'يكتب'},
+    last_seen_just_now:{ru:'Был(а) только что',en:'last seen just now',be:'Быў(ла) толькі што',uk:'Був(ла) щойно',kk:'Жаңа ғана болды',uz:'hozirgina ko‘rindi',de:'zuletzt gerade eben',ar:'كان متصلاً للتو'},
+    last_seen_minute_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
+    last_seen_hour_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
+    last_seen_day_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
+    last_seen_date:{ru:'Был(а) {date}',en:'last seen {date}',be:'Быў(ла) {date}',uk:'Був(ла) {date}',kk:'{date} болды',uz:'{date} ko‘rindi',de:'zuletzt {date}',ar:'كان متصلاً {date}'},
     send_error:{ru:'Ошибка отправки',en:'Send error',be:'Памылка адпраўкі',uk:'Помилка надсилання',kk:'Жіберу қатесі',uz:'Yuborish xatosi',de:'Sendefehler',ar:'خطأ في الإرسال'}
   };
   Object.keys(AUTO_I18N).forEach(key=>{ Object.keys(AUTO_I18N[key]).forEach(lang=>{ I18N[lang][key]=AUTO_I18N[key][lang]; }); });
@@ -1053,7 +1129,7 @@
   function t(key){ return (I18N[currentLanguage]&&I18N[currentLanguage][key]) || I18N.ru[key] || key; }
   function applyAutoI18n(root=document.body){
     if(!root) return;
-    const skipAutoI18n=el=>!!(el&&el.closest?.('[data-no-i18n],#copy-toast,#profile-main-name,#chat-contact-name,#upv-name,.chat-row-name,.forward-row-name,.msg-quote-name'));
+    const skipAutoI18n=el=>!!(el&&el.closest?.('[data-no-i18n],#copy-toast,#profile-main-name,#chat-contact-name,#chat-presence-status,#upv-name,.chat-row-name,.forward-row-name,.msg-quote-name'));
     const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){
       if(!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
       if(node.parentElement&&['SCRIPT','STYLE','TITLE'].includes(node.parentElement.tagName)) return NodeFilter.FILTER_REJECT;
@@ -1104,6 +1180,7 @@
     const lang=LANGUAGES.find(l=>l.code===currentLanguage)||LANGUAGES[0];
     const cur=document.getElementById('profile-language-current'); if(cur) cur.textContent=lang.name;
     renderLanguageList();
+    renderChatPresence();
   }
   function renderLanguageList(){
     const box=document.getElementById('language-list');
@@ -1161,6 +1238,114 @@
       const msg=await decryptE2eeMessage({fromUserId:item.id,toUserId:me&&me.id,e2ee:item.previewE2ee,text:''});
       return {...item,preview:msg.text||''};
     }catch(_){ return item; }
+  }
+
+  function setPresenceState(uid,state={}){
+    if(!uid) return;
+    const hasOnline=Object.prototype.hasOwnProperty.call(state,'online');
+    const hasLastSeen=Object.prototype.hasOwnProperty.call(state,'lastSeenAt');
+    if(!hasOnline&&!hasLastSeen) return;
+    const prev=presenceByUser.get(String(uid))||{};
+    const nextOnline=hasOnline?!!state.online:!!prev.online;
+    const nextLastSeen=hasLastSeen?(state.lastSeenAt||(!nextOnline?new Date().toISOString():'')):(prev.lastSeenAt||(!nextOnline?new Date().toISOString():''));
+    presenceByUser.set(String(uid),{
+      ...prev,
+      online:nextOnline,
+      lastSeenAt:nextLastSeen
+    });
+  }
+  function presenceFor(uid){ return presenceByUser.get(String(uid||''))||{online:false,lastSeenAt:''}; }
+  function pluralRu(n,one,few,many){
+    const a=Math.abs(n)%100,b=a%10;
+    if(a>10&&a<20) return many;
+    if(b>1&&b<5) return few;
+    if(b===1) return one;
+    return many;
+  }
+  function presenceUnit(kind,n){
+    if(currentLanguage==='ru') return kind==='minute'?pluralRu(n,'минуту','минуты','минут'):kind==='hour'?pluralRu(n,'час','часа','часов'):pluralRu(n,'день','дня','дней');
+    if(currentLanguage==='en') return kind==='minute'?(n===1?'minute':'minutes'):kind==='hour'?(n===1?'hour':'hours'):(n===1?'day':'days');
+    if(currentLanguage==='de') return kind==='minute'?(n===1?'Minute':'Minuten'):kind==='hour'?(n===1?'Stunde':'Stunden'):(n===1?'Tag':'Tage');
+    const units={
+      be:{minute:'хв.',hour:'гадз.',day:'дз.'},uk:{minute:'хв',hour:'год',day:'дн'},kk:{minute:'минут',hour:'сағат',day:'күн'},uz:{minute:'daqiqa',hour:'soat',day:'kun'},ar:{minute:'دقيقة',hour:'ساعة',day:'يوم'}
+    };
+    return (units[currentLanguage]&&units[currentLanguage][kind])||kind;
+  }
+  function presenceTemplate(key,vars={}){
+    return t(key).replace(/\{(n|unit|date)\}/g,(_,name)=>vars[name]||'');
+  }
+  function lastSeenText(lastSeenAt){
+    const ts=new Date(lastSeenAt||0).getTime();
+    if(!ts) return '';
+    const diff=Math.max(0,Date.now()-ts);
+    const min=Math.floor(diff/60000);
+    if(min<1) return t('last_seen_just_now');
+    if(min<60) return presenceTemplate('last_seen_minute_ago',{n:min,unit:presenceUnit('minute',min)});
+    const h=Math.floor(min/60);
+    if(h<24) return presenceTemplate('last_seen_hour_ago',{n:h,unit:presenceUnit('hour',h)});
+    const d=Math.floor(h/24);
+    if(d<7) return presenceTemplate('last_seen_day_ago',{n:d,unit:presenceUnit('day',d)});
+    const date=new Date(ts).toLocaleDateString(currentLanguage==='ru'?'ru-RU':undefined,{day:'numeric',month:'short'});
+    return presenceTemplate('last_seen_date',{date});
+  }
+  function renderTypingHtml(){ return `<span class="typing-dots"><span></span><span></span><span></span></span><span>${esc(t('presence_typing'))}</span>`; }
+  function renderChatPresence(){
+    const el=document.getElementById('chat-presence-status');
+    if(!el||!currentChatUserId) return;
+    delete el.dataset.i18nAuto;
+    const typingUntil=typingUntilByUser.get(String(currentChatUserId))||0;
+    el.classList.toggle('typing',typingUntil>Date.now());
+    if(typingUntil>Date.now()){ el.classList.remove('online'); el.innerHTML=renderTypingHtml(); return; }
+    const p=presenceFor(currentChatUserId);
+    el.classList.toggle('online',!!p.online);
+    el.textContent=p.online?t('presence_online'):lastSeenText(p.lastSeenAt);
+  }
+  function updateChatPresenceBadges(uid){
+    const ids=uid?[String(uid)]:Array.from(presenceByUser.keys());
+    ids.forEach(id=>{
+      const online=presenceFor(id).online;
+      document.querySelectorAll('.chat-avatar-wrap').forEach(el=>{ if(el.dataset.chatId===id) el.classList.toggle('is-online',!!online); });
+    });
+    if(!uid||String(uid)===String(currentChatUserId||'')) renderChatPresence();
+  }
+  function markPeerTyping(uid,typing){
+    if(!uid) return;
+    const id=String(uid);
+    if(typing){
+      typingUntilByUser.set(id,Date.now()+3500);
+      if(typingTimersByUser.has(id)) clearTimeout(typingTimersByUser.get(id));
+      typingTimersByUser.set(id,setTimeout(()=>{ typingUntilByUser.delete(id); renderChatPresence(); },3600));
+    }else{
+      typingUntilByUser.delete(id);
+      if(typingTimersByUser.has(id)) clearTimeout(typingTimersByUser.get(id));
+      typingTimersByUser.delete(id);
+    }
+    renderChatPresence();
+  }
+  function sendTypingState(active){
+    if(!currentChatUserId||!authToken) return;
+    const peer=String(currentChatUserId);
+    if(active){
+      const now=Date.now();
+      if(localTypingPeerId!==peer){
+        if(localTypingPeerId) api('/typing',{method:'POST',body:JSON.stringify({toUserId:localTypingPeerId,typing:false})}).catch(()=>{});
+        localTypingPeerId=peer;
+        localTypingLastSentAt=0;
+      }
+      if(now-localTypingLastSentAt>1200){
+        localTypingLastSentAt=now;
+        api('/typing',{method:'POST',body:JSON.stringify({toUserId:peer,typing:true})}).catch(()=>{});
+      }
+      if(localTypingStopTimer) clearTimeout(localTypingStopTimer);
+      localTypingStopTimer=setTimeout(()=>sendTypingState(false),2500);
+    }else if(localTypingPeerId){
+      const stopPeer=localTypingPeerId;
+      localTypingPeerId='';
+      localTypingLastSentAt=0;
+      if(localTypingStopTimer) clearTimeout(localTypingStopTimer);
+      localTypingStopTimer=null;
+      api('/typing',{method:'POST',body:JSON.stringify({toUserId:stopPeer,typing:false})}).catch(()=>{});
+    }
   }
 
 
@@ -1230,7 +1415,7 @@
 
     /* Закрепить/Открепить */
     const inFavCtx=!!el.closest('#fav-messages');
-    const isPinned=inFavCtx?(favPinnedBubble&&favPinnedBubble===el):(pinnedBubble&&pinnedBubble===el);
+    const isPinned=inFavCtx?favPinnedMessages.some(item=>item.bubble===el):(el.dataset&&el.dataset.pinned==='1');
     updatePinActionUI(!!isPinned);
 
     const clone=el.cloneNode(true);
@@ -1536,21 +1721,18 @@
     if(!currentBubble)return closeCtxClean();
     const inFav=!!currentBubble.closest('#fav-messages');
     if(inFav){
-      if(favPinnedBubble&&favPinnedBubble===currentBubble){
-        unpinFavMessage();
+      const idx=favPinnedMessages.findIndex(item=>item.bubble===currentBubble);
+      if(idx>=0){
+        favPinnedMessages.splice(idx,1);
+        if(favPinnedCycleIndex>=favPinnedMessages.length) favPinnedCycleIndex=0;
+        updateFavPinnedBar();
+        updatePinActionUI(false);
         closeCtxClean();
         return;
       }
-      favPinnedBubble=currentBubble;
-      const pEl=currentBubble.querySelector('p');
-      const hasMedia=!!currentBubble.querySelector('.msg-media-grid');
-      const hasVoice=!!currentBubble.classList.contains('voice-bubble');
-      let preview='';
-      if(pEl&&pEl.textContent.trim()) preview=pEl.textContent.trim().slice(0,60);
-      else if(hasVoice) preview=t('voice_message');
-      else if(hasMedia) preview='📷 '+t('media');
-      document.getElementById('fav-pinned-bar-preview').textContent=preview||t('message');
-      document.getElementById('fav-pinned-bar').classList.add('show');
+      favPinnedMessages.unshift({bubble:currentBubble,preview:pinnedPreviewForBubble(currentBubble)});
+      favPinnedCycleIndex=0;
+      updateFavPinnedBar();
       updatePinActionUI(true);
       closeCtxClean();
       return;
@@ -1576,36 +1758,58 @@
 
   function unpinMessage(){
     pinnedBubble=null;
+    pinnedMessages=[];
+    pinnedCycleIndex=0;
     document.getElementById('pinned-bar').classList.remove('show');
+    const stack=document.getElementById('pinned-bar-stack');
+    if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
     updatePinActionUI(false);
   }
 
   function unpinFavMessage(){
     favPinnedBubble=null;
+    favPinnedMessages=[];
+    favPinnedCycleIndex=0;
     document.getElementById('fav-pinned-bar').classList.remove('show');
+    const stack=document.getElementById('fav-pinned-bar-stack');
+    if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
     updatePinActionUI(false);
   }
 
   function scrollToPinned(){
-    if(!pinnedBubble)return;
-    pinnedBubble.scrollIntoView({behavior:'smooth',block:'center'});
+    if(!pinnedMessages.length)return;
+    const item=pinnedMessages[pinnedCycleIndex]||pinnedMessages[0];
+    const bubble=item&&item.bubble;
+    if(!bubble)return;
+    bubble.scrollIntoView({behavior:'smooth',block:'center'});
     setTimeout(()=>{
-      pinnedBubble.classList.remove('msg-flash');
-      void pinnedBubble.offsetWidth;
-      pinnedBubble.classList.add('msg-flash');
-      setTimeout(()=>pinnedBubble.classList.remove('msg-flash'),1200);
+      bubble.classList.remove('msg-flash');
+      void bubble.offsetWidth;
+      bubble.classList.add('msg-flash');
+      setTimeout(()=>bubble.classList.remove('msg-flash'),1200);
     },350);
+    if(pinnedMessages.length>1){
+      pinnedCycleIndex=(pinnedCycleIndex+1)%pinnedMessages.length;
+      updatePinnedBar();
+    }
   }
 
   function scrollToFavPinned(){
-    if(!favPinnedBubble)return;
-    favPinnedBubble.scrollIntoView({behavior:'smooth',block:'center'});
+    if(!favPinnedMessages.length)return;
+    const item=favPinnedMessages[favPinnedCycleIndex]||favPinnedMessages[0];
+    const bubble=item&&item.bubble;
+    if(!bubble)return;
+    bubble.scrollIntoView({behavior:'smooth',block:'center'});
     setTimeout(()=>{
-      favPinnedBubble.classList.remove('msg-flash');
-      void favPinnedBubble.offsetWidth;
-      favPinnedBubble.classList.add('msg-flash');
-      setTimeout(()=>favPinnedBubble.classList.remove('msg-flash'),1200);
+      bubble.classList.remove('msg-flash');
+      void bubble.offsetWidth;
+      bubble.classList.add('msg-flash');
+      setTimeout(()=>bubble.classList.remove('msg-flash'),1200);
     },350);
+    if(favPinnedMessages.length>1){
+      favPinnedCycleIndex=(favPinnedCycleIndex+1)%favPinnedMessages.length;
+      updateFavPinnedBar();
+    }
   }
 
   /* ── Переслать ── */
@@ -2917,12 +3121,12 @@
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
-        items.forEach(c=>usersMap.set(c.id,c));
+        items.forEach(c=>{ usersMap.set(c.id,c); setPresenceState(c.id,c); });
         const html=items.map(c=>{
           const time=c.lastCreatedAt?new Date(c.lastCreatedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
           return `<button class="chat-row chat-row-item ${c.isPinned?'chat-pinned':''}" data-chat-id="${esc(c.id||'')}">
           ${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}
-          <div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div>
+          <div class="chat-avatar-wrap ${presenceFor(c.id).online?'is-online':''}" data-chat-id="${esc(c.id||'')}"><div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div><span class="online-dot"></span></div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${nameWithVerificationHtml(c.name||t('user'),!!c.verified)}</span>${time?`<span style=\"color:#8E8E93;font-size:12px;flex-shrink:0;\">${esc(time)}</span>`:''}</div>
             ${renderChatPreviewHtml(c.preview)}
@@ -2962,12 +3166,15 @@
     }
     window.reloadChatsWithSkeleton=()=>loadChats('',{showSkeleton:true});
     async function openChatWith(userId,opts={}){
+      sendTypingState(false);
       const keepScreen=opts.keepScreen===true;
       currentChatUserId=userId;
       const reqSeq=++openChatReqSeq;
       const optimisticPeer=usersMap.get(userId)||{};
       const titleFast=document.getElementById('chat-contact-name');
       setNameWithVerification(titleFast,optimisticPeer.name||t('chat'),!!optimisticPeer.verified);
+      setPresenceState(userId,optimisticPeer);
+      renderChatPresence();
       if(!keepScreen) showScreen('screen-chat');
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
@@ -2975,6 +3182,9 @@
       currentChatBlockedByPeer=!!peer.blockedByPeer;
       currentChatBlockedPeer=!!peer.blockedPeer;
       usersMap.set(userId,peer);
+      setPresenceState(userId,peer);
+      renderChatPresence();
+      updateChatPresenceBadges(userId);
       const title=document.getElementById('chat-contact-name');
       setNameWithVerification(title,peer.name||t('chat'),!!peer.verified);
       const card=document.getElementById('chat-peer-card');
@@ -3088,7 +3298,7 @@
         const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
         const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
         const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
-        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
+        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" data-pinned="${Array.isArray(m.pinnedBy)&&m.pinnedBy.length>0?'1':'0'}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
@@ -3110,16 +3320,17 @@
       suppressReactionAnimations=false;
       bindRichTextInteractions(wrap);
       initVoicePlayers(wrap);
-      const pinned=items.find(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0);
-      if(pinned){
-        const bubble=wrap.querySelector(`.msg-bubble[data-mid="${pinned.id}"]`);
-        pinnedBubble=bubble||null;
-        const pinPrev=(pinned.text||((Array.isArray(pinned.media)&&String(pinned.media[0]||'').startsWith('data:audio'))?t('voice_message'):'📷 '+t('media')));
-        document.getElementById('pinned-bar-preview').textContent=pinPrev.slice(0,60);
-        document.getElementById('pinned-bar').classList.add('show');
-      }else{
-        unpinMessage();
-      }
+      pinnedMessages=[...items]
+        .filter(msg=>Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0)
+        .sort((a,b)=>new Date(b.pinnedAt||b.createdAt||0).getTime()-new Date(a.pinnedAt||a.createdAt||0).getTime())
+        .map(msg=>{
+          const bubble=wrap.querySelector(`.msg-bubble[data-mid="${msg.id}"]`);
+          const preview=(msg.text||((Array.isArray(msg.media)&&String(msg.media[0]||'').startsWith('data:audio'))?t('voice_message'):'📷 '+t('media')));
+          return {id:msg.id,bubble,preview};
+        });
+      pinnedCycleIndex=0;
+      if(pinnedMessages.length) updatePinnedBar();
+      else unpinMessage();
       enrichLinkPreviews(wrap);
       bottom.scrollIntoView({behavior:'auto'});
     }
@@ -3223,11 +3434,13 @@
         try{
           const p=JSON.parse(ev.data);
           if(me&&p&&p.id===me.id) applyProfileUI(p);
-          if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
-          if(window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
+          if(p&&p.id){ usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p}); setPresenceState(p.id,p); updateChatPresenceBadges(p.id); }
+          const upv=document.getElementById('user-profile-view');
+          if(upv&&upv.classList.contains('open')&&window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
           if(currentChatUserId&&p&&p.id===currentChatUserId){
             setNameWithVerification(document.getElementById('chat-contact-name'),p.name||t('chat'),!!p.verified);
             setNameWithVerification(document.getElementById('chat-peer-name'),p.name||t('user'),!!p.verified);
+            renderChatPresence();
           }
           if(p&&p.id) scheduleChatsRefresh();
         }catch(_){}
@@ -3274,6 +3487,22 @@
             updateChatBlockedUI();
           }
           scheduleChatsRefresh();
+        }catch(_){}
+      });
+      stream.addEventListener('presence',ev=>{
+        try{
+          const p=JSON.parse(ev.data);
+          if(!p||!p.userId) return;
+          setPresenceState(p.userId,{online:!!p.online,lastSeenAt:p.lastSeenAt||''});
+          const cached=usersMap.get(p.userId)||{};
+          usersMap.set(p.userId,{...cached,online:!!p.online,lastSeenAt:p.lastSeenAt||cached.lastSeenAt||''});
+          updateChatPresenceBadges(p.userId);
+        }catch(_){}
+      });
+      stream.addEventListener('typing',ev=>{
+        try{
+          const p=JSON.parse(ev.data);
+          if(p&&p.fromUserId) markPeerTyping(p.fromUserId,!!p.typing);
         }catch(_){}
       });
       stream.addEventListener('sessions_update',()=>{
@@ -3603,11 +3832,13 @@
         }else if(editMediaRemoved){
           payload.media=[];
         }
+        sendTypingState(false);
         legacySendMessage();
         await api(`/messages/${encodeURIComponent(editingId)}`,{method:'PATCH',body:JSON.stringify(payload)});
         return;
       }
       if(!text&&!media.length) return;
+      sendTypingState(false);
       let pendingBubble=null;
       const replyIdToSend=replyToMessageId;
       if(sendBtn) sendBtn.disabled=true;
@@ -3711,7 +3942,7 @@
       }
       if(!currentBubble||!currentBubble.dataset.mid) return closeCtxClean();
       const id=currentBubble.dataset.mid;
-      const isPinned=pinnedBubble===currentBubble;
+      const isPinned=currentBubble.dataset.pinned==='1';
       closeCtxClean();
       await api(`/messages/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
       await openChatWith(currentChatUserId);
@@ -3866,6 +4097,17 @@
     })();
 
 (async function initBackend(){
+      const typingInput=document.getElementById('msg-input');
+      if(typingInput){
+        typingInput.addEventListener('input',()=>{
+          if((typingInput.value||'').trim()) sendTypingState(true);
+          else sendTypingState(false);
+        });
+        typingInput.addEventListener('blur',()=>sendTypingState(false));
+      }
+      if(presenceClockTimer) clearInterval(presenceClockTimer);
+      presenceClockTimer=setInterval(renderChatPresence,30000);
+      window.addEventListener('beforeunload',()=>sendTypingState(false));
       applyRoute();
       if(!location.hash) history.replaceState(null,'','#/list');
       if(!authToken){ openAuth('login'); hideAppLoading(); return; }
