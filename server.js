@@ -995,6 +995,13 @@ function handleApi(req, res, urlObj) {
       }));
     return sendJson(res, 200, { items });
   }
+  if (pathname === '/api/public-profile' && method === 'GET') {
+    const username = String(parsed.searchParams.get('username') || '').trim().toLowerCase();
+    if (!username) return sendJson(res, 200, { user: null });
+    const u = db.users.find(x => String(x.username || '').toLowerCase() === username);
+    if (!u) return sendJson(res, 200, { user: null });
+    return sendJson(res, 200, { user: publicUser(u) });
+  }
 
   const blockMatch = pathname.match(/^\/api\/users\/([^/]+)\/block$/);
   if (blockMatch && method === 'PATCH') {
