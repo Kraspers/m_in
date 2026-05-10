@@ -688,7 +688,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 }
 
 #min-brand-logo{transition:none;}
-.verified-check{display:inline-flex;width:.86em;height:.86em;margin-left:6px;vertical-align:-.08em;color:#2f9bff;flex:0 0 auto;align-items:center;justify-content:center;}
-.verified-check svg{width:100%;height:100%;fill:currentColor;display:block;}
+.verified-check{display:inline-flex;width:.88em;height:.88em;margin-left:6px;vertical-align:-.12em;color:#2f9bff;flex:0 0 auto;align-items:center;justify-content:center;line-height:1;overflow:visible;}
+.verified-check svg{width:100%;height:100%;fill:currentColor;display:block;overflow:visible;}
 #ban-info-modal.open{opacity:1 !important;}
 #ban-info-modal.open #ban-info-card{transform:translateY(0) scale(1) !important;}

@@ -2727,6 +2727,14 @@
       });
       return;
     }
+    const ta=document.createElement('textarea');
+    ta.value=txt;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    ta.remove();
     done();
   }
   function enableBasicSourceProtection(){
@@ -2745,7 +2753,7 @@
     navigator.clipboard.writeText(code).catch(()=>{});
     showTopToast(t('copied'));
   }
-  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.7 10.4L8.5 13.2L14.4 7.3" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true"><mask id="verify-check-cutout" maskUnits="userSpaceOnUse"><rect width="20" height="20" fill="#fff"/><path d="M5.7 10.4L8.5 13.2L14.4 7.3" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></mask><circle cx="10" cy="10" r="9.5" fill="currentColor" mask="url(#verify-check-cutout)"/></svg>';
   function verifiedIconHtml(){ return `<span class="verified-check" title="${t('verified')}">${VERIFY_ICON_SVG}</span>`; }
   function nameWithVerificationHtml(name,verified){ return `${esc(String(name||t('user')))}${verified?verifiedIconHtml():''}`; }
   function setNameWithVerification(el,name,verified){
@@ -2779,9 +2787,9 @@
     const unameEl=document.getElementById('upv-username');
     if(unameEl){
       unameEl.textContent=p.username?`@${p.username}`:'';
-      unameEl.style.color='';
-      unameEl.style.cursor='';
-      unameEl.onclick=null;
+      unameEl.style.color='#8E8E93';
+      unameEl.style.cursor=p.username?'pointer':'';
+      unameEl.onclick=p.username?()=>copyTextWithToast(`${location.origin}/m-in/${p.username}`):null;
     }
     const bioEl=document.getElementById('upv-bio');
     if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
