@@ -2756,7 +2756,13 @@
     window.__upvUserId=p.id||'';
     if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
     setNameWithVerification(document.getElementById('upv-name'),p.name||'Профиль',!!p.verified);
-    document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
+    const unameEl=document.getElementById('upv-username');
+    if(unameEl){
+      unameEl.textContent=p.username?`@${p.username}`:'';
+      unameEl.style.color='#0078FF';
+      unameEl.style.cursor=p.username?'pointer':'default';
+      unameEl.onclick=p.username?()=>copyTextWithToast(`${location.origin}/m-in/${p.username}`):null;
+    }
     const bioEl=document.getElementById('upv-bio');
     if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
     const banner=document.getElementById('upv-banner');
@@ -2806,7 +2812,7 @@
   /* ── Backend sync + auth + routes ── */
   (function(){
     const API_BASE='/api';
-    if(localStorage.getItem('ban_lock_permanent')==='1'){ location.href='/banned.html'; return; }
+    if(localStorage.getItem('ban_lock_permanent')==='1'){ location.href='/banned'; return; }
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
@@ -2839,7 +2845,8 @@
       if(ban.permanent||!ban.expiresAt){
         localStorage.setItem('ban_lock_permanent','1');
         localStorage.setItem('ban_lock_reason',String(ban.reason||''));
-        location.href='/banned.html';
+        if(ban.userId) localStorage.setItem('ban_lock_user',String(ban.userId));
+        location.href='/banned';
         return;
       }
       const modal=document.getElementById('ban-info-modal');
@@ -3001,7 +3008,10 @@
     function openAuth(tab='login'){
       showLoginScreen();
       if(tab==='register') window.showRegPanel();
+      else if(tab==='vpsc') window.showVpscPanel();
       else window.showMainPanel();
+      const path=tab==='register'?'/reg':(tab==='vpsc'?'/vpsc':'/login');
+      if(location.pathname!==path) history.replaceState(null,'',path);
     }
     function closeAuth(){
       hideLoginScreen();
@@ -3535,10 +3545,11 @@
       _origShowScreen(id);
       if(skipRoute) return;
       const route=id.replace('screen-','');
-      history.replaceState(null,'',`#/${route}`);
+      history.replaceState(null,'',`/${route}`);
     };
     function applyRoute(){
-      const h=(location.hash||'#/list').replace(/^#\//,'');
+      const seg=location.pathname.replace(/^\/+/, '')||'list';
+      const h=seg.split('/')[0]||'list';
       const target=`screen-${h}`;
       if(target==='screen-chat'&&!currentChatUserId){
         window.showScreen('screen-list',true);
@@ -3546,7 +3557,7 @@
       }
       if(document.getElementById(target)) window.showScreen(target,true);
     }
-    window.addEventListener('hashchange',applyRoute);
+    window.addEventListener('popstate',applyRoute);
 
     window.doSearch=function(q){
       const res=document.getElementById('search-results');
@@ -3700,6 +3711,7 @@
       localStorage.removeItem('auth_token');
       openAuth('login');
       loadChats();
+      history.replaceState(null,'','/login');
       location.reload();
     };
     window.submitChangePassword=async function(){
@@ -4109,8 +4121,8 @@
       presenceClockTimer=setInterval(renderChatPresence,30000);
       window.addEventListener('beforeunload',()=>sendTypingState(false));
       applyRoute();
-      if(!location.hash) history.replaceState(null,'','#/list');
-      if(!authToken){ openAuth('login'); hideAppLoading(); return; }
+      if(location.pathname==='/'||location.pathname==='') history.replaceState(null,'','/list');
+      if(!authToken){ openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login')); hideAppLoading(); return; }
       try{
         await refreshMe();
         startRealtime();

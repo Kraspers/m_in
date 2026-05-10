@@ -498,7 +498,9 @@ function handleApi(req, res, urlObj) {
 
   if (pathname === '/api/ban-status' && method === 'GET') {
     const db = readDb();
-    const ban = getActiveDeviceBan(db, req);
+    const userId = String(parsed.searchParams.get('userId') || '');
+    const userBan = userId ? getActiveBan(db, userId) : null;
+    const ban = userBan || getActiveDeviceBan(db, req);
     return sendJson(res, 200, { banned: !!ban, ban: publicBan(ban) });
   }
 
@@ -1280,7 +1282,9 @@ const server = http.createServer((req, res) => {
   }
 
   const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname));
+  const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
+  const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' || isPublicProfileRoute ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname))); 
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
