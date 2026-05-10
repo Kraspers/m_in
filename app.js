@@ -2727,6 +2727,14 @@
       });
       return;
     }
+    const ta=document.createElement('textarea');
+    ta.value=txt;
+    ta.style.position='fixed';
+    ta.style.opacity='0';
+    document.body.appendChild(ta);
+    ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    ta.remove();
     done();
   }
   function enableBasicSourceProtection(){
@@ -2779,9 +2787,9 @@
     const unameEl=document.getElementById('upv-username');
     if(unameEl){
       unameEl.textContent=p.username?`@${p.username}`:'';
-      unameEl.style.color='';
-      unameEl.style.cursor='';
-      unameEl.onclick=null;
+      unameEl.style.color='#8E8E93';
+      unameEl.style.cursor=p.username?'pointer':'';
+      unameEl.onclick=p.username?()=>copyTextWithToast(`${location.origin}/m-in/${p.username}`):null;
     }
     const bioEl=document.getElementById('upv-bio');
     if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
