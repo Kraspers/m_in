@@ -498,7 +498,9 @@ function handleApi(req, res, urlObj) {
 
   if (pathname === '/api/ban-status' && method === 'GET') {
     const db = readDb();
-    const ban = getActiveDeviceBan(db, req);
+    const userId = String(searchParams.get('userId') || '');
+    const userBan = userId ? getActiveBan(db, userId) : null;
+    const ban = userBan || getActiveDeviceBan(db, req);
     return sendJson(res, 200, { banned: !!ban, ban: publicBan(ban) });
   }
 
@@ -993,6 +995,14 @@ function handleApi(req, res, urlObj) {
       }));
     return sendJson(res, 200, { items });
   }
+  if (pathname === '/api/public-profile' && method === 'GET') {
+    const db = readDb();
+    const username = String(searchParams.get('username') || '').trim().toLowerCase();
+    if (!username) return sendJson(res, 200, { user: null });
+    const u = db.users.find(x => String(x.username || '').toLowerCase() === username);
+    if (!u) return sendJson(res, 200, { user: null });
+    return sendJson(res, 200, { user: publicUser(u) });
+  }
 
   const blockMatch = pathname.match(/^\/api\/users\/([^/]+)\/block$/);
   if (blockMatch && method === 'PATCH') {
@@ -1280,7 +1290,9 @@ const server = http.createServer((req, res) => {
   }
 
   const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname));
+  const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
+  const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' ? '/index.html' : (isPublicProfileRoute ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))); 
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 

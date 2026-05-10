@@ -3,12 +3,12 @@ const reasonEl=document.getElementById('reason');
 reasonEl.textContent=localStorage.getItem('ban_lock_reason')||'';
 async function syncBan(){
   try{
-    const r=await fetch('/api/ban-status');
+    const r=await fetch('/api/ban-status?userId='+encodeURIComponent(localStorage.getItem('ban_lock_user')||'')+'');
     const data=await r.json();
     if(!data.banned){
       localStorage.removeItem('ban_lock_permanent');
       localStorage.removeItem('ban_lock_reason');
-      location.href='/';
+      location.href='/login';
       return;
     }
     if(data.ban&&data.ban.reason) reasonEl.textContent=data.ban.reason;

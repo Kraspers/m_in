@@ -2709,6 +2709,26 @@
     if(copyToastTimer)clearTimeout(copyToastTimer);
     copyToastTimer=setTimeout(()=>toast.classList.remove('show'),1800);
   }
+  function copyTextWithToast(text){
+    const txt=String(text||'').trim();
+    if(!txt) return;
+    const done=()=>showTopToast(t('copied'));
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done).catch(()=>{
+        const ta=document.createElement('textarea');
+        ta.value=txt;
+        ta.style.position='fixed';
+        ta.style.opacity='0';
+        document.body.appendChild(ta);
+        ta.select();
+        try{ document.execCommand('copy'); }catch(_){}
+        ta.remove();
+        done();
+      });
+      return;
+    }
+    done();
+  }
   function enableBasicSourceProtection(){
     document.addEventListener('contextmenu',e=>e.preventDefault());
     document.addEventListener('keydown',e=>{
@@ -2725,7 +2745,7 @@
     navigator.clipboard.writeText(code).catch(()=>{});
     showTopToast(t('copied'));
   }
-  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" aria-hidden="true"><path d="M530.8 134.1C545.1 144.5 548.3 164.5 537.9 178.8L281.9 530.8C276.4 538.4 267.9 543.1 258.5 543.9C249.1 544.7 240 541.2 233.4 534.6L105.4 406.6C92.9 394.1 92.9 373.8 105.4 361.3C117.9 348.8 138.2 348.8 150.7 361.3L252.2 462.8L486.2 141.1C496.6 126.8 516.6 123.6 530.9 134z"/></svg>';
+  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.7 10.4L8.5 13.2L14.4 7.3" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function verifiedIconHtml(){ return `<span class="verified-check" title="${t('verified')}">${VERIFY_ICON_SVG}</span>`; }
   function nameWithVerificationHtml(name,verified){ return `${esc(String(name||t('user')))}${verified?verifiedIconHtml():''}`; }
   function setNameWithVerification(el,name,verified){
@@ -2756,7 +2776,13 @@
     window.__upvUserId=p.id||'';
     if(p&&p.id) usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p});
     setNameWithVerification(document.getElementById('upv-name'),p.name||'Профиль',!!p.verified);
-    document.getElementById('upv-username').textContent=p.username?`@${p.username}`:'';
+    const unameEl=document.getElementById('upv-username');
+    if(unameEl){
+      unameEl.textContent=p.username?`@${p.username}`:'';
+      unameEl.style.color='';
+      unameEl.style.cursor='';
+      unameEl.onclick=null;
+    }
     const bioEl=document.getElementById('upv-bio');
     if(bioEl) bioEl.textContent=(p.bio||'').slice(0,110);
     const banner=document.getElementById('upv-banner');
@@ -2806,7 +2832,7 @@
   /* ── Backend sync + auth + routes ── */
   (function(){
     const API_BASE='/api';
-    if(localStorage.getItem('ban_lock_permanent')==='1'){ location.href='/banned.html'; return; }
+    if(localStorage.getItem('ban_lock_permanent')==='1'){ location.href='/banned'; return; }
     authToken=localStorage.getItem('auth_token')||'';
     let stream=null;
     let searchTimer=null;
@@ -2839,7 +2865,8 @@
       if(ban.permanent||!ban.expiresAt){
         localStorage.setItem('ban_lock_permanent','1');
         localStorage.setItem('ban_lock_reason',String(ban.reason||''));
-        location.href='/banned.html';
+        if(ban.userId) localStorage.setItem('ban_lock_user',String(ban.userId));
+        location.href='/banned';
         return;
       }
       const modal=document.getElementById('ban-info-modal');
@@ -3001,7 +3028,10 @@
     function openAuth(tab='login'){
       showLoginScreen();
       if(tab==='register') window.showRegPanel();
+      else if(tab==='vpsc') window.showVpscPanel();
       else window.showMainPanel();
+      const path=tab==='register'?'/reg':(tab==='vpsc'?'/vpsc':'/login');
+      if(location.pathname!==path) history.replaceState(null,'',path);
     }
     function closeAuth(){
       hideLoginScreen();
@@ -3535,10 +3565,11 @@
       _origShowScreen(id);
       if(skipRoute) return;
       const route=id.replace('screen-','');
-      history.replaceState(null,'',`#/${route}`);
+      history.replaceState(null,'',`/${route}`);
     };
     function applyRoute(){
-      const h=(location.hash||'#/list').replace(/^#\//,'');
+      const seg=location.pathname.replace(/^\/+/, '')||'list';
+      const h=seg.split('/')[0]||'list';
       const target=`screen-${h}`;
       if(target==='screen-chat'&&!currentChatUserId){
         window.showScreen('screen-list',true);
@@ -3546,7 +3577,7 @@
       }
       if(document.getElementById(target)) window.showScreen(target,true);
     }
-    window.addEventListener('hashchange',applyRoute);
+    window.addEventListener('popstate',applyRoute);
 
     window.doSearch=function(q){
       const res=document.getElementById('search-results');
@@ -3700,6 +3731,7 @@
       localStorage.removeItem('auth_token');
       openAuth('login');
       loadChats();
+      history.replaceState(null,'','/login');
       location.reload();
     };
     window.submitChangePassword=async function(){
@@ -4109,12 +4141,21 @@
       presenceClockTimer=setInterval(renderChatPresence,30000);
       window.addEventListener('beforeunload',()=>sendTypingState(false));
       applyRoute();
-      if(!location.hash) history.replaceState(null,'','#/list');
-      if(!authToken){ openAuth('login'); hideAppLoading(); return; }
+      if(location.pathname==='/'||location.pathname==='') history.replaceState(null,'','/list');
+      if(!authToken){ openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login')); hideAppLoading(); return; }
       try{
         await refreshMe();
         startRealtime();
         await loadChats();
+        const openProfileUsername=new URLSearchParams(location.search).get('openProfileU');
+        if(openProfileUsername){
+          try{
+            const r=await api(`/users/search?q=${encodeURIComponent(openProfileUsername)}`);
+            const u=(r.items||[]).find(x=>String(x.username||'').toLowerCase()===String(openProfileUsername).toLowerCase());
+            if(u) openUserProfileView(u);
+          }catch(_){}
+          history.replaceState(null,'','/list');
+        }
         hideAppLoading();
       }catch(e){
         authToken='';
