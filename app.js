@@ -891,6 +891,8 @@
   let pinnedMessages=[];
   let pinnedCycleIndex=0;
   let favPinnedBubble=null;
+  let favPinnedMessages=[];
+  let favPinnedCycleIndex=0;
   let forwardingBubble=null;
   let forwardingSenderName='';
   const pinSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg>`;
@@ -913,6 +915,24 @@
     const ico=document.getElementById('chatlist-pin-icon');
     if(ico) ico.innerHTML=isPinned?unpinSvg:pinSvg;
   }
+  function pinnedPreviewForBubble(bubble){
+    if(!bubble) return t('message');
+    const pEl=bubble.querySelector('p');
+    const hasMedia=!!bubble.querySelector('.msg-media-grid');
+    const hasVoice=!!bubble.classList.contains('voice-bubble');
+    if(pEl&&pEl.textContent.trim()) return pEl.textContent.trim().slice(0,60);
+    if(hasVoice) return t('voice_message');
+    if(hasMedia) return '📷 '+t('media');
+    return t('message');
+  }
+  function renderPinnedStack(stack,total,activeIndex){
+    if(!stack) return;
+    const visible=Math.min(total,4);
+    stack.classList.toggle('show',total>1);
+    if(total<=1){ stack.innerHTML=''; return; }
+    const activeVisual=visible-1-(activeIndex%visible);
+    stack.innerHTML=Array.from({length:visible}).map((_,idx)=>`<span class="${idx===activeVisual?'active':''}"></span>`).join('');
+  }
   function updatePinnedBar(){
     const bar=document.getElementById('pinned-bar');
     const preview=document.getElementById('pinned-bar-preview');
@@ -930,10 +950,26 @@
     pinnedBubble=item.bubble||null;
     preview.textContent=String(item.preview||t('message')).slice(0,60);
     bar.classList.add('show');
-    if(stack){
-      stack.classList.toggle('show',pinnedMessages.length>1);
-      stack.innerHTML=pinnedMessages.length>1?pinnedMessages.map((_,idx)=>`<span class="${idx===pinnedCycleIndex?'active':''}"></span>`).join(''):'';
+    renderPinnedStack(stack,pinnedMessages.length,pinnedCycleIndex);
+  }
+  function updateFavPinnedBar(){
+    const bar=document.getElementById('fav-pinned-bar');
+    const preview=document.getElementById('fav-pinned-bar-preview');
+    const stack=document.getElementById('fav-pinned-bar-stack');
+    if(!bar||!preview) return;
+    if(!favPinnedMessages.length){
+      favPinnedBubble=null;
+      favPinnedCycleIndex=0;
+      bar.classList.remove('show');
+      if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
+      return;
     }
+    if(favPinnedCycleIndex>=favPinnedMessages.length) favPinnedCycleIndex=0;
+    const item=favPinnedMessages[favPinnedCycleIndex];
+    favPinnedBubble=item.bubble||null;
+    preview.textContent=String(item.preview||t('message')).slice(0,60);
+    bar.classList.add('show');
+    renderPinnedStack(stack,favPinnedMessages.length,favPinnedCycleIndex);
   }
   let authToken='';
   let currentChatUserId='';
@@ -1377,7 +1413,7 @@
 
     /* Закрепить/Открепить */
     const inFavCtx=!!el.closest('#fav-messages');
-    const isPinned=inFavCtx?(favPinnedBubble&&favPinnedBubble===el):(el.dataset&&el.dataset.pinned==='1');
+    const isPinned=inFavCtx?favPinnedMessages.some(item=>item.bubble===el):(el.dataset&&el.dataset.pinned==='1');
     updatePinActionUI(!!isPinned);
 
     const clone=el.cloneNode(true);
@@ -1683,21 +1719,18 @@
     if(!currentBubble)return closeCtxClean();
     const inFav=!!currentBubble.closest('#fav-messages');
     if(inFav){
-      if(favPinnedBubble&&favPinnedBubble===currentBubble){
-        unpinFavMessage();
+      const idx=favPinnedMessages.findIndex(item=>item.bubble===currentBubble);
+      if(idx>=0){
+        favPinnedMessages.splice(idx,1);
+        if(favPinnedCycleIndex>=favPinnedMessages.length) favPinnedCycleIndex=0;
+        updateFavPinnedBar();
+        updatePinActionUI(false);
         closeCtxClean();
         return;
       }
-      favPinnedBubble=currentBubble;
-      const pEl=currentBubble.querySelector('p');
-      const hasMedia=!!currentBubble.querySelector('.msg-media-grid');
-      const hasVoice=!!currentBubble.classList.contains('voice-bubble');
-      let preview='';
-      if(pEl&&pEl.textContent.trim()) preview=pEl.textContent.trim().slice(0,60);
-      else if(hasVoice) preview=t('voice_message');
-      else if(hasMedia) preview='📷 '+t('media');
-      document.getElementById('fav-pinned-bar-preview').textContent=preview||t('message');
-      document.getElementById('fav-pinned-bar').classList.add('show');
+      favPinnedMessages.unshift({bubble:currentBubble,preview:pinnedPreviewForBubble(currentBubble)});
+      favPinnedCycleIndex=0;
+      updateFavPinnedBar();
       updatePinActionUI(true);
       closeCtxClean();
       return;
@@ -1733,7 +1766,11 @@
 
   function unpinFavMessage(){
     favPinnedBubble=null;
+    favPinnedMessages=[];
+    favPinnedCycleIndex=0;
     document.getElementById('fav-pinned-bar').classList.remove('show');
+    const stack=document.getElementById('fav-pinned-bar-stack');
+    if(stack){ stack.classList.remove('show'); stack.innerHTML=''; }
     updatePinActionUI(false);
   }
 
@@ -1756,14 +1793,21 @@
   }
 
   function scrollToFavPinned(){
-    if(!favPinnedBubble)return;
-    favPinnedBubble.scrollIntoView({behavior:'smooth',block:'center'});
+    if(!favPinnedMessages.length)return;
+    const item=favPinnedMessages[favPinnedCycleIndex]||favPinnedMessages[0];
+    const bubble=item&&item.bubble;
+    if(!bubble)return;
+    bubble.scrollIntoView({behavior:'smooth',block:'center'});
     setTimeout(()=>{
-      favPinnedBubble.classList.remove('msg-flash');
-      void favPinnedBubble.offsetWidth;
-      favPinnedBubble.classList.add('msg-flash');
-      setTimeout(()=>favPinnedBubble.classList.remove('msg-flash'),1200);
+      bubble.classList.remove('msg-flash');
+      void bubble.offsetWidth;
+      bubble.classList.add('msg-flash');
+      setTimeout(()=>bubble.classList.remove('msg-flash'),1200);
     },350);
+    if(favPinnedMessages.length>1){
+      favPinnedCycleIndex=(favPinnedCycleIndex+1)%favPinnedMessages.length;
+      updateFavPinnedBar();
+    }
   }
 
   /* ── Переслать ── */
