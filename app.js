@@ -2745,7 +2745,7 @@
     navigator.clipboard.writeText(code).catch(()=>{});
     showTopToast(t('copied'));
   }
-  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.7 10.4L8.5 13.2L14.4 7.3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const VERIFY_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M5.7 10.4L8.5 13.2L14.4 7.3" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   function verifiedIconHtml(){ return `<span class="verified-check" title="${t('verified')}">${VERIFY_ICON_SVG}</span>`; }
   function nameWithVerificationHtml(name,verified){ return `${esc(String(name||t('user')))}${verified?verifiedIconHtml():''}`; }
   function setNameWithVerification(el,name,verified){
