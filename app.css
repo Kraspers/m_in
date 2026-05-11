@@ -726,7 +726,8 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 #group-banner-overlay svg{opacity:0;transition:opacity .18s ease;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));}
 #group-banner-picker:hover #group-banner-overlay{background:rgba(0,0,0,.35);}
 #group-banner-picker:hover #group-banner-overlay svg{opacity:1;}
-.group-sender-name{margin-left:4px;margin-bottom:8px;max-width:260px;}
-.msg-bubble:has(.msg-media-grid) .group-sender-name{margin-bottom:10px;}
+.group-sender-name{margin:2px 8px 8px 8px;max-width:calc(100% - 16px);}
+.msg-bubble:has(.msg-media-grid) .group-sender-name{margin:4px 8px 10px 10px;}
+.msg-fwd .group-sender-name{margin:6px 10px 8px 10px;max-width:calc(100% - 20px);}
 .msg-bubble .group-sender-name:first-child + .msg-media-grid,
 .msg-bubble .group-sender-name:first-child + div .msg-media-grid{border-top-left-radius:0!important;border-top-right-radius:0!important;}

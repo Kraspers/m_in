@@ -3231,6 +3231,7 @@
         const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
         let items=data.items||[];
         items=await Promise.all(items.map(decryptChatPreview));
+        items=Array.from(new Map(items.map(it=>[String(it&&it.id||''),it])).values()).filter(it=>it&&it.id);
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
@@ -3288,8 +3289,7 @@
       setNameWithVerification(titleFast,optimisticPeer.name||t('chat'),!!optimisticPeer.verified);
       setPresenceState(userId,optimisticPeer);
       renderChatPresence();
-      if(!keepScreen) showScreen('screen-chat');
-      renderChatMessages([], '');
+      if(!keepScreen){ showScreen('screen-chat'); renderChatMessages([], ''); }
       const data=await api(`/messages?withUserId=${encodeURIComponent(userId)}`);
       if(reqSeq!==openChatReqSeq) return;
       const peer=data.peer||usersMap.get(userId)||{};
