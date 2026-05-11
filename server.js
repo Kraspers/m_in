@@ -933,7 +933,7 @@ function handleApi(req, res, urlObj) {
         const last = thread[thread.length - 1];
         const name = u ? (u.name || u.username) : 'Пользователь удалён';
         const username = u ? u.username : '';
-        const lastText = last ? messageText(last).trim() : '';
+        const lastText = last ? (last.isSystem ? String(last.systemText || '').trim() : messageText(last).trim()) : '';
         const lastMedia = last ? messageMedia(last) : [];
         const preview = last
           ? (lastText || (last.e2ee ? '' : (lastMedia.length

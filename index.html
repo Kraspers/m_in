@@ -537,14 +537,16 @@
         <button class="mi-primary-pill" onclick="continueGroupCreate()">Далее</button>
       </div>
       <div id="group-details-view" style="display:none;">
-        <div class="group-details-card group-details-card-stack">
-          <div id="group-banner-picker" onclick="document.getElementById('group-banner-input').click()"><img id="group-banner-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;"><div id="group-banner-overlay"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
+        <div id="group-banner-picker" onclick="document.getElementById('group-banner-input').click()"><img id="group-banner-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;"><div id="group-banner-overlay"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
           <input id="group-banner-input" type="file" accept="image/*" style="display:none" onchange="setGroupBanner(this)">
+        <div class="group-details-card group-details-avatar-card">
           <div class="group-details-row">
             <div id="group-avatar-picker" class="tg-avatar" onclick="document.getElementById('group-avatar-input').click()">Г<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div></div>
             <input id="group-avatar-input" type="file" accept="image/*" style="display:none" onchange="setGroupAvatar(this)">
             <input id="group-name-input" class="pe-field" type="text" placeholder="Название группы">
           </div>
+        </div>
+        <div class="group-details-card group-details-bio-card">
           <textarea id="group-bio-input" class="pe-field" placeholder="Описание группы" rows="3" maxlength="110" style="resize:none;"></textarea>
         </div>
         <button id="create-group-btn" class="mi-primary-pill" onclick="createGroupNow()">Создать группу</button>
