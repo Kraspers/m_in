@@ -29,6 +29,14 @@ const MIME_TYPES = {
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
 const linkPreviewCache = new Map();
+const rateLimits = new Map(); // key -> { count, resetAt }
+
+const RATE_LIMITS = {
+  login: { windowMs: 10 * 60 * 1000, max: 20 },
+  register: { windowMs: 10 * 60 * 1000, max: 10 },
+  adminLogin: { windowMs: 10 * 60 * 1000, max: 8 },
+  message: { windowMs: 60 * 1000, max: 120 }
+};
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -552,7 +560,39 @@ async function fetchLinkPreview(urlStr) {
   return out;
 }
 
+
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=(self)');
+}
+
+function rateLimitKey(req, scope='global') {
+  const ipRaw = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
+  const ip = ipRaw.split(',')[0].trim() || 'unknown';
+  return `${scope}:${ip}`;
+}
+function checkRateLimit(req, scope, conf) {
+  const now = Date.now();
+  const key = rateLimitKey(req, scope);
+  const rec = rateLimits.get(key);
+  if (!rec || rec.resetAt <= now) {
+    rateLimits.set(key, { count: 1, resetAt: now + conf.windowMs });
+    return { ok: true, remaining: conf.max - 1, retryAfter: 0 };
+  }
+  if (rec.count >= conf.max) {
+    return { ok: false, remaining: 0, retryAfter: Math.ceil((rec.resetAt - now) / 1000) };
+  }
+  rec.count += 1;
+  rateLimits.set(key, rec);
+  return { ok: true, remaining: Math.max(0, conf.max - rec.count), retryAfter: 0 };
+}
+
 function handleApi(req, res, urlObj) {
+  setSecurityHeaders(res);
   const { pathname, searchParams } = urlObj;
   const method = req.method;
 
@@ -569,6 +609,8 @@ function handleApi(req, res, urlObj) {
   }
 
   if (pathname === '/api/register' && method === 'POST') {
+    const rl = checkRateLimit(req, 'register', RATE_LIMITS.register);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many requests' }); }
     return readBody(req)
       .then(body => {
         const { name, username, password } = body;
@@ -605,6 +647,8 @@ function handleApi(req, res, urlObj) {
   }
 
   if (pathname === '/api/login' && method === 'POST') {
+    const rl = checkRateLimit(req, 'login', RATE_LIMITS.login);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many requests' }); }
     return readBody(req)
       .then(body => {
         const { username, password } = body;
@@ -1299,6 +1343,8 @@ function handleApi(req, res, urlObj) {
   }
 
   if (pathname === '/api/messages' && method === 'POST') {
+    const rl = checkRateLimit(req, 'message', RATE_LIMITS.message);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many messages' }); }
     return readBody(req)
       .then(body => {
         const db = readDb();
@@ -1432,6 +1478,8 @@ function handleApi(req, res, urlObj) {
 
 
   if (pathname === '/api/admin/login' && method === 'POST') {
+    const rl = checkRateLimit(req, 'admin-login', RATE_LIMITS.adminLogin);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many requests' }); }
     return readBody(req).then(body => {
       const db = readDb(); ensureModeration(db);
       if (!verifyAdminPassword(body.password)) return sendJson(res, 401, { error: 'Неверный пароль' });
@@ -1485,6 +1533,7 @@ function sendFile(res, filePath) {
 }
 
 const server = http.createServer((req, res) => {
+  setSecurityHeaders(res);
   const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   if (requestUrl.pathname.startsWith('/api/')) {
