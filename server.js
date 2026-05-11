@@ -176,11 +176,6 @@ function plainTextFromBody(text, e2ee, fromUserId, toUserId) {
 }
 function secureMessageForStorage(msg) {
   if (!msg || msg.isSystem) return msg;
-  if (msg.e2ee && !messageText(msg)) {
-    const e2eeText = decryptLegacyE2eeText(msg.e2ee, msg.fromUserId, msg.toUserId);
-    if (e2eeText) { msg.textEnc = encryptString(e2eeText.slice(0, 4000)); msg.text = ''; }
-  }
-  if (msg.e2ee && messageText(msg)) msg.e2ee = null;
   if (msg.text && !msg.textEnc) { msg.textEnc = encryptString(msg.text); msg.text = ''; }
   if (Array.isArray(msg.media) && msg.media.length && !Array.isArray(msg.mediaEnc)) { msg.mediaEnc = msg.media.map(encryptString); msg.media = []; }
   return msg;
@@ -1037,7 +1032,7 @@ function handleApi(req, res, urlObj) {
         const lastText = last ? (last.isSystem ? String(last.systemText || '').trim() : messageText(last).trim()) : '';
         const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (lastText || (last.e2ee ? '' : (lastMedia.length
+          ? (lastText || (last.e2ee ? '🔒 E2EE' : (lastMedia.length
             ? (String(lastMedia[0] || '').startsWith('data:audio') ? '🎤 Голосовое сообщение' : '📷 Медиа')
             : '')))
           : (username ? `@${username}` : '');
@@ -1438,11 +1433,11 @@ function handleApi(req, res, urlObj) {
         const toUserId = String(body.toUserId || '');
         const rawText = String(body.text || '').trim();
         const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
-        const text = plainTextFromBody(rawText, e2ee, user.id, toUserId);
+        const text = String(rawText || '').slice(0, 4000);
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const group = (db.groups || []).find(g => g.id === toUserId);
         const peer = group ? null : db.users.find(u => u.id === toUserId);
         if (group) {
@@ -1459,8 +1454,8 @@ function handleApi(req, res, urlObj) {
           toUserId,
           groupId: group ? group.id : '',
           text: '',
-          textEnc: encryptString(text),
-          e2ee: null,
+          textEnc: e2ee ? '' : encryptString(text),
+          e2ee: e2ee || null,
           media: [],
           mediaEnc: media.map(encryptString),
           voiceDurationMs,
@@ -1520,13 +1515,13 @@ function handleApi(req, res, urlObj) {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const rawText = String(body.text || '').trim();
           const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
-          const text = plainTextFromBody(rawText, e2ee, msg.fromUserId, msg.toUserId);
+          const text = String(rawText || '').slice(0, 4000);
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          if (!text && !hasMedia && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
           msg.text = '';
-          msg.textEnc = encryptString(text);
-          msg.e2ee = null;
+          msg.textEnc = e2ee ? '' : encryptString(text);
+          msg.e2ee = e2ee || null;
           if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {

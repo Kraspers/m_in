@@ -1233,7 +1233,9 @@
   };
   const e2eeKeyCache=new Map();
   function e2eeChatSecret(peerId){
-    const ids=[String(me&&me.id||''),String(peerId||'')].sort().join(':');
+    const pid=String(peerId||'');
+    if(pid.startsWith('group_')) return `minimum:e2ee:v1:group:${pid}`;
+    const ids=[String(me&&me.id||''),pid].sort().join(':');
     return `minimum:e2ee:v1:${ids}`;
   }
   function bytesToB64(bytes){ let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
