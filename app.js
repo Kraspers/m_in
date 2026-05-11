@@ -152,6 +152,7 @@
     const now=new Date();
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const w=document.createElement('div');
+    w.classList.add('fav-server-item');
     w.style.cssText='align-self:flex-end;max-width:78%;';
     const thumbHtml=replyToMediaSrc
       ?`<img src="${replyToMediaSrc}" style="width:34px;height:34px;border-radius:5px;object-fit:cover;flex-shrink:0;" />`
@@ -200,6 +201,7 @@
     },220);
     try{
       await api('/favorites',{method:'POST',body:JSON.stringify({text:txt,media:attachedFavMedia.slice(0,10)})});
+      loadFavoritesFromServer();
     }catch(_){ }
   }
   async function sendFavVoiceMessage(blob,durationMs,waveform=[]){
@@ -210,6 +212,7 @@
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const url=URL.createObjectURL(blob);
     const w=document.createElement('div');
+    w.classList.add('fav-server-item');
     const favMid='fav-'+(++msgIdCounter);
     w.style.cssText='align-self:flex-end;max-width:276px;';
     const quoteHtml=replyToName
@@ -231,6 +234,7 @@
     try{
       const b64=await blobToDataURL(blob);
       await api('/favorites',{method:'POST',body:JSON.stringify({media:[b64],voiceDurationMs:durationMs||0,voiceWaveform:Array.isArray(waveform)?waveform:[]})});
+      loadFavoritesFromServer();
     }catch(_){ }
   }
 
@@ -3576,11 +3580,14 @@
       }catch(_){}
     }
 
+    let favoritesLoadingPromise=null;
     async function loadFavoritesFromServer(){
+      if(favoritesLoadingPromise) return favoritesLoadingPromise;
+      favoritesLoadingPromise=(async()=>{
       if(!authToken||!me) return;
       try{
         const data=await api('/favorites');
-        const items=Array.isArray(data.items)?data.items:[];
+        const items=(Array.isArray(data.items)?data.items:[]).slice().sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
         const msgs=document.getElementById('fav-messages');
         const anchor=document.getElementById('fav-bottom');
         if(!msgs||!anchor) return;
@@ -3604,6 +3611,9 @@
           bindBubble(w.querySelector('.msg-bubble')); bindMsgRow(w); initVoicePlayers(w); enrichLinkPreviews(w);
         }
       }catch(_){ }
+      finally{ favoritesLoadingPromise=null; }
+      })();
+      return favoritesLoadingPromise;
     }
 
     function startRealtime(){
