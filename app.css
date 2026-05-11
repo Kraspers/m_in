@@ -721,11 +721,12 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 .group-details-banner-card{padding:14px;}
 .group-details-avatar-card .group-details-row{align-items:center;}
 .group-details-bio-card{padding:14px 16px;}
-#group-banner-picker{height:130px;background:#2C2C2E;border-radius:1.8rem;position:relative;overflow:hidden;cursor:pointer;}
+#group-banner-picker{height:130px;background:#fff;border-radius:1.8rem;position:relative;overflow:hidden;cursor:pointer;margin:14px 16px 0;}
 #group-banner-overlay{position:absolute;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;border-radius:1.8rem;transition:background .18s ease;}
 #group-banner-overlay svg{opacity:0;transition:opacity .18s ease;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));}
 #group-banner-picker:hover #group-banner-overlay{background:rgba(0,0,0,.35);}
 #group-banner-picker:hover #group-banner-overlay svg{opacity:1;}
-.group-sender-name{margin-left:6px;margin-bottom:8px;max-width:260px;}
+.group-sender-name{margin-left:4px;margin-bottom:8px;max-width:260px;}
+.msg-bubble:has(.msg-media-grid) .group-sender-name{margin-bottom:10px;}
 .msg-bubble .group-sender-name:first-child + .msg-media-grid,
 .msg-bubble .group-sender-name:first-child + div .msg-media-grid{border-top-left-radius:0!important;border-top-right-radius:0!important;}
