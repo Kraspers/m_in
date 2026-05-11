@@ -37,6 +37,8 @@ const RATE_LIMITS = {
   adminLogin: { windowMs: 10 * 60 * 1000, max: 8 },
   message: { windowMs: 60 * 1000, max: 120 }
 };
+const AUTH_LOCK_MAX_ATTEMPTS = 10;
+const AUTH_LOCK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -58,6 +60,7 @@ function readDb() {
   if (!Array.isArray(db.groups)) db.groups = [];
   if (!Array.isArray(db.messages)) db.messages = [];
   if (!Array.isArray(db.users)) db.users = [];
+  if (!Array.isArray(db.authLocks)) db.authLocks = [];
   return db;
 }
 
@@ -591,6 +594,44 @@ function checkRateLimit(req, scope, conf) {
   return { ok: true, remaining: Math.max(0, conf.max - rec.count), retryAfter: 0 };
 }
 
+function authLockKey(kind, value) {
+  return `${kind}:${String(value || '').trim().toLowerCase()}`;
+}
+function getAuthLock(db, kind, value) {
+  const key = authLockKey(kind, value);
+  const now = Date.now();
+  db.authLocks = (db.authLocks || []).filter(l => !l.lockUntil || new Date(l.lockUntil).getTime() > now);
+  return db.authLocks.find(l => l.key === key) || null;
+}
+function registerAuthFailure(db, kind, value) {
+  const key = authLockKey(kind, value);
+  const now = Date.now();
+  db.authLocks = (db.authLocks || []).filter(l => l.key !== key && (!l.lockUntil || new Date(l.lockUntil).getTime() > now));
+  let rec = (db.authLocks || []).find(l => l.key === key);
+  if (!rec) {
+    rec = { key, kind, value: String(value || ''), attempts: 0, firstAt: new Date(now).toISOString(), lockUntil: '' };
+    db.authLocks.push(rec);
+  }
+  if (rec.lockUntil && new Date(rec.lockUntil).getTime() > now) return rec;
+  if (!rec.firstAt || now - new Date(rec.firstAt).getTime() > AUTH_LOCK_WINDOW_MS) {
+    rec.firstAt = new Date(now).toISOString();
+    rec.attempts = 0;
+  }
+  rec.attempts += 1;
+  if (rec.attempts >= AUTH_LOCK_MAX_ATTEMPTS) {
+    rec.lockUntil = new Date(now + AUTH_LOCK_WINDOW_MS).toISOString();
+  }
+  return rec;
+}
+function clearAuthLock(db, kind, value) {
+  const key = authLockKey(kind, value);
+  db.authLocks = (db.authLocks || []).filter(l => l.key !== key);
+}
+function sendAuthLock(res, lock, title='Слишком много попыток входа') {
+  const expiresAt = lock && lock.lockUntil ? lock.lockUntil : new Date(Date.now() + AUTH_LOCK_WINDOW_MS).toISOString();
+  return sendJson(res, 423, { error: title, ban: { reason: 'Превышено число попыток входа. Попробуйте позже.', expiresAt, permanent: false } });
+}
+
 function handleApi(req, res, urlObj) {
   setSecurityHeaders(res);
   const { pathname, searchParams } = urlObj;
@@ -653,10 +694,18 @@ function handleApi(req, res, urlObj) {
       .then(body => {
         const { username, password } = body;
         const db = readDb();
+        const usernameNorm = String(username || '').trim().toLowerCase();
+        const loginLock = getAuthLock(db, 'login', usernameNorm);
+        if (loginLock && loginLock.lockUntil && new Date(loginLock.lockUntil).getTime() > Date.now()) { writeDb(db); return sendAuthLock(res, loginLock); }
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
         const user = db.users.find(u => u.username === username && verifyPassword(password || '', u.passwordHash));
-        if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        if (!user) {
+          const lock = registerAuthFailure(db, 'login', usernameNorm);
+          writeDb(db);
+          if (lock.lockUntil && new Date(lock.lockUntil).getTime() > Date.now()) return sendAuthLock(res, lock);
+          return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        }
         let secretsChanged = migrateUserSecrets(user);
         if (shouldUpgradePasswordHash(user.passwordHash)) { user.passwordHash = hashPasswordSecure(password || ''); secretsChanged = true; }
         const activeBan = getActiveBan(db, user.id);
@@ -665,7 +714,8 @@ function handleApi(req, res, urlObj) {
           setUserVpscCode(user, makeUniqueVpscCode(db));
           secretsChanged = true;
         }
-        if (secretsChanged) writeDb(db);
+        clearAuthLock(db, 'login', usernameNorm);
+        if (secretsChanged || true) writeDb(db);
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -731,10 +781,17 @@ function handleApi(req, res, urlObj) {
         const code = normalizeVpscCode(body.code);
         if (code.length !== 6) return sendJson(res, 400, { error: 'Некорректный код' });
         const db = readDb();
+        const vpscLock = getAuthLock(db, 'vpsc', code);
+        if (vpscLock && vpscLock.lockUntil && new Date(vpscLock.lockUntil).getTime() > Date.now()) { writeDb(db); return sendAuthLock(res, vpscLock, 'Слишком много попыток входа по VPSC'); }
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
         const user = db.users.find(u => normalizeVpscCode(getUserVpscCode(u)) === code);
-        if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        if (!user) {
+          const lock = registerAuthFailure(db, 'vpsc', code);
+          writeDb(db);
+          if (lock.lockUntil && new Date(lock.lockUntil).getTime() > Date.now()) return sendAuthLock(res, lock, 'Слишком много попыток входа по VPSC');
+          return sendJson(res, 401, { error: 'Код не найден' });
+        }
         const activeBan = getActiveBan(db, user.id);
         if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
         const session = createSession(req, user.id);
@@ -1323,6 +1380,34 @@ function handleApi(req, res, urlObj) {
         return sendJson(res, 200, { ok: true });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
+
+  if (pathname === '/api/favorites' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (!Array.isArray(user.favorites)) user.favorites = [];
+    return sendJson(res, 200, { items: user.favorites.slice(-500) });
+  }
+  if (pathname === '/api/favorites' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      if (!Array.isArray(user.favorites)) user.favorites = [];
+      const text = String(body.text || '').trim().slice(0, 4000);
+      const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+      const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
+      const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
+      if (!text && !media.length && !voiceDurationMs) return sendJson(res, 400, { error: 'Пустое сообщение' });
+      const item = { id: crypto.randomUUID(), text, media, voiceDurationMs, voiceWaveform, createdAt: new Date().toISOString() };
+      user.favorites.push(item);
+      if (user.favorites.length > 2000) user.favorites = user.favorites.slice(-2000);
+      writeDb(db);
+      sendEventToUser(user.id, 'favorite', { item });
+      return sendJson(res, 201, { item });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
   }
 
   if (pathname === '/api/messages/read' && method === 'POST') {
