@@ -29,6 +29,16 @@ const MIME_TYPES = {
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
 const linkPreviewCache = new Map();
+const rateLimits = new Map(); // key -> { count, resetAt }
+
+const RATE_LIMITS = {
+  login: { windowMs: 10 * 60 * 1000, max: 20 },
+  register: { windowMs: 10 * 60 * 1000, max: 10 },
+  adminLogin: { windowMs: 10 * 60 * 1000, max: 8 },
+  message: { windowMs: 60 * 1000, max: 120 }
+};
+const AUTH_LOCK_MAX_ATTEMPTS = 10;
+const AUTH_LOCK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function ensureDb() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -50,6 +60,7 @@ function readDb() {
   if (!Array.isArray(db.groups)) db.groups = [];
   if (!Array.isArray(db.messages)) db.messages = [];
   if (!Array.isArray(db.users)) db.users = [];
+  if (!Array.isArray(db.authLocks)) db.authLocks = [];
   return db;
 }
 
@@ -165,11 +176,6 @@ function plainTextFromBody(text, e2ee, fromUserId, toUserId) {
 }
 function secureMessageForStorage(msg) {
   if (!msg || msg.isSystem) return msg;
-  if (msg.e2ee && !messageText(msg)) {
-    const e2eeText = decryptLegacyE2eeText(msg.e2ee, msg.fromUserId, msg.toUserId);
-    if (e2eeText) { msg.textEnc = encryptString(e2eeText.slice(0, 4000)); msg.text = ''; }
-  }
-  if (msg.e2ee && messageText(msg)) msg.e2ee = null;
   if (msg.text && !msg.textEnc) { msg.textEnc = encryptString(msg.text); msg.text = ''; }
   if (Array.isArray(msg.media) && msg.media.length && !Array.isArray(msg.mediaEnc)) { msg.mediaEnc = msg.media.map(encryptString); msg.media = []; }
   return msg;
@@ -552,7 +558,77 @@ async function fetchLinkPreview(urlStr) {
   return out;
 }
 
+
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=(self)');
+}
+
+function rateLimitKey(req, scope='global') {
+  const ipRaw = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '');
+  const ip = ipRaw.split(',')[0].trim() || 'unknown';
+  return `${scope}:${ip}`;
+}
+function checkRateLimit(req, scope, conf) {
+  const now = Date.now();
+  const key = rateLimitKey(req, scope);
+  const rec = rateLimits.get(key);
+  if (!rec || rec.resetAt <= now) {
+    rateLimits.set(key, { count: 1, resetAt: now + conf.windowMs });
+    return { ok: true, remaining: conf.max - 1, retryAfter: 0 };
+  }
+  if (rec.count >= conf.max) {
+    return { ok: false, remaining: 0, retryAfter: Math.ceil((rec.resetAt - now) / 1000) };
+  }
+  rec.count += 1;
+  rateLimits.set(key, rec);
+  return { ok: true, remaining: Math.max(0, conf.max - rec.count), retryAfter: 0 };
+}
+
+function authLockKey(kind, value) {
+  return `${kind}:${String(value || '').trim().toLowerCase()}`;
+}
+function getAuthLock(db, kind, value) {
+  const key = authLockKey(kind, value);
+  const now = Date.now();
+  db.authLocks = (db.authLocks || []).filter(l => !l.lockUntil || new Date(l.lockUntil).getTime() > now);
+  return db.authLocks.find(l => l.key === key) || null;
+}
+function registerAuthFailure(db, kind, value) {
+  const key = authLockKey(kind, value);
+  const now = Date.now();
+  db.authLocks = (db.authLocks || []).filter(l => l.key !== key && (!l.lockUntil || new Date(l.lockUntil).getTime() > now));
+  let rec = (db.authLocks || []).find(l => l.key === key);
+  if (!rec) {
+    rec = { key, kind, value: String(value || ''), attempts: 0, firstAt: new Date(now).toISOString(), lockUntil: '' };
+    db.authLocks.push(rec);
+  }
+  if (rec.lockUntil && new Date(rec.lockUntil).getTime() > now) return rec;
+  if (!rec.firstAt || now - new Date(rec.firstAt).getTime() > AUTH_LOCK_WINDOW_MS) {
+    rec.firstAt = new Date(now).toISOString();
+    rec.attempts = 0;
+  }
+  rec.attempts += 1;
+  if (rec.attempts >= AUTH_LOCK_MAX_ATTEMPTS) {
+    rec.lockUntil = new Date(now + AUTH_LOCK_WINDOW_MS).toISOString();
+  }
+  return rec;
+}
+function clearAuthLock(db, kind, value) {
+  const key = authLockKey(kind, value);
+  db.authLocks = (db.authLocks || []).filter(l => l.key !== key);
+}
+function sendAuthLock(res, lock, title='Слишком много попыток входа') {
+  const expiresAt = lock && lock.lockUntil ? lock.lockUntil : new Date(Date.now() + AUTH_LOCK_WINDOW_MS).toISOString();
+  return sendJson(res, 423, { error: title, ban: { reason: 'Превышено число попыток входа. Попробуйте позже.', expiresAt, permanent: false } });
+}
+
 function handleApi(req, res, urlObj) {
+  setSecurityHeaders(res);
   const { pathname, searchParams } = urlObj;
   const method = req.method;
 
@@ -569,6 +645,8 @@ function handleApi(req, res, urlObj) {
   }
 
   if (pathname === '/api/register' && method === 'POST') {
+    const rl = checkRateLimit(req, 'register', RATE_LIMITS.register);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many requests' }); }
     return readBody(req)
       .then(body => {
         const { name, username, password } = body;
@@ -605,14 +683,24 @@ function handleApi(req, res, urlObj) {
   }
 
   if (pathname === '/api/login' && method === 'POST') {
+    const rl = checkRateLimit(req, 'login', RATE_LIMITS.login);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many requests' }); }
     return readBody(req)
       .then(body => {
         const { username, password } = body;
         const db = readDb();
+        const usernameNorm = String(username || '').trim().toLowerCase();
+        const loginLock = getAuthLock(db, 'login', usernameNorm);
+        if (loginLock && loginLock.lockUntil && new Date(loginLock.lockUntil).getTime() > Date.now()) { writeDb(db); return sendAuthLock(res, loginLock); }
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
         const user = db.users.find(u => u.username === username && verifyPassword(password || '', u.passwordHash));
-        if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        if (!user) {
+          const lock = registerAuthFailure(db, 'login', usernameNorm);
+          writeDb(db);
+          if (lock.lockUntil && new Date(lock.lockUntil).getTime() > Date.now()) return sendAuthLock(res, lock);
+          return sendJson(res, 401, { error: 'Неверный логин или пароль' });
+        }
         let secretsChanged = migrateUserSecrets(user);
         if (shouldUpgradePasswordHash(user.passwordHash)) { user.passwordHash = hashPasswordSecure(password || ''); secretsChanged = true; }
         const activeBan = getActiveBan(db, user.id);
@@ -621,7 +709,8 @@ function handleApi(req, res, urlObj) {
           setUserVpscCode(user, makeUniqueVpscCode(db));
           secretsChanged = true;
         }
-        if (secretsChanged) writeDb(db);
+        clearAuthLock(db, 'login', usernameNorm);
+        if (secretsChanged || true) writeDb(db);
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
@@ -687,10 +776,17 @@ function handleApi(req, res, urlObj) {
         const code = normalizeVpscCode(body.code);
         if (code.length !== 6) return sendJson(res, 400, { error: 'Некорректный код' });
         const db = readDb();
+        const vpscLock = getAuthLock(db, 'vpsc', code);
+        if (vpscLock && vpscLock.lockUntil && new Date(vpscLock.lockUntil).getTime() > Date.now()) { writeDb(db); return sendAuthLock(res, vpscLock, 'Слишком много попыток входа по VPSC'); }
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
         const user = db.users.find(u => normalizeVpscCode(getUserVpscCode(u)) === code);
-        if (!user) return sendJson(res, 401, { error: 'Код не найден' });
+        if (!user) {
+          const lock = registerAuthFailure(db, 'vpsc', code);
+          writeDb(db);
+          if (lock.lockUntil && new Date(lock.lockUntil).getTime() > Date.now()) return sendAuthLock(res, lock, 'Слишком много попыток входа по VPSC');
+          return sendJson(res, 401, { error: 'Код не найден' });
+        }
         const activeBan = getActiveBan(db, user.id);
         if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
         const session = createSession(req, user.id);
@@ -936,7 +1032,7 @@ function handleApi(req, res, urlObj) {
         const lastText = last ? (last.isSystem ? String(last.systemText || '').trim() : messageText(last).trim()) : '';
         const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (lastText || (last.e2ee ? '' : (lastMedia.length
+          ? (lastText || (last.e2ee ? '🔒 E2EE' : (lastMedia.length
             ? (String(lastMedia[0] || '').startsWith('data:audio') ? '🎤 Голосовое сообщение' : '📷 Медиа')
             : '')))
           : (username ? `@${username}` : '');
@@ -1281,6 +1377,34 @@ function handleApi(req, res, urlObj) {
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
+
+  if (pathname === '/api/favorites' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    if (!Array.isArray(user.favorites)) user.favorites = [];
+    return sendJson(res, 200, { items: user.favorites.slice(-500) });
+  }
+  if (pathname === '/api/favorites' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      if (!Array.isArray(user.favorites)) user.favorites = [];
+      const text = String(body.text || '').trim().slice(0, 4000);
+      const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+      const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
+      const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
+      if (!text && !media.length && !voiceDurationMs) return sendJson(res, 400, { error: 'Пустое сообщение' });
+      const item = { id: crypto.randomUUID(), text, media, voiceDurationMs, voiceWaveform, createdAt: new Date().toISOString() };
+      user.favorites.push(item);
+      if (user.favorites.length > 2000) user.favorites = user.favorites.slice(-2000);
+      writeDb(db);
+      sendEventToUser(user.id, 'favorite', { item });
+      return sendJson(res, 201, { item });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
   if (pathname === '/api/messages/read' && method === 'POST') {
     return readBody(req)
       .then(body => {
@@ -1299,6 +1423,8 @@ function handleApi(req, res, urlObj) {
   }
 
   if (pathname === '/api/messages' && method === 'POST') {
+    const rl = checkRateLimit(req, 'message', RATE_LIMITS.message);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many messages' }); }
     return readBody(req)
       .then(body => {
         const db = readDb();
@@ -1307,11 +1433,11 @@ function handleApi(req, res, urlObj) {
         const toUserId = String(body.toUserId || '');
         const rawText = String(body.text || '').trim();
         const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
-        const text = plainTextFromBody(rawText, e2ee, user.id, toUserId);
+        const text = String(rawText || '').slice(0, 4000);
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const group = (db.groups || []).find(g => g.id === toUserId);
         const peer = group ? null : db.users.find(u => u.id === toUserId);
         if (group) {
@@ -1328,8 +1454,8 @@ function handleApi(req, res, urlObj) {
           toUserId,
           groupId: group ? group.id : '',
           text: '',
-          textEnc: encryptString(text),
-          e2ee: null,
+          textEnc: e2ee ? '' : encryptString(text),
+          e2ee: e2ee || null,
           media: [],
           mediaEnc: media.map(encryptString),
           voiceDurationMs,
@@ -1389,13 +1515,13 @@ function handleApi(req, res, urlObj) {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const rawText = String(body.text || '').trim();
           const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
-          const text = plainTextFromBody(rawText, e2ee, msg.fromUserId, msg.toUserId);
+          const text = String(rawText || '').slice(0, 4000);
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          if (!text && !hasMedia && !e2ee) return sendJson(res, 400, { error: 'Пустое сообщение' });
           msg.text = '';
-          msg.textEnc = encryptString(text);
-          msg.e2ee = null;
+          msg.textEnc = e2ee ? '' : encryptString(text);
+          msg.e2ee = e2ee || null;
           if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {
@@ -1432,6 +1558,8 @@ function handleApi(req, res, urlObj) {
 
 
   if (pathname === '/api/admin/login' && method === 'POST') {
+    const rl = checkRateLimit(req, 'admin-login', RATE_LIMITS.adminLogin);
+    if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); return sendJson(res, 429, { error: 'Too many requests' }); }
     return readBody(req).then(body => {
       const db = readDb(); ensureModeration(db);
       if (!verifyAdminPassword(body.password)) return sendJson(res, 401, { error: 'Неверный пароль' });
@@ -1485,6 +1613,7 @@ function sendFile(res, filePath) {
 }
 
 const server = http.createServer((req, res) => {
+  setSecurityHeaders(res);
   const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   if (requestUrl.pathname.startsWith('/api/')) {

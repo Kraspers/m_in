@@ -100,7 +100,7 @@
     btn.innerHTML=active?SEND_ICON_SVG:MIC_ICON_SVG;
   }
 
-  function sendFavMessage(){
+  async function sendFavMessage(){
     const inp=document.getElementById('fav-input');
     const txt=inp.value.trim();
     const hasMedia=attachedFavMedia.length>0;
@@ -152,6 +152,7 @@
     const now=new Date();
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const w=document.createElement('div');
+    w.classList.add('fav-server-item');
     w.style.cssText='align-self:flex-end;max-width:78%;';
     const thumbHtml=replyToMediaSrc
       ?`<img src="${replyToMediaSrc}" style="width:34px;height:34px;border-radius:5px;object-fit:cover;flex-shrink:0;" />`
@@ -198,8 +199,12 @@
     setTimeout(()=>{
       newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
     },220);
+    try{
+      await api('/favorites',{method:'POST',body:JSON.stringify({text:txt,media:attachedFavMedia.slice(0,10)})});
+      loadFavoritesFromServer();
+    }catch(_){ }
   }
-  function sendFavVoiceMessage(blob,durationMs,waveform=[]){
+  async function sendFavVoiceMessage(blob,durationMs,waveform=[]){
     const msgs=document.getElementById('fav-messages');
     const anchor=document.getElementById('fav-bottom');
     if(!msgs||!anchor||!blob) return;
@@ -207,6 +212,7 @@
     const t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     const url=URL.createObjectURL(blob);
     const w=document.createElement('div');
+    w.classList.add('fav-server-item');
     const favMid='fav-'+(++msgIdCounter);
     w.style.cssText='align-self:flex-end;max-width:276px;';
     const quoteHtml=replyToName
@@ -225,6 +231,11 @@
     initVoicePlayers(w);
     dismissFavReply();
     anchor.scrollIntoView({behavior:'smooth'});
+    try{
+      const b64=await blobToDataURL(blob);
+      await api('/favorites',{method:'POST',body:JSON.stringify({media:[b64],voiceDurationMs:durationMs||0,voiceWaveform:Array.isArray(waveform)?waveform:[]})});
+      loadFavoritesFromServer();
+    }catch(_){ }
   }
 
   /* ── Кнопка отправки ── */
@@ -257,6 +268,15 @@
     btn.style.pointerEvents='all';
     btn.classList.toggle('voice-mode',!active);
     btn.innerHTML=active?SEND_ICON_SVG:MIC_ICON_SVG;
+  }
+
+  function blobToDataURL(blob){
+    return new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(String(r.result||''));
+      r.onerror=reject;
+      r.readAsDataURL(blob);
+    });
   }
 
   function formatVoiceTime(ms){
@@ -1213,7 +1233,9 @@
   };
   const e2eeKeyCache=new Map();
   function e2eeChatSecret(peerId){
-    const ids=[String(me&&me.id||''),String(peerId||'')].sort().join(':');
+    const pid=String(peerId||'');
+    if(pid.startsWith('group_')) return `minimum:e2ee:v1:group:${pid}`;
+    const ids=[String(me&&me.id||''),pid].sort().join(':');
     return `minimum:e2ee:v1:${ids}`;
   }
   function bytesToB64(bytes){ let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
@@ -3559,6 +3581,43 @@
         if(dc) dc.textContent=String(s.count||1);
       }catch(_){}
     }
+
+    let favoritesLoadingPromise=null;
+    async function loadFavoritesFromServer(){
+      if(favoritesLoadingPromise) return favoritesLoadingPromise;
+      favoritesLoadingPromise=(async()=>{
+      if(!authToken||!me) return;
+      try{
+        const data=await api('/favorites');
+        const items=(Array.isArray(data.items)?data.items:[]).slice().sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+        const msgs=document.getElementById('fav-messages');
+        const anchor=document.getElementById('fav-bottom');
+        if(!msgs||!anchor) return;
+        msgs.querySelectorAll('.fav-server-item').forEach(el=>el.remove());
+        for(const it of items){
+          const w=document.createElement('div');
+          w.className='fav-server-item';
+          w.style.cssText='align-self:flex-end;max-width:78%;';
+          const t=new Date(it.createdAt||Date.now());
+          const hh=String(t.getHours()).padStart(2,'0'); const mm=String(t.getMinutes()).padStart(2,'0');
+          const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+          const media=(Array.isArray(it.media)?it.media:[]);
+          if(media.length){
+            const grid=buildMediaGrid(media,'srv-'+Math.random().toString(36).slice(2),'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)');
+            const cap=it.text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${renderRichText(it.text)}</p>`:'';
+            w.innerHTML=`<div class="bubble-out msg-bubble" style="padding:3px 4px 6px 4px;"><div style="overflow:hidden;">${grid}</div>${cap}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${hh}:${mm}</span>${tick}</div></div>`;
+          }else{
+            w.innerHTML=`<div class="bubble-out msg-bubble"><p class="msg-text-out">${renderRichText(it.text||'')}</p><div class="msg-meta"><span class="msg-time-out">${hh}:${mm}</span>${tick}</div></div>`;
+          }
+          msgs.insertBefore(w,anchor);
+          bindBubble(w.querySelector('.msg-bubble')); bindMsgRow(w); initVoicePlayers(w); enrichLinkPreviews(w);
+        }
+      }catch(_){ }
+      finally{ favoritesLoadingPromise=null; }
+      })();
+      return favoritesLoadingPromise;
+    }
+
     function startRealtime(){
       if(stream) stream.close();
       if(!authToken) return;
@@ -3671,6 +3730,7 @@
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
       });
+      stream.addEventListener('favorite',()=>{ loadFavoritesFromServer(); });
       stream.addEventListener('force_logout',ev=>{
         let payload={}; try{payload=JSON.parse(ev.data||'{}');}catch(_){}
         authToken='';
@@ -4285,6 +4345,7 @@
       if(!authToken){ openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login')); hideAppLoading(); return; }
       try{
         await refreshMe();
+        await loadFavoritesFromServer();
         startRealtime();
         await loadChats();
         const qsInit=new URLSearchParams(location.search);
