@@ -489,13 +489,13 @@
       return `<span style="--h:${h}px"></span>`;
     }).join('');
   }
-  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text='',forwardedFromName='',quoteHtml=''}={}){
+  function renderVoiceBubbleHtml({mine=true,src='',durationMs=0,timeText='',tickHtml='',waveform=[],showUnreadDot=false,text='',forwardedFromName='',quoteHtml='',senderHtml=''}={}){
     const timeClass=mine?'msg-time-out':'msg-time-in';
     const textClass=mine?'msg-text-out':'msg-text-in';
     const caption=text?`<p class="${textClass} voice-caption">${renderRichText(text)}</p>`:'';
     const fwd=forwardedFromName?`<div style="font-size:12px;color:rgba(255,255,255,0.62);line-height:1.25;margin-bottom:5px;flex-basis:100%;">${t('forwarded_from')} <b>${esc(forwardedFromName)}</b></div>`:'';
     const quote=quoteHtml?`<div style="flex-basis:100%;margin-bottom:2px;">${quoteHtml}</div>`:'';
-    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="voice-sent"><span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</span></div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
+    return `<div class="${mine?'bubble-out':'bubble-in'} msg-bubble voice-bubble">${senderHtml}${fwd}${quote}<button class="voice-play-btn" type="button">${PLAY_ICON_SVG}</button><div style="flex:1;min-width:0;"><div class="voice-wave-static">${renderVoiceWave(waveform)}</div><div class="voice-meta"><span class="${timeClass}">${formatVoiceTime(durationMs)}</span>${showUnreadDot?'<span class="voice-dot"></span>':''}<span class="voice-sent"><span class="${timeClass} voice-time">${timeText}</span>${mine?tickHtml:''}</span></div>${caption}</div>${src?`<audio preload="metadata" data-voice-duration="${durationMs}" data-voice-wave='${esc(JSON.stringify(waveform||[]))}' src="${esc(src)}"></audio>`:''}</div>`;
   }
   async function extractWaveform(blob,bars=46){
     const ab=await blob.arrayBuffer();
@@ -1122,6 +1122,20 @@
     last_seen_hour_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
     last_seen_day_ago:{ru:'Был(а) {n} {unit} назад',en:'last seen {n} {unit} ago',be:'Быў(ла) {n} {unit} таму',uk:'Був(ла) {n} {unit} тому',kk:'{n} {unit} бұрын болды',uz:'{n} {unit} oldin ko‘rindi',de:'zuletzt vor {n} {unit}',ar:'كان متصلاً قبل {n} {unit}'},
     last_seen_date:{ru:'Был(а) {date}',en:'last seen {date}',be:'Быў(ла) {date}',uk:'Був(ла) {date}',kk:'{date} болды',uz:'{date} ko‘rindi',de:'zuletzt {date}',ar:'كان متصلاً {date}'},
+    create_group:{ru:'Создать группу',en:'Create group',be:'Стварыць групу',uk:'Створити групу',kk:'Топ құру',uz:'Guruh yaratish',de:'Gruppe erstellen',ar:'إنشاء مجموعة'},
+    group_name:{ru:'Название группы',en:'Group name',be:'Назва групы',uk:'Назва групи',kk:'Топ атауы',uz:'Guruh nomi',de:'Gruppenname',ar:'اسم المجموعة'},
+    group_description:{ru:'Описание группы',en:'Group description',be:'Апісанне групы',uk:'Опис групи',kk:'Топ сипаттамасы',uz:'Guruh tavsifi',de:'Gruppenbeschreibung',ar:'وصف المجموعة'},
+    members:{ru:'Участники',en:'Members',be:'Удзельнікі',uk:'Учасники',kk:'Қатысушылар',uz:'A’zolar',de:'Mitglieder',ar:'الأعضاء'},
+    add_members:{ru:'Добавить участников',en:'Add members',be:'Дадаць удзельнікаў',uk:'Додати учасників',kk:'Қатысушылар қосу',uz:'A’zolar qo‘shish',de:'Mitglieder hinzufügen',ar:'إضافة أعضاء'},
+    add_member:{ru:'Добавить участника',en:'Add member',be:'Дадаць удзельніка',uk:'Додати учасника',kk:'Қатысушы қосу',uz:'A’zo qo‘shish',de:'Mitglied hinzufügen',ar:'إضافة عضو'},
+    invite_link:{ru:'Ссылка на вступление',en:'Invite link',be:'Спасылка для ўступлення',uk:'Посилання для вступу',kk:'Кіру сілтемесі',uz:'Qo‘shilish havolasi',de:'Einladungslink',ar:'رابط الانضمام'},
+    sent:{ru:'Отправлено',en:'Sent',be:'Адпраўлена',uk:'Надіслано',kk:'Жіберілді',uz:'Yuborildi',de:'Gesendet',ar:'تم الإرسال'},
+    send:{ru:'Отправить',en:'Send',be:'Адправіць',uk:'Надіслати',kk:'Жіберу',uz:'Yuborish',de:'Senden',ar:'إرسال'},
+    next:{ru:'Далее',en:'Next',be:'Далей',uk:'Далі',kk:'Келесі',uz:'Keyingi',de:'Weiter',ar:'التالي'},
+    owner:{ru:'Владелец',en:'Owner',be:'Уладальнік',uk:'Власник',kk:'Иесі',uz:'Egasi',de:'Besitzer',ar:'المالك'},
+    no_available_chats:{ru:'Нет доступных чатов',en:'No available chats',be:'Няма даступных чатаў',uk:'Немає доступних чатів',kk:'Қолжетімді чаттар жоқ',uz:'Mavjud chatlar yo‘q',de:'Keine verfügbaren Chats',ar:'لا توجد دردشات متاحة'},
+    nothing_found:{ru:'Ничего не найдено',en:'Nothing found',be:'Нічога не знойдзена',uk:'Нічого не знайдено',kk:'Ештеңе табылмады',uz:'Hech narsa topilmadi',de:'Nichts gefunden',ar:'لم يتم العثور على شيء'},
+    invite_group_text:{ru:'Приглашаю тебя в группу {name}',en:'I invite you to the group {name}',be:'Запрашаю цябе ў групу {name}',uk:'Запрошую тебе до групи {name}',kk:'Сені {name} тобына шақырамын',uz:'Sizni {name} guruhiga taklif qilaman',de:'Ich lade dich in die Gruppe {name} ein',ar:'أدعوك إلى المجموعة {name}'},
     send_error:{ru:'Ошибка отправки',en:'Send error',be:'Памылка адпраўкі',uk:'Помилка надсилання',kk:'Жіберу қатесі',uz:'Yuborish xatosi',de:'Sendefehler',ar:'خطأ في الإرسال'}
   };
   Object.keys(AUTO_I18N).forEach(key=>{ Object.keys(AUTO_I18N[key]).forEach(lang=>{ I18N[lang][key]=AUTO_I18N[key][lang]; }); });
@@ -2843,9 +2857,11 @@
     const bioEl=document.getElementById('upv-bio');
     if(bioEl){
       const members=Number(p.membersCount||((p.members||[]).length)||0), online=Number(p.onlineCount||((p.members||[]).filter(m=>m.online).length)||0);
-      bioEl.textContent=isGroup?`${members} ${participantsWord(members)}, ${online} онлайн`:(p.bio||'').slice(0,110);
+      bioEl.textContent=isGroup?((p.bio||'').slice(0,110)||`${members} ${participantsWord(members)}, ${online} онлайн`):(p.bio||'').slice(0,110);
     }
     const chatBtn=document.getElementById('upv-chat-btn');
+    const actions=document.querySelector('#user-profile-view .upv-actions');
+    if(actions) actions.classList.toggle('upv-actions-group',isGroup);
     if(chatBtn){ chatBtn.innerHTML=isGroup?`${GROUP_ADD_ICON}<em>Добавить участника</em>`:`<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 640 640" fill="#fff"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg><em>Чат</em>`; }
     const membersBtn=document.getElementById('upv-members-btn');
     if(membersBtn) membersBtn.style.display=isGroup?'flex':'none';
@@ -3030,6 +3046,7 @@
       const mainName=document.getElementById('profile-main-name');
       if(mainName) delete mainName.dataset.i18nAuto;
       setNameWithVerification(mainName,name,!!profile.verified);
+      setNameWithVerification(document.getElementById('fav-intro-name'),t('favorites'),!!profile.verified);
       const peName=document.getElementById('pe-name');
       const peUsername=document.getElementById('pe-username');
       const peBio=document.getElementById('pe-bio');
@@ -3351,7 +3368,7 @@
         const chatMeta=usersMap.get(String(currentChatUserId||''))||{};
         const prev=idx>0?items[idx-1]:null;
         const showGroupSender=!!(chatMeta.isGroup&&!mine&&(!prev||prev.isSystem||prev.fromUserId!==m.fromUserId));
-        const senderNameHtml=showGroupSender?`<div class="group-sender-name">${esc(displayNameForMessageUser(m.fromUserId))}</div>`:'';
+        const senderNameHtml=showGroupSender?`<button type="button" class="group-sender-name" data-user-id="${esc(m.fromUserId)}">${esc(displayNameForMessageUser(m.fromUserId))}</button>`:'';
         const timeText=new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         const tick='<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
         const reply=(m.replyToMessageId&&messageMap.get(m.replyToMessageId))||null;
@@ -3377,8 +3394,8 @@
         const hasPureMedia=mediaArr.length&&!m.text&&!replyHtml&&!isVoice;
         const rowMax=replyHtml?'calc(100% - 24px)':'78%';
         if(isVoice){
-          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:timeText,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||'',quoteHtml:replyHtml||''});
-          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${senderNameHtml}${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
+          const bubbleHtml=renderVoiceBubbleHtml({mine:!!mine,src:mediaArr[0].src,durationMs:mediaArr[0].durationMs||0,timeText:timeText,tickHtml:tick,waveform:mediaArr[0].waveform||[],showUnreadDot,text:m.text||'',forwardedFromName:m.forwardedFromName||'',quoteHtml:replyHtml||'',senderHtml:senderNameHtml});
+          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:276px;">${bubbleHtml.replace('class=\"','data-mid=\"'+esc(m.id)+'\" data-listened=\"'+(listenedByMe?'1':'0')+'\" class=\"')}</div>`;
         }
         if(hasForwardedMedia){
           const fwdHead=`<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:1px;">${t('forwarded')}</div><div style="font-size:12px;color:rgba(255,255,255,0.7);font-weight:700;margin-bottom:5px;">${t('from')} <b>${esc(m.forwardedFromName)}</b></div>`;
@@ -3386,12 +3403,12 @@
           const gridHtml=buildMediaGrid(mediaArr,m.id,'0 0 0 0',false);
           const mediaWrap=`<div style="margin:0 3px;overflow:hidden;">${gridHtml}</div>`;
           const metaStyle=m.text?'padding:0 14px 6px;':'padding:4px 14px 4px;align-self:flex-end;';
-          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;">${senderNameHtml}<div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
+          return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:78%;"><div data-mid="${esc(m.id)}" class="${mine?'bubble-out':'bubble-in'} msg-bubble msg-fwd" style="padding:0;overflow:hidden;">${senderNameHtml}${replyHtml?`<div style="padding:8px 14px 0;">${replyHtml}</div>`:''}<div style="padding:8px 14px 6px;">${fwdHead}</div>${mediaWrap}${textPart}<div class="msg-meta" style="${metaStyle}"><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
         }
-        const mediaRadiusBase=mine
+        const mediaRadiusBase=senderNameHtml?'0 0 calc(1.4rem - 3px) 0':(mine
           ?'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 calc(1.4rem - 3px)'
-          :'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0';
-        const mediaTopRadius=replyHtml?'0':'calc(1.4rem - 3px)';
+          :'calc(1.4rem - 3px) calc(1.4rem - 3px) calc(1.4rem - 3px) 0');
+        const mediaTopRadius=(replyHtml||senderNameHtml)?'0':'calc(1.4rem - 3px)';
         const mediaHtml=mediaArr.length
           ? (hasPureMedia
             ? `<div style="position:relative;line-height:0;">${buildMediaGrid(mediaArr,m.id,mediaRadiusBase,false)}<div class="media-time-ovl"><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div>`
@@ -3402,10 +3419,20 @@
         const bubbleStyle=bubblePad?` style="padding:${bubblePad};"`:'';
         const metaClass=hasPureMedia?'msg-meta media-meta-foot':'msg-meta';
         const metaStyle=!hasPureMedia&&mediaArr.length?' style="padding-right:4px;"':'';
-        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};">${senderNameHtml}<div data-mid="${esc(m.id)}" data-pinned="${Array.isArray(m.pinnedBy)&&m.pinnedBy.length>0?'1':'0'}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
+        return `${prefix}<div class="rt-msg" style="align-self:${mine?'flex-end':'flex-start'};max-width:${rowMax};"><div data-mid="${esc(m.id)}" data-pinned="${Array.isArray(m.pinnedBy)&&m.pinnedBy.length>0?'1':'0'}" class="${mine?'bubble-out':'bubble-in'} msg-bubble"${bubbleStyle}>${senderNameHtml}${fwdHtml}${replyHtml}${mediaHtml}${textHtml}<div class="${metaClass}"${metaStyle}><span class="${mine?'msg-time-out':'msg-time-in'}">${timeText}</span>${mine?tick:''}</div></div></div>`;
       }).join('');
       bottom.insertAdjacentHTML('beforebegin',rows);
       wrap.querySelectorAll('.rt-msg .msg-bubble').forEach(bindBubble);
+      wrap.querySelectorAll('.group-sender-name[data-user-id]').forEach(el=>{
+        if(el.dataset.bound==='1') return;
+        el.dataset.bound='1';
+        el.addEventListener('click',e=>{
+          e.preventDefault();
+          e.stopPropagation();
+          const u=usersMap.get(el.dataset.userId);
+          if(u) openUserProfileView(u);
+        });
+      });
       wrap.querySelectorAll('.rt-msg').forEach(bindMsgRow);
       wrap.querySelectorAll('.msg-quote-out,.msg-quote-in').forEach(bindQuoteTap);
       items.forEach(m=>{
@@ -3574,7 +3601,7 @@
               reactionsData.set(bubble,reactionState);
               renderReactions(bubble);
               const hasPinned=Array.isArray(msg.pinnedBy)&&msg.pinnedBy.length>0;
-              if(msg.editedAt||Array.isArray(msg.pinnedBy)) scheduleOpenCurrentChat();
+              if(msg.editedAt||hasPinned!== (bubble.dataset.pinned==='1')) scheduleOpenCurrentChat();
             }else{
               scheduleOpenCurrentChat();
             }
@@ -4341,29 +4368,37 @@
 
   /* ── Группы ── */
   const GROUP_ADD_ICON='<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="currentColor"><path d="M285.7 368C384.2 368 464 447.8 464 546.3C464 562.7 450.7 576 434.3 576L77.7 576C61.3 576 48 562.7 48 546.3C48 447.8 127.8 368 226.3 368L285.7 368zM528 144C541.3 144 552 154.7 552 168L552 216L600 216C613.3 216 624 226.7 624 240C624 253.3 613.3 264 600 264L552 264L552 312C552 325.3 541.3 336 528 336C514.7 336 504 325.3 504 312L504 264L456 264C442.7 264 432 253.3 432 240C432 226.7 442.7 216 456 216L504 216L504 168C504 154.7 514.7 144 528 144zM256 312C189.7 312 136 258.3 136 192C136 125.7 189.7 72 256 72C322.3 72 376 125.7 376 192C376 258.3 322.3 312 256 312z"/></svg>';
+  const CHECK_ICON_SVG='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M530.8 134.1C545.1 144.5 548.3 164.5 537.9 178.8L281.9 530.8C276.4 538.4 267.9 543.1 258.5 543.9C249.1 544.7 240 541.2 233.4 534.6L105.4 406.6C92.9 394.1 92.9 373.8 105.4 361.3C117.9 348.8 138.2 348.8 150.7 361.3L252.2 462.8L486.2 141.1C496.6 126.8 516.6 123.6 530.9 134z"/></svg>';
   const GROUP_CREATED_ICON='<span style="position:relative;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="rgba(255,255,255,.9)" style="width:17px;height:17px;"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="#1C1C1E" style="position:absolute;width:9px;height:9px;right:0;bottom:0;"><path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/></svg></span>';
-  let groupPickMode='create', groupPickedIds=new Set(), groupAvatarDataUrl='', currentGroupForInvite=null;
+  let groupPickMode='create', groupPickedIds=new Set(), groupAvatarDataUrl='', groupBannerDataUrl='', currentGroupForInvite=null;
   function rowAvatarHtml(c,size=48){return `<div class="tg-avatar" style="width:${size}px;height:${size}px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:${Math.round(size*.42)}px;overflow:hidden;flex-shrink:0;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc((c.avatar||c.name||'U').charAt(0).toUpperCase())}</div>`;}
-  window.openNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; const lbl=document.getElementById('new-chat-close-label'); if(lbl) lbl.textContent='Создать группу'; w.style.display='block'; requestAnimationFrame(()=>w.classList.add('open')); document.getElementById('new-chat-main-view').style.display='block'; document.getElementById('group-pick-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; searchStartedChats(''); setTimeout(()=>document.getElementById('new-chat-search')?.focus(),120);};
-  window.closeNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; w.classList.remove('open'); setTimeout(()=>{if(!w.classList.contains('open'))w.style.display='none';},240);};
-  window.searchStartedChats=async function(q=''){const box=document.getElementById('new-chat-results'); if(!box)return; try{const data=await api(`/chats/started?q=${encodeURIComponent(String(q||'').trim())}`); const items=data.items||[]; box.innerHTML=items.length?items.map(c=>`<button class="group-pick-row" data-uid="${esc(c.id)}">${rowAvatarHtml(c)}<div style="min-width:0;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</div><div style="color:#8E8E93;font-size:13px;">@${esc(c.username||'')}</div></div></button>`).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">Ничего не найдено</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{closeNewChatMenu();window.openChatWith(b.dataset.uid);});}catch(_){box.innerHTML='<div style="color:#ff453a;text-align:center;padding:24px;">Ошибка поиска</div>';}};
-  async function loadPickList(){const box=document.getElementById('group-pick-list'); if(!box)return; const data=await api('/chats/started'); const items=(data.items||[]).filter(c=>!currentGroupForInvite||!(currentGroupForInvite.members||[]).some(m=>m.id===c.id)); box.innerHTML=items.length?items.map(c=>`<button class="group-pick-row ${groupPickedIds.has(c.id)?'selected':''}" data-uid="${esc(c.id)}">${rowAvatarHtml(c)}<div style="min-width:0;flex:1;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(c.name||'Пользователь',!!c.verified)}</div><div style="color:#8E8E93;font-size:13px;">@${esc(c.username||'')}</div></div><span class="pick-check">${groupPickedIds.has(c.id)?'✓':''}</span></button>`).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">Нет доступных чатов</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=async()=>{const id=b.dataset.uid; if(groupPickMode==='add'){ if(currentGroupForInvite){ await api(`/groups/${encodeURIComponent(currentGroupForInvite.id)}/members`,{method:'POST',body:JSON.stringify({memberIds:[id]})}); closeNewChatMenu(); if(currentChatUserId) window.openChatWith(currentChatUserId,{keepScreen:true}); } return; } groupPickedIds.has(id)?groupPickedIds.delete(id):groupPickedIds.add(id); loadPickList();});}
-  window.openGroupPickMenu=async function(mode='create',group=null){groupPickMode=mode; currentGroupForInvite=group; groupPickedIds=new Set(); document.getElementById('new-chat-wrap').style.display='block'; requestAnimationFrame(()=>document.getElementById('new-chat-wrap').classList.add('open')); document.getElementById('new-chat-main-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; document.getElementById('group-pick-view').style.display='block'; document.getElementById('group-pick-title').textContent=mode==='add'?'Добавить участников':'Участники'; document.getElementById('group-invite-link-btn').style.display=mode==='add'?'flex':'none'; const next=document.querySelector('#group-pick-view .mi-primary-pill'); if(next) next.style.display=mode==='add'?'none':'block'; const lbl=document.getElementById('new-chat-close-label'); if(lbl) lbl.textContent=mode==='add'?'Добавить участника':'Создать группу'; await loadPickList();};
+  function renderMenuChatRow(c,{selected=false,check=false,owner=false}={}){const preview=c.preview||(c.username?('@'+c.username):(c.statusText||'')); const suffix=owner?`<span class="owner-pill">${t('owner')}</span>`:(check?`<span class="pick-check">${selected?CHECK_ICON_SVG:''}</span>`:''); return `<button class="chat-row chat-row-item mi-chat-row ${selected?'selected':''}" data-uid="${esc(c.id||'')}">${rowAvatarHtml(c)}<div style="flex:1;min-width:0;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${nameWithVerificationHtml(c.name||c.username||'Пользователь',!!c.verified)}</span>${preview?`<span class="chat-row-preview">${esc(preview)}</span>`:''}</div>${suffix}</button>`;}
+  window.openNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; const lbl=document.getElementById('new-chat-close-label'); if(lbl) lbl.textContent=t('create_group'); w.style.display=''; requestAnimationFrame(()=>w.classList.add('open')); document.getElementById('new-chat-main-view').style.display='block'; document.getElementById('group-pick-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; searchStartedChats(''); setTimeout(()=>document.getElementById('new-chat-search')?.focus(),120);};
+  window.closeNewChatMenu=function(){const w=document.getElementById('new-chat-wrap'); if(!w)return; w.classList.remove('open');};
+  window.searchStartedChats=async function(q=''){const box=document.getElementById('new-chat-results'); if(!box)return; try{const data=await api(`/chats/started?q=${encodeURIComponent(String(q||'').trim())}`); const items=data.items||[]; box.innerHTML=items.length?items.map(c=>renderMenuChatRow(c)).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">${t('nothing_found')}</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{closeNewChatMenu();window.openChatWith(b.dataset.uid);});}catch(_){box.innerHTML='<div style="color:#ff453a;text-align:center;padding:24px;">Ошибка поиска</div>';}};
+  function renderPickItems(items){const box=document.getElementById('group-pick-list'); if(!box)return; const check=true; box.innerHTML=items.length?items.map(c=>renderMenuChatRow(c,{selected:groupPickedIds.has(c.id),check})).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">${t('no_available_chats')}</div>`; box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{const id=b.dataset.uid; groupPickedIds.has(id)?groupPickedIds.delete(id):groupPickedIds.add(id); renderPickItems(items); updateGroupInviteSendButton();}); updateGroupInviteSendButton();}
+  function updateGroupInviteSendButton(){const send=document.getElementById('group-send-invites-btn'); const next=document.querySelector('#group-pick-view .mi-primary-pill:not(#group-send-invites-btn)'); if(send) send.style.display=groupPickMode==='add'&&groupPickedIds.size?'block':'none'; if(next) next.style.display=groupPickMode==='add'?'none':'block';}
+  async function loadPickList(){const box=document.getElementById('group-pick-list'); if(!box)return; const excluded=new Set([me&&me.id,...((currentGroupForInvite&&currentGroupForInvite.members)||[]).map(m=>m&&m.id)].filter(Boolean)); const allowed=c=>c&&c.id&&!c.isGroup&&!excluded.has(c.id); const cached=Array.from(usersMap.values()).filter(allowed); if(cached.length) renderPickItems(cached); const data=await api('/chats/started'); const items=(data.items||[]).filter(allowed); items.forEach(c=>usersMap.set(c.id,c)); renderPickItems(items);}
+  window.openGroupPickMenu=async function(mode='create',group=null){groupPickMode=mode; currentGroupForInvite=group; groupPickedIds=new Set(); document.getElementById('new-chat-wrap').style.display=''; requestAnimationFrame(()=>document.getElementById('new-chat-wrap').classList.add('open')); document.getElementById('new-chat-main-view').style.display='none'; document.getElementById('group-details-view').style.display='none'; document.getElementById('group-pick-view').style.display='block'; document.getElementById('group-pick-title').textContent=mode==='add'?t('add_members'):t('members'); document.getElementById('group-invite-link-btn').style.display=mode==='add'?'flex':'none'; updateGroupInviteSendButton(); const lbl=document.getElementById('new-chat-close-label'); if(lbl) lbl.textContent=mode==='add'?t('add_member'):t('create_group'); await loadPickList();};
+  window.sendGroupInvites=async function(){ if(!currentGroupForInvite||!groupPickedIds.size)return; const url=`${location.origin}/m-in/group/${currentGroupForInvite.inviteCode}`; const text=`${t('invite_group_text').replace('{name}',currentGroupForInvite.name||t('create_group'))}
+${url}`; const ids=[...groupPickedIds]; await Promise.all(ids.map(id=>api('/messages',{method:'POST',body:JSON.stringify({toUserId:id,text})}).catch(()=>null))); closeNewChatMenu(); showTopToast(t('sent')); };
   window.continueGroupCreate=async function(){ if(groupPickMode==='add'){ if(currentGroupForInvite&&groupPickedIds.size){ await api(`/groups/${encodeURIComponent(currentGroupForInvite.id)}/members`,{method:'POST',body:JSON.stringify({memberIds:[...groupPickedIds]})}); } closeNewChatMenu(); if(currentChatUserId) window.openChatWith(currentChatUserId,{keepScreen:true}); return; } document.getElementById('group-pick-view').style.display='none'; document.getElementById('group-details-view').style.display='block';};
+  window.setGroupBanner=async function(input){ if(!input.files||!input.files[0])return; groupBannerDataUrl=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(input.files[0]);}); const img=document.getElementById('group-banner-img'); if(img){img.src=groupBannerDataUrl; img.style.display='block';} input.value='';};
   window.setGroupAvatar=async function(input){ if(!input.files||!input.files[0])return; groupAvatarDataUrl=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(input.files[0]);}); const av=document.getElementById('group-avatar-picker'); if(av) av.innerHTML=`<img src="${groupAvatarDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`+'<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>'; input.value='';};
-  window.createGroupNow=async function(){const name=document.getElementById('group-name-input').value.trim(); if(!name){alert('Название группы обязательно');return;} const res=await api('/groups',{method:'POST',body:JSON.stringify({name,avatarDataUrl:groupAvatarDataUrl,memberIds:[...groupPickedIds]})}); closeNewChatMenu(); if(res.group) window.openChatWith(res.group.id); groupAvatarDataUrl=''; document.getElementById('group-name-input').value=''; document.getElementById('group-avatar-picker').innerHTML='Г'+'<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>';};
+  window.createGroupNow=async function(){const name=document.getElementById('group-name-input').value.trim(); const bio=(document.getElementById('group-bio-input')?.value||'').trim().slice(0,110); if(!name){alert(t('group_name'));return;} const res=await api('/groups',{method:'POST',body:JSON.stringify({name,bio,bannerDataUrl:groupBannerDataUrl,avatarDataUrl:groupAvatarDataUrl,memberIds:[...groupPickedIds]})}); closeNewChatMenu(); if(res.group) window.openChatWith(res.group.id); groupAvatarDataUrl=''; groupBannerDataUrl=''; document.getElementById('group-name-input').value=''; const bioEl=document.getElementById('group-bio-input'); if(bioEl) bioEl.value=''; const bannerImg=document.getElementById('group-banner-img'); if(bannerImg){bannerImg.src='';bannerImg.style.display='none';} document.getElementById('group-avatar-picker').innerHTML='Г'+'<div id="group-avatar-overlay"><svg id="group-avatar-cam" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>';};
 
   window.openGroupMembersMenu=function(group=null){
     group=group||(usersMap.get(currentChatUserId)||{});
     if(!group||!group.isGroup) return;
+    closeUserProfileView();
     const w=document.getElementById('group-members-wrap');
     const list=document.getElementById('group-members-list');
     if(!w||!list) return;
-    list.innerHTML=(group.members||[]).map(m=>`<button class="group-pick-row" data-uid="${esc(m.id)}">${rowAvatarHtml(m)}<div style="min-width:0;flex:1;"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${nameWithVerificationHtml(m.name||m.username||'Пользователь',!!m.verified)}${m.role==='owner'?'<span class="owner-pill">Владелец</span>':''}</div><div style="color:#8E8E93;font-size:13px;">${m.username?'@'+esc(m.username):''}</div></div></button>`).join('')||'<div style="color:#8E8E93;text-align:center;padding:24px;">Нет участников</div>';
-    list.querySelectorAll('[data-uid]').forEach(b=>b.onclick=async()=>{ closeGroupMembersMenu(); closeUserProfileView(); if(b.dataset.uid&&(!me||b.dataset.uid!==me.id)) await window.openChatWith(b.dataset.uid); });
-    w.style.display='block'; requestAnimationFrame(()=>w.classList.add('open'));
+    list.innerHTML=(group.members||[]).map(m=>renderMenuChatRow({...m,preview:m.username?('@'+m.username):(m.statusText||'')},{owner:m.role==='owner'})).join('')||'<div style="color:#8E8E93;text-align:center;padding:24px;">Нет участников</div>';
+    list.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{ if(me&&b.dataset.uid===me.id) return; const u=usersMap.get(b.dataset.uid)||((group.members||[]).find(m=>m.id===b.dataset.uid)); closeGroupMembersMenu(); if(u) setTimeout(()=>openUserProfileView(u),120); });
+    w.style.display=''; requestAnimationFrame(()=>w.classList.add('open'));
   };
-  window.closeGroupMembersMenu=function(){const w=document.getElementById('group-members-wrap'); if(!w)return; w.classList.remove('open'); setTimeout(()=>{if(!w.classList.contains('open'))w.style.display='none';},240);};
+  window.closeGroupMembersMenu=function(){const w=document.getElementById('group-members-wrap'); if(!w)return; w.classList.remove('open');};
 
   window.copyCurrentGroupInvite=async function(){ if(!currentGroupForInvite)return; const url=`${location.origin}/m-in/group/${currentGroupForInvite.inviteCode}`; try{await navigator.clipboard.writeText(url); showTopToast('Ссылка скопирована');}catch(_){prompt('Ссылка на вступление',url);} };
   window.leaveCurrentGroup=async function(){ if(!currentChatUserId||!currentChatUserId.startsWith('group_'))return; if(!confirm('Покинуть группу?'))return; await api(`/groups/${encodeURIComponent(currentChatUserId)}/leave`,{method:'POST'}); closeUserProfileView(); showScreen('screen-list'); window.reloadChatsWithSkeleton&&window.reloadChatsWithSkeleton(); };
