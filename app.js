@@ -51,10 +51,13 @@
     const kind=(data&&data.kind)||fallbackKind||'profile';
     const item=data&&data.item?data.item:null;
     const notFound=!!(data&&data.notFound);
+    const sig=JSON.stringify({kind,notFound,id:item&&item.id||'',code:item&&item.inviteCode||'',username:item&&item.username||'',name:item&&item.name||'',avatar:item&&item.avatarDataUrl||''});
     el.dataset.minKind=kind;
     if(item&&item.id) el.dataset.minId=item.id;
     if(item&&item.inviteCode) el.dataset.minCode=item.inviteCode;
     if(item&&item.username) el.dataset.minUsername=String(item.username).toLowerCase();
+    if(el.dataset.minSig===sig) return;
+    el.dataset.minSig=sig;
     el.innerHTML=minPreviewHtml(item,kind,notFound);
   }
   function refreshMinPreviews(kind,item){
@@ -3800,6 +3803,9 @@
         }catch(_){}
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
+      });
+      stream.addEventListener('public_profile_update',ev=>{
+        try{ const p=JSON.parse(ev.data||'{}'); if(p&&p.id) refreshMinPreviews('profile',p); }catch(_){ }
       });
       stream.addEventListener('public_group_update',ev=>{
         try{ const g=JSON.parse(ev.data||'{}'); if(g) refreshMinPreviews('group',g); }catch(_){ }

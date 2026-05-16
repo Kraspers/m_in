@@ -497,7 +497,10 @@ function broadcastPresence(userId, online, lastSeenAt = '') {
 }
 
 function broadcastProfile(user) {
-  sendEventToAll('profile', publicUser(user));
+  sendEventToUser(user.id, 'profile', publicUser(user));
+}
+function broadcastPublicProfile(user) {
+  sendEventToAll('public_profile_update', publicUser(user));
 }
 function sessionCountForUser(userId) {
   let c = 0;
@@ -775,6 +778,7 @@ function handleApi(req, res, urlObj) {
         user.bio = String(body.bio || '').slice(0, 110);
         writeDb(db);
         broadcastProfile(user);
+        broadcastPublicProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -822,6 +826,7 @@ function handleApi(req, res, urlObj) {
         user.avatarDataUrl = dataUrl;
         writeDb(db);
         broadcastProfile(user);
+        broadcastPublicProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -1172,7 +1177,6 @@ function handleApi(req, res, urlObj) {
       writeDb(db);
       sendGroupEvent(group, 'message', msg);
       groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
-      sendEventToAll('public_group_update', publicGroupPreview(group));
     }
     return sendJson(res, 200, { group: publicGroup(group, db, user.id) });
   }
@@ -1198,7 +1202,6 @@ function handleApi(req, res, urlObj) {
       ids.forEach(id => { if (valid.has(id) && !group.members.includes(id)) group.members.push(id); });
       writeDb(db);
       groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
-      sendEventToAll('public_group_update', publicGroupPreview(group));
       return sendJson(res, 200, { group: publicGroup(group, db, user.id) });
     }).catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -1213,7 +1216,6 @@ function handleApi(req, res, urlObj) {
     writeDb(db);
     sendGroupEvent({ ...group, members: [...group.members, user.id] }, 'message', msg);
     groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
-    sendEventToAll('public_group_update', publicGroupPreview(group));
     sendEventToUser(user.id, 'chat_group_update', { id: group.id, left: true });
     return sendJson(res, 200, { ok: true });
   }
