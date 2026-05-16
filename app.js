@@ -3207,6 +3207,39 @@
     window.applyProfileUI=applyProfileUI;
     function showLoginScreen(){ document.getElementById('login-screen').classList.remove('hidden'); }
     function hideLoginScreen(){ document.getElementById('login-screen').classList.add('hidden'); }
+    function legalDocFromPath(){
+      if(location.pathname==='/privacy-policy') return 'privacy';
+      if(location.pathname==='/terms') return 'terms';
+      return '';
+    }
+    function showLegalDoc(doc){
+      const el=document.getElementById('legal-screen');
+      if(!el||!doc) return false;
+      el.dataset.doc=doc;
+      el.classList.add('open');
+      el.setAttribute('aria-hidden','false');
+      const sc=el.querySelector('.legal-scroll');
+      if(sc) sc.scrollTop=0;
+      return true;
+    }
+    function hideLegalDoc(){
+      const el=document.getElementById('legal-screen');
+      if(!el) return;
+      el.classList.remove('open');
+      el.setAttribute('aria-hidden','true');
+    }
+    window.openLegalPage=function(type){
+      const doc=type==='terms'?'terms':'privacy';
+      const path=doc==='terms'?'/terms':'/privacy-policy';
+      showLegalDoc(doc);
+      if(location.pathname!==path) history.pushState({legal:doc},'',path);
+    };
+    window.closeLegalPage=function(){
+      hideLegalDoc();
+      if(history.length>1){ history.back(); return; }
+      if(authToken){ window.showScreen('screen-list'); }
+      else openAuth('login');
+    };
     window.showMainPanel=function(){
       document.getElementById('login-main-panel').style.display='flex';
       document.getElementById('reg-panel').classList.remove('active');
@@ -3835,6 +3868,9 @@
       history.replaceState(null,'',`/${route}`);
     };
     function applyRoute(){
+      const legalDoc=legalDocFromPath();
+      if(legalDoc){ showLegalDoc(legalDoc); return; }
+      hideLegalDoc();
       const seg=location.pathname.replace(/^\/+/, '')||'list';
       const h=seg.split('/')[0]||'list';
       const target=`screen-${h}`;
@@ -4428,7 +4464,13 @@
       window.addEventListener('beforeunload',()=>sendTypingState(false));
       applyRoute();
       if(location.pathname==='/'||location.pathname==='') history.replaceState(null,'','/list');
-      if(!authToken){ openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login')); hideAppLoading(); return; }
+      if(!authToken){
+        const legalDoc=legalDocFromPath();
+        if(legalDoc){ showLegalDoc(legalDoc); hideAppLoading(); return; }
+        openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login'));
+        hideAppLoading();
+        return;
+      }
       try{
         await refreshMe();
         startRealtime();

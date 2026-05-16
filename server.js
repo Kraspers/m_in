@@ -1523,7 +1523,7 @@ const server = http.createServer((req, res) => {
   }
 
   const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
-  const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
+  const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc|privacy-policy|terms)$/.test(requestUrl.pathname);
   const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
   const isGroupInviteRoute = /^\/m-in\/group\/[A-Za-z0-9_-]{6,32}$/.test(requestUrl.pathname);
   const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute ? '/index.html' : (requestUrl.pathname === '/banned' ? '/banned.html' : ((isPublicProfileRoute || isGroupInviteRoute) ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))));
