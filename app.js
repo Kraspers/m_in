@@ -26,22 +26,25 @@
     try{
       const u=new URL(String(url||''),location.origin);
       if(u.origin!==location.origin) return null;
-      const group=u.pathname.match(/^\/m-in\/group\/([A-Za-z0-9_-]{6,32})\/?$/);
+      const group=u.pathname.match(/^\/m-in\/group\/([^/?#]+)\/?$/);
       if(group) return {type:'group',code:group[1],url:u.toString()};
-      const profile=u.pathname.match(/^\/m-in\/([A-Za-z0-9_]{5,70})\/?$/);
+      const profile=u.pathname.match(/^\/m-in\/([^/?#]+)\/?$/);
       if(profile) return {type:'profile',username:profile[1],url:u.toString()};
     }catch(_){ }
     return null;
   }
-  function minPreviewAvatarHtml(item,kind){
+  function minPreviewAvatarHtml(item,kind,notFound=false){
+    if(notFound) return deletedAvatarMarkup(22);
     const name=String((item&&(item.name||item.username))||(kind==='group'?'Группа':'MIN')||'M');
     const img=item&&item.avatarDataUrl?String(item.avatarDataUrl):'';
     return img?`<img src="${esc(img)}" alt="">`:esc(name.charAt(0).toUpperCase());
   }
-  function minPreviewHtml(item,kind){
-    const title=String((item&&(item.name||item.username))||(kind==='group'?'Группа':'Профиль'));
+  function minPreviewHtml(item,kind,notFound=false){
+    const title=notFound?(kind==='group'?'Группа не найдена':'Пользователь не найден'):String((item&&(item.name||item.username))||(kind==='group'?'Группа':'Профиль'));
     const action=kind==='group'?'Вступить':'Написать';
-    return `<div class="min-link-preview-head"><div class="min-link-preview-avatar">${minPreviewAvatarHtml(item,kind)}</div><div class="min-link-preview-title">${esc(title)}</div></div><div class="min-link-preview-divider"></div><div class="min-link-preview-action">${action}</div>`;
+    const avatarClass=`min-link-preview-avatar${notFound?' missing':''}`;
+    const footer=notFound?'':`<div class="min-link-preview-divider"></div><div class="min-link-preview-action">${action}</div>`;
+    return `<div class="min-link-preview-head"><div class="${avatarClass}">${minPreviewAvatarHtml(item,kind,notFound)}</div><div class="min-link-preview-title">${esc(title)}</div></div>${footer}`;
   }
   async function openMinLink(url,apiFn){
     const info=parseMinLink(url);
@@ -79,11 +82,19 @@
     if(!info) return null;
     const call=apiFn||api||backendApi;
     if(info.type==='group'){
-      const data=await call(`/public-group?code=${encodeURIComponent(info.code)}`);
-      return {kind:'group',item:data&&data.group?data.group:null};
+      try{
+        const data=await call(`/public-group?code=${encodeURIComponent(info.code)}`);
+        return {kind:'group',item:data&&data.group?data.group:null,notFound:!(data&&data.group)};
+      }catch(_){
+        return {kind:'group',item:null,notFound:true};
+      }
     }
-    const data=await call(`/public-profile?username=${encodeURIComponent(info.username)}`);
-    return {kind:'profile',item:data&&data.user?data.user:null};
+    try{
+      const data=await call(`/public-profile?username=${encodeURIComponent(info.username)}`);
+      return {kind:'profile',item:data&&data.user?data.user:null,notFound:!(data&&data.user)};
+    }catch(_){
+      return {kind:'profile',item:null,notFound:true};
+    }
   }
 
   function resetScreen(s){s.classList.remove('active');s.style.transform='';s.style.transition='';s.style.opacity='';s.style.pointerEvents='';}
@@ -934,13 +945,13 @@
       try{
         if(minInfo){
           const data=await loadMinPreview(url,backendApi);
-          p.innerHTML=minPreviewHtml(data&&data.item,data&&data.kind||minInfo.type);
+          p.innerHTML=minPreviewHtml(data&&data.item,data&&data.kind||minInfo.type,!!(data&&data.notFound));
         }else{
           const data=await backendApi(`/link-preview?url=${encodeURIComponent(url)}`);
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
         }
       }catch(_){
-        p.innerHTML=minInfo?minPreviewHtml(null,minInfo.type):`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
+        p.innerHTML=minInfo?minPreviewHtml(null,minInfo.type,true):`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
       }
     }
   }
@@ -3608,7 +3619,7 @@
         p.href='#';
         if(!minInfo) p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
         p.innerHTML=fromCache
-          ? (minInfo?minPreviewHtml(fromCache.item,fromCache.kind||minInfo.type):`<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`)
+          ? (minInfo?minPreviewHtml(fromCache.item,fromCache.kind||minInfo.type,!!fromCache.notFound):`<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`)
           : (minInfo?minPreviewHtml(null,minInfo.type):`<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`);
         p.addEventListener('click',e=>{ e.preventDefault(); if(minInfo){ openMinLink(url,api); return; } openExternalLinkModal(url); });
         const meta=bubble.querySelector('.msg-meta');
@@ -3621,16 +3632,16 @@
           if(minInfo){
             const data=await loadMinPreview(url,api);
             localLinkPreviewCache.set(url,data||{});
-            p.innerHTML=minPreviewHtml(data&&data.item,data&&data.kind||minInfo.type);
+            p.innerHTML=minPreviewHtml(data&&data.item,data&&data.kind||minInfo.type,!!(data&&data.notFound));
           }else{
             const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
             localLinkPreviewCache.set(url,data||{});
             p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
           }
         }catch(_){
-          const fallback=minInfo?{kind:minInfo.type,item:null}:{url,site:t('link'),title:url,description:''};
+          const fallback=minInfo?{kind:minInfo.type,item:null,notFound:true}:{url,site:t('link'),title:url,description:''};
           localLinkPreviewCache.set(url,fallback);
-          p.innerHTML=minInfo?minPreviewHtml(null,minInfo.type):`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
+          p.innerHTML=minInfo?minPreviewHtml(null,minInfo.type,true):`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
         }
       }
     }
