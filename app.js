@@ -46,6 +46,25 @@
     const footer=notFound?'':`<div class="min-link-preview-divider"></div><div class="min-link-preview-action">${action}</div>`;
     return `<div class="min-link-preview-head"><div class="${avatarClass}">${minPreviewAvatarHtml(item,kind,notFound)}</div><div class="min-link-preview-title">${esc(title)}</div></div>${footer}`;
   }
+  function applyMinPreviewData(el,data,fallbackKind){
+    if(!el) return;
+    const kind=(data&&data.kind)||fallbackKind||'profile';
+    const item=data&&data.item?data.item:null;
+    const notFound=!!(data&&data.notFound);
+    el.dataset.minKind=kind;
+    if(item&&item.id) el.dataset.minId=item.id;
+    if(item&&item.inviteCode) el.dataset.minCode=item.inviteCode;
+    if(item&&item.username) el.dataset.minUsername=String(item.username).toLowerCase();
+    el.innerHTML=minPreviewHtml(item,kind,notFound);
+  }
+  function refreshMinPreviews(kind,item){
+    if(!kind||!item) return;
+    document.querySelectorAll(`.min-link-preview[data-min-kind="${kind}"]`).forEach(el=>{
+      if(item.id&&el.dataset.minId&&el.dataset.minId!==item.id) return;
+      if(kind==='group'&&item.inviteCode&&el.dataset.minCode&&el.dataset.minCode!==item.inviteCode) return;
+      applyMinPreviewData(el,{kind,item:item.deleted?null:item,notFound:!!item.deleted},kind);
+    });
+  }
   function pulseMinPreviewLoading(url,source){
     const targets=[];
     if(source&&source.classList&&source.classList.contains('min-link-preview')) targets.push(source);
@@ -939,36 +958,35 @@
       const bubble=a.closest('.msg-bubble');
       const url=a.dataset.url||'';
       if(!bubble||!url||bubble.querySelector(`.link-preview[data-url="${url}"]`)) continue;
-      const p=document.createElement('a');
       const minInfo=parseMinLink(url);
+      const p=document.createElement('a');
       p.className=minInfo?'link-preview min-link-preview':'link-preview';
       p.dataset.url=url;
       p.href='#';
-      if(!minInfo) p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
-      p.innerHTML=minInfo
-        ? minPreviewHtml(null,minInfo.type)
-        : `<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
       p.addEventListener('click',e=>{
         e.preventDefault();
         if(minInfo){ handleMinLinkClick(url,backendApi,p); return; }
         if(window.openExternalLinkModal) window.openExternalLinkModal(url);
         else window.open(url,'_blank','noopener,noreferrer');
       });
+      if(minInfo){
+        const data=await loadMinPreview(url,backendApi);
+        applyMinPreviewData(p,data,minInfo.type);
+      }else{
+        p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
+        p.innerHTML=`<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
+      }
       const meta=bubble.querySelector('.msg-meta');
       const react=bubble.querySelector('.msg-reactions');
       if(react) bubble.insertBefore(p,react);
       else if(meta) bubble.insertBefore(p,meta);
       else bubble.appendChild(p);
+      if(minInfo) continue;
       try{
-        if(minInfo){
-          const data=await loadMinPreview(url,backendApi);
-          p.innerHTML=minPreviewHtml(data&&data.item,data&&data.kind||minInfo.type,!!(data&&data.notFound));
-        }else{
-          const data=await backendApi(`/link-preview?url=${encodeURIComponent(url)}`);
-          p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
-        }
+        const data=await backendApi(`/link-preview?url=${encodeURIComponent(url)}`);
+        p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
       }catch(_){
-        p.innerHTML=minInfo?minPreviewHtml(null,minInfo.type,true):`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
+        p.innerHTML=`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
       }
     }
   }
@@ -3287,11 +3305,11 @@
     function scheduleOpenCurrentChat(){
       if(!currentChatUserId) return;
       if(openChatRefreshTimer) clearTimeout(openChatRefreshTimer);
-      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId,{keepScreen:true}); },80);
+      openChatRefreshTimer=setTimeout(()=>{ openChatWith(currentChatUserId,{keepScreen:true}); },180);
     }
     function scheduleChatsRefresh(){
       if(chatsRefreshTimer) clearTimeout(chatsRefreshTimer);
-      chatsRefreshTimer=setTimeout(()=>{ loadChats('',{showSkeleton:false}); },120);
+      chatsRefreshTimer=setTimeout(()=>{ loadChats('',{showSkeleton:false}); },300);
     }
     function renderChatSkeletonRows(count=5){
       return Array.from({length:count}).map(()=>`<div class="chat-row-skeleton">
@@ -3628,37 +3646,37 @@
         const bubble=a.closest('.msg-bubble');
         const url=a.dataset.url||'';
         if(!bubble||!url||bubble.querySelector(`.link-preview[data-url="${url}"]`)) continue;
-        const fromCache=localLinkPreviewCache.get(url);
-        const p=document.createElement('a');
         const minInfo=parseMinLink(url);
+        const fromCache=!minInfo?localLinkPreviewCache.get(url):null;
+        const p=document.createElement('a');
         p.className=minInfo?'link-preview min-link-preview':'link-preview';
         p.dataset.url=url;
         p.href='#';
-        if(!minInfo) p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
-        p.innerHTML=fromCache
-          ? (minInfo?minPreviewHtml(fromCache.item,fromCache.kind||minInfo.type,!!fromCache.notFound):`<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`)
-          : (minInfo?minPreviewHtml(null,minInfo.type):`<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`);
         p.addEventListener('click',e=>{ e.preventDefault(); if(minInfo){ handleMinLinkClick(url,api,p); return; } openExternalLinkModal(url); });
+        if(minInfo){
+          const data=await loadMinPreview(url,api);
+          applyMinPreviewData(p,data,minInfo.type);
+        }else if(fromCache){
+          p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
+          p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`;
+        }else{
+          p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
+          p.innerHTML=`<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
+        }
         const meta=bubble.querySelector('.msg-meta');
         const react=bubble.querySelector('.msg-reactions');
         if(react) bubble.insertBefore(p,react);
         else if(meta) bubble.insertBefore(p,meta);
         else bubble.appendChild(p);
-        if(fromCache) continue;
+        if(minInfo||fromCache) continue;
         try{
-          if(minInfo){
-            const data=await loadMinPreview(url,api);
-            localLinkPreviewCache.set(url,data||{});
-            p.innerHTML=minPreviewHtml(data&&data.item,data&&data.kind||minInfo.type,!!(data&&data.notFound));
-          }else{
-            const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
-            localLinkPreviewCache.set(url,data||{});
-            p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
-          }
+          const data=await api(`/link-preview?url=${encodeURIComponent(url)}`);
+          localLinkPreviewCache.set(url,data||{});
+          p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(data.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(data.title||url)}</div>${data.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(data.description)}</div>`:''}`;
         }catch(_){
-          const fallback=minInfo?{kind:minInfo.type,item:null,notFound:true}:{url,site:t('link'),title:url,description:''};
+          const fallback={url,site:t('link'),title:url,description:''};
           localLinkPreviewCache.set(url,fallback);
-          p.innerHTML=minInfo?minPreviewHtml(null,minInfo.type,true):`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
+          p.innerHTML=`<div style="font-size:12px;opacity:.7;">${t('link')}</div><div style="font-size:13px;">${url}</div>`;
         }
       }
     }
@@ -3679,7 +3697,7 @@
         try{
           const p=JSON.parse(ev.data);
           if(me&&p&&p.id===me.id) applyProfileUI(p);
-          if(p&&p.id){ usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p}); setPresenceState(p.id,p); updateChatPresenceBadges(p.id); }
+          if(p&&p.id){ usersMap.set(p.id,{...(usersMap.get(p.id)||{}),...p}); setPresenceState(p.id,p); updateChatPresenceBadges(p.id); refreshMinPreviews('profile',p); }
           const upv=document.getElementById('user-profile-view');
           if(upv&&upv.classList.contains('open')&&window.__upvUserId&&p&&p.id===window.__upvUserId) openUserProfileView({...(usersMap.get(p.id)||{}),...p});
           if(currentChatUserId&&p&&p.id===currentChatUserId){
@@ -3777,11 +3795,14 @@
           const g=JSON.parse(ev.data||'{}');
           if(g&&g.id){
             if(g.deleted||g.left){ usersMap.delete(g.id); if(currentChatUserId===g.id){ currentChatUserId=''; showScreen('screen-list'); } }
-            else usersMap.set(g.id,{...(usersMap.get(g.id)||{}),...g});
+            else { usersMap.set(g.id,{...(usersMap.get(g.id)||{}),...g}); refreshMinPreviews('group',g); }
           }
         }catch(_){}
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
+      });
+      stream.addEventListener('public_group_update',ev=>{
+        try{ const g=JSON.parse(ev.data||'{}'); if(g) refreshMinPreviews('group',g); }catch(_){ }
       });
       stream.addEventListener('force_logout',ev=>{
         let payload={}; try{payload=JSON.parse(ev.data||'{}');}catch(_){}
