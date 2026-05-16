@@ -1483,13 +1483,6 @@ function handleApi(req, res, urlObj) {
   return sendJson(res, 404, { error: 'Not found' });
 }
 
-function compactCss(source) {
-  return String(source || '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/[\n\r\t]+/g, '')
-    .trim();
-}
-
 function encodeClientText(text) {
   return Buffer.from(String(text || ''), 'utf8').toString('base64');
 }
@@ -1502,6 +1495,11 @@ function protectHtmlForBrowser(html) {
 function protectJsForBrowser(js) {
   const encoded = encodeClientText(js);
   return `(()=>{const c="${encoded}";const b=atob(c);const u=Uint8Array.from(b,x=>x.charCodeAt(0));const s=new TextDecoder('utf-8').decode(u);(0,eval)(s);})();`;
+}
+
+function protectCssForBrowser(css) {
+  const encoded = encodeClientText(css);
+  return `@import url("data:text/css;charset=utf-8;base64,${encoded}");`;
 }
 
 function sendFile(res, filePath) {
@@ -1531,7 +1529,7 @@ function sendFile(res, filePath) {
     }
     if (ext === '.css') {
       res.writeHead(200, headers);
-      res.end(compactCss(data));
+      res.end(protectCssForBrowser(data));
       return;
     }
     res.writeHead(200, headers);
