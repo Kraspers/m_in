@@ -46,6 +46,23 @@
     const footer=notFound?'':`<div class="min-link-preview-divider"></div><div class="min-link-preview-action">${action}</div>`;
     return `<div class="min-link-preview-head"><div class="${avatarClass}">${minPreviewAvatarHtml(item,kind,notFound)}</div><div class="min-link-preview-title">${esc(title)}</div></div>${footer}`;
   }
+  function pulseMinPreviewLoading(url,source){
+    const targets=[];
+    if(source&&source.classList&&source.classList.contains('min-link-preview')) targets.push(source);
+    document.querySelectorAll('.min-link-preview').forEach(el=>{
+      if((el.dataset.url||'')===url&&!targets.includes(el)) targets.push(el);
+    });
+    targets.forEach(el=>el.classList.add('loading'));
+    return ()=>setTimeout(()=>targets.forEach(el=>el.classList.remove('loading')),650);
+  }
+  async function handleMinLinkClick(url,apiFn,source){
+    const stop=pulseMinPreviewLoading(url,source);
+    try{
+      return await openMinLink(url,apiFn);
+    }finally{
+      stop();
+    }
+  }
   async function openMinLink(url,apiFn){
     const info=parseMinLink(url);
     if(!info) return false;
@@ -909,7 +926,7 @@
       el.addEventListener('click',e=>{
         e.preventDefault();
         const url=el.dataset.url||'';
-        if(parseMinLink(url)){ openMinLink(url,backendApi); return; }
+        if(parseMinLink(url)){ handleMinLinkClick(url,backendApi,el); return; }
         if(window.openExternalLinkModal) window.openExternalLinkModal(url);
         else if(url) window.open(url,'_blank','noopener,noreferrer');
       });
@@ -933,7 +950,7 @@
         : `<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
       p.addEventListener('click',e=>{
         e.preventDefault();
-        if(minInfo){ openMinLink(url,backendApi); return; }
+        if(minInfo){ handleMinLinkClick(url,backendApi,p); return; }
         if(window.openExternalLinkModal) window.openExternalLinkModal(url);
         else window.open(url,'_blank','noopener,noreferrer');
       });
@@ -3577,14 +3594,14 @@
         el.addEventListener('click',e=>{
           e.preventDefault();
           const url=el.dataset.url||'';
-          if(parseMinLink(url)){ openMinLink(url,api); return; }
+          if(parseMinLink(url)){ handleMinLinkClick(url,api,el); return; }
           openExternalLinkModal(url);
         });
       });
     }
     function openExternalLinkModal(url){
       if(!url) return;
-      if(parseMinLink(url)){ openMinLink(url,api); return; }
+      if(parseMinLink(url)){ handleMinLinkClick(url,api,null); return; }
       pendingExternalUrl=url;
       const m=document.getElementById('ext-link-modal');
       if(m){
@@ -3621,7 +3638,7 @@
         p.innerHTML=fromCache
           ? (minInfo?minPreviewHtml(fromCache.item,fromCache.kind||minInfo.type,!!fromCache.notFound):`<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`)
           : (minInfo?minPreviewHtml(null,minInfo.type):`<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`);
-        p.addEventListener('click',e=>{ e.preventDefault(); if(minInfo){ openMinLink(url,api); return; } openExternalLinkModal(url); });
+        p.addEventListener('click',e=>{ e.preventDefault(); if(minInfo){ handleMinLinkClick(url,api,p); return; } openExternalLinkModal(url); });
         const meta=bubble.querySelector('.msg-meta');
         const react=bubble.querySelector('.msg-reactions');
         if(react) bubble.insertBefore(p,react);
