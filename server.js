@@ -1493,7 +1493,29 @@ function sendFile(res, filePath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    if (path.basename(filePath) === 'app.js') {
+    if (ext === '.html') {
+      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
+      const wrapped = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><script>(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);document.open();document.write(__s);document.close();})();</script></body></html>`;
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(wrapped);
+      return;
+    }
+    if (ext === '.css') {
+      const cssDir = path.dirname(filePath);
+      const css = String(data).replace(/url\((['"]?)(?!data:|https?:|[/#])([^)'"]+)\1\)/g, (m, q, u) => {
+        const assetPath = path.join(cssDir, u);
+        if (!assetPath.startsWith(ROOT) || !fs.existsSync(assetPath)) return `url(${q}/${u}${q})`;
+        const assetType = MIME_TYPES[path.extname(assetPath).toLowerCase()] || 'application/octet-stream';
+        const assetData = fs.readFileSync(assetPath).toString('base64');
+        return `url(${q}data:${assetType.split(';')[0]};base64,${assetData}${q})`;
+      });
+      const encoded = Buffer.from(css, 'utf8').toString('base64');
+      const wrapped = `@import url("data:text/css;charset=utf-8;base64,${encoded}");`;
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(wrapped);
+      return;
+    }
+    if (ext === '.js') {
       const encoded = Buffer.from(String(data), 'utf8').toString('base64');
       const wrapped = `(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
       res.writeHead(200, { 'Content-Type': contentType });
@@ -1523,7 +1545,7 @@ const server = http.createServer((req, res) => {
   }
 
   const isAdminAlias = requestUrl.pathname.startsWith('/admin-') && !requestUrl.pathname.includes('.') && requestUrl.pathname.indexOf('/', 1) === -1;
-  const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
+  const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc|privacy-policy|terms)$/.test(requestUrl.pathname);
   const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
   const isGroupInviteRoute = /^\/m-in\/group\/[A-Za-z0-9_-]{6,32}$/.test(requestUrl.pathname);
   const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute ? '/index.html' : (requestUrl.pathname === '/banned' ? '/banned.html' : ((isPublicProfileRoute || isGroupInviteRoute) ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))));
