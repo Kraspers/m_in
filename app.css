@@ -447,9 +447,10 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   }
   .login-btn-blue:active{transform:scale(0.97);opacity:.9;}
   .login-reg-link{
-    color:rgba(255,255,255,0.4);font-size:15px;font-weight:500;cursor:pointer;background:none;border:none;
-    font-family:inherit;padding:8px 0;
+    width:100%;max-width:380px;box-sizing:border-box;color:rgba(255,255,255,0.58);font-size:15px;font-weight:600;cursor:pointer;background:none;border:2px solid rgba(142,142,147,0.58);
+    border-radius:999px;font-family:inherit;padding:14px 18px;margin-top:0;transition:transform .2s cubic-bezier(0.16,1,0.3,1),opacity .2s,border-color .2s,color .2s;
   }
+  .login-reg-link:active{transform:scale(0.97);opacity:.9;}
   .login-error{
     color:#ff4545;font-size:14px;text-align:center;margin-bottom:10px;min-height:18px;max-width:380px;width:100%;
   }
@@ -464,6 +465,31 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   .vpsc-box{width:50px;height:60px;background:#2a2a2e;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;cursor:pointer;border:2px solid transparent;transition:border-color .2s;}
   .vpsc-box.active-box{border-color:#1877f2;}
   .vpsc-input-hidden{position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;top:-9999px;left:-9999px;}
+
+  .privacy-vpsc-note{color:rgba(255,255,255,0.42);font-size:12px;line-height:1.35;margin:-6px 4px 2px;padding:0 2px;}
+  .privacy-vpsc-note strong{color:rgba(255,255,255,0.52);font-weight:700;}
+  .register-legal-note{max-width:380px;color:rgba(255,255,255,0.38);font-size:12px;line-height:1.4;text-align:center;margin:2px 0 14px;}
+  .register-legal-note button{background:none;border:none;color:rgba(255,255,255,0.55);font:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0;}
+  .legal-screen{background:#111;color:#fff;overflow:hidden;}
+  .legal-header{padding:34px 20px 18px;border-radius:0 0 2.2rem 2.2rem;background:rgba(44,44,46,0.78);}
+  .legal-back{background:none;border:none;cursor:pointer;color:#fff;display:flex;align-items:center;gap:4px;padding:0;margin-bottom:18px;font-size:18px;font-weight:700;font-family:inherit;}
+  .legal-kicker{color:#0078FF;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;}
+  .legal-header h1{font-size:28px;line-height:1.05;margin:0 0 10px;font-weight:800;letter-spacing:-.03em;}
+  .legal-header p{color:rgba(255,255,255,0.58);font-size:15px;line-height:1.35;margin:0;max-width:760px;}
+  .legal-scroll{padding:14px 12px 32px;display:flex;flex-direction:column;gap:12px;}
+  .legal-card{background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:1.4rem;padding:18px 16px;box-shadow:0 14px 34px rgba(0,0,0,0.16);}
+  .legal-card.legal-accent{background:linear-gradient(135deg,rgba(0,120,255,0.24),rgba(26,26,26,0.98));border-color:rgba(0,120,255,0.28);}
+  .legal-card.legal-muted{background:#161616;}
+  .legal-card h2{font-size:18px;line-height:1.2;margin:0 0 10px;font-weight:750;letter-spacing:-.01em;}
+  .legal-card p,.legal-card li{color:rgba(255,255,255,0.72);font-size:14px;line-height:1.55;margin:0;}
+  .legal-card ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;}
+  .legal-card b{color:rgba(255,255,255,0.9);}
+  @media (min-width:768px){
+    .legal-header{padding:28px 28px 22px;border-radius:0;background:rgba(44,44,46,0.72);}
+    .legal-header h1{font-size:34px;}
+    .legal-scroll{padding:18px 28px 44px;max-width:920px;width:100%;align-self:center;}
+  }
+
   /* ── Тост «Скопировано» ── */
   #copy-toast{position:fixed;bottom:118px;left:50%;transform:translateX(-50%) translateY(16px);z-index:500;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:999px;padding:12px 28px;color:#111;font-size:17px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 0.18s ease,transform 0.18s ease;}
   #copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
