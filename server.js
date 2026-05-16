@@ -419,6 +419,11 @@ function groupMembersWord(count) {
   return 'участников';
 }
 
+function publicGroupPreview(group) {
+  const membersCount = Array.isArray(group.members) ? group.members.length : 0;
+  return { id: group.id, name: group.name || 'Группа', bio: group.bio || '', avatarDataUrl: group.avatarDataUrl || '', bannerDataUrl: group.bannerDataUrl || '', inviteCode: group.inviteCode || '', membersCount, membersText: `${membersCount} ${groupMembersWord(membersCount)}` };
+}
+
 function publicGroup(group, db, viewerId = '') {
   const usersById = new Map((db.users || []).map(u => [u.id, u]));
   const members = (Array.isArray(group.members) ? group.members : []).map(uid => {
@@ -493,6 +498,9 @@ function broadcastPresence(userId, online, lastSeenAt = '') {
 
 function broadcastProfile(user) {
   sendEventToUser(user.id, 'profile', publicUser(user));
+}
+function broadcastPublicProfile(user) {
+  sendEventToAll('public_profile_update', publicUser(user));
 }
 function sessionCountForUser(userId) {
   let c = 0;
@@ -770,6 +778,7 @@ function handleApi(req, res, urlObj) {
         user.bio = String(body.bio || '').slice(0, 110);
         writeDb(db);
         broadcastProfile(user);
+        broadcastPublicProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -817,6 +826,7 @@ function handleApi(req, res, urlObj) {
         user.avatarDataUrl = dataUrl;
         writeDb(db);
         broadcastProfile(user);
+        broadcastPublicProfile(user);
         sendJson(res, 200, { user: publicUser(user) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
@@ -1076,8 +1086,7 @@ function handleApi(req, res, urlObj) {
     const code = String(searchParams.get('code') || '').trim();
     const g = (db.groups || []).find(x => x.inviteCode === code);
     if (!g) return sendJson(res, 404, { error: 'Not found' });
-    const membersCount = Array.isArray(g.members) ? g.members.length : 0;
-    return sendJson(res, 200, { group: { id: g.id, name: g.name || 'Группа', bio: g.bio || '', avatarDataUrl: g.avatarDataUrl || '', bannerDataUrl: g.bannerDataUrl || '', inviteCode: g.inviteCode || '', membersCount, membersText: `${membersCount} ${groupMembersWord(membersCount)}` } });
+    return sendJson(res, 200, { group: publicGroupPreview(g) });
   }
 
   if (pathname === '/api/public-profile' && method === 'GET') {
@@ -1133,12 +1142,23 @@ function handleApi(req, res, urlObj) {
       const picked = Array.isArray(body.memberIds) ? body.memberIds.map(String) : [];
       const valid = new Set((db.users || []).map(u => u.id));
       const members = Array.from(new Set([user.id, ...picked.filter(id => valid.has(id))]));
-      const group = { id: `group_${crypto.randomUUID()}`, name, bio: String(body.bio || '').trim().slice(0, 110), avatarDataUrl: String(body.avatarDataUrl || '').slice(0, 3_000_000), bannerDataUrl: String(body.bannerDataUrl || '').slice(0, 3_000_000), ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString() };
+      const bio = String(body.bio || '').trim().slice(0, 110);
+      const avatarDataUrl = String(body.avatarDataUrl || '').slice(0, 3_000_000);
+      const bannerDataUrl = String(body.bannerDataUrl || '').slice(0, 3_000_000);
+      const requestId = String(body.requestId || '').trim().slice(0, 120);
+      const sameMembers = (a, b) => Array.isArray(a) && a.length === b.length && b.every(id => a.includes(id));
+      const existing = (db.groups || []).find(g => g.ownerId === user.id && (
+        (requestId && g.creationRequestId === requestId) ||
+        (g.name === name && (g.bio || '') === bio && sameMembers(g.members, members) && Date.now() - new Date(g.createdAt || 0).getTime() < 15000)
+      ));
+      if (existing) return sendJson(res, 200, { group: publicGroup(existing, db, user.id) });
+      const group = { id: `group_${crypto.randomUUID()}`, name, bio, avatarDataUrl, bannerDataUrl, ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString(), creationRequestId: requestId };
       db.groups.push(group);
       const sys = pushGroupSystemMessage(db, group, 'Группа создана', 'group_created', user.id);
       writeDb(db);
       sendGroupEvent(group, 'message', sys);
       groupMessageRecipients(group).forEach(uid => sendEventToUser(uid, 'chat_group_update', publicGroup(group, db, uid)));
+      sendEventToAll('public_group_update', publicGroupPreview(group));
       return sendJson(res, 201, { group: publicGroup(group, db, user.id) });
     }).catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -1210,6 +1230,7 @@ function handleApi(req, res, urlObj) {
     db.messages = (db.messages || []).filter(m => m.groupId !== group.id && m.toUserId !== group.id);
     writeDb(db);
     recipients.forEach(uid => sendEventToUser(uid, 'chat_group_update', { id: group.id, deleted: true }));
+    sendEventToAll('public_group_update', { id: group.id, inviteCode: group.inviteCode || '', deleted: true });
     return sendJson(res, 200, { ok: true });
   }
 
@@ -1505,7 +1526,7 @@ const server = http.createServer((req, res) => {
   const isAppRoute = /^\/(list|chat|favorites|search|profile|login|reg|vpsc)$/.test(requestUrl.pathname);
   const isPublicProfileRoute = /^\/m-in\/[A-Za-z0-9_]{5,70}$/.test(requestUrl.pathname);
   const isGroupInviteRoute = /^\/m-in\/group\/[A-Za-z0-9_-]{6,32}$/.test(requestUrl.pathname);
-  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute || requestUrl.pathname === '/banned' ? '/index.html' : ((isPublicProfileRoute || isGroupInviteRoute) ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname))));
+  const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute ? '/index.html' : (requestUrl.pathname === '/banned' ? '/banned.html' : ((isPublicProfileRoute || isGroupInviteRoute) ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
   const filePath = path.join(ROOT, safePath);
 
