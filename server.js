@@ -1133,7 +1133,17 @@ function handleApi(req, res, urlObj) {
       const picked = Array.isArray(body.memberIds) ? body.memberIds.map(String) : [];
       const valid = new Set((db.users || []).map(u => u.id));
       const members = Array.from(new Set([user.id, ...picked.filter(id => valid.has(id))]));
-      const group = { id: `group_${crypto.randomUUID()}`, name, bio: String(body.bio || '').trim().slice(0, 110), avatarDataUrl: String(body.avatarDataUrl || '').slice(0, 3_000_000), bannerDataUrl: String(body.bannerDataUrl || '').slice(0, 3_000_000), ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString() };
+      const bio = String(body.bio || '').trim().slice(0, 110);
+      const avatarDataUrl = String(body.avatarDataUrl || '').slice(0, 3_000_000);
+      const bannerDataUrl = String(body.bannerDataUrl || '').slice(0, 3_000_000);
+      const requestId = String(body.requestId || '').trim().slice(0, 120);
+      const sameMembers = (a, b) => Array.isArray(a) && a.length === b.length && b.every(id => a.includes(id));
+      const existing = (db.groups || []).find(g => g.ownerId === user.id && (
+        (requestId && g.creationRequestId === requestId) ||
+        (g.name === name && (g.bio || '') === bio && sameMembers(g.members, members) && Date.now() - new Date(g.createdAt || 0).getTime() < 15000)
+      ));
+      if (existing) return sendJson(res, 200, { group: publicGroup(existing, db, user.id) });
+      const group = { id: `group_${crypto.randomUUID()}`, name, bio, avatarDataUrl, bannerDataUrl, ownerId: user.id, members, inviteCode: makeGroupInviteCode(db), createdAt: new Date().toISOString(), creationRequestId: requestId };
       db.groups.push(group);
       const sys = pushGroupSystemMessage(db, group, 'Группа создана', 'group_created', user.id);
       writeDb(db);
