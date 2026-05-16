@@ -4,7 +4,7 @@
   /* Экраны, которые на десктопе открываются в сайдбаре (поверх списка чатов) */
   const SIDEBAR_OVERLAY=['screen-search','screen-profile'];
   /* Экраны правой панели */
-  const RIGHT_PANEL=['screen-chat','screen-favorites'];
+  const RIGHT_PANEL=['screen-chat','screen-favorites','screen-privacy-policy','screen-terms'];
   let pendingExternalUrl='';
   let peAvatarScale=1;
   let peBannerScale=1;
@@ -3108,6 +3108,16 @@
       updateVpscBoxes('');
       setTimeout(()=>document.getElementById('vpsc-hidden-input').focus(),10);
     };
+    let legalBackAuthTab='login';
+    window.openLegalPage=function(id,backTab='register'){
+      legalBackAuthTab=backTab||'register';
+      hideLoginScreen();
+      window.showScreen(id);
+    };
+    window.backFromLegalPage=function(){
+      if(authToken) window.showScreen('screen-list');
+      else openAuth(legalBackAuthTab||'register');
+    };
     function openAuth(tab='login'){
       showLoginScreen();
       if(tab==='register') window.showRegPanel();
@@ -3696,7 +3706,9 @@
     function applyRoute(){
       const seg=location.pathname.replace(/^\/+/, '')||'list';
       const h=seg.split('/')[0]||'list';
-      const target=`screen-${h}`;
+      const routeMap={privacy:'privacy-policy','privacy-policy':'privacy-policy',terms:'terms'};
+      const screenName=routeMap[h]||h;
+      const target=`screen-${screenName}`;
       if(target==='screen-chat'&&!currentChatUserId){
         window.showScreen('screen-list',true);
         return;
@@ -4282,7 +4294,7 @@
       window.addEventListener('beforeunload',()=>sendTypingState(false));
       applyRoute();
       if(location.pathname==='/'||location.pathname==='') history.replaceState(null,'','/list');
-      if(!authToken){ openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login')); hideAppLoading(); return; }
+      if(!authToken){ if(location.pathname==='/privacy-policy'||location.pathname==='/privacy'||location.pathname==='/terms'){ hideLoginScreen(); applyRoute(); hideAppLoading(); return; } openAuth(location.pathname==='/reg'?'register':(location.pathname==='/vpsc'?'vpsc':'login')); hideAppLoading(); return; }
       try{
         await refreshMe();
         startRealtime();
