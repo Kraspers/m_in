@@ -1500,7 +1500,14 @@ function sendFile(res, filePath) {
       res.end(wrapped);
       return;
     }
-    if (path.basename(filePath) === 'app.js') {
+    if (ext === '.css') {
+      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
+      const wrapped = `@import url("data:text/css;charset=utf-8;base64,${encoded}");`;
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(wrapped);
+      return;
+    }
+    if (ext === '.js') {
       const encoded = Buffer.from(String(data), 'utf8').toString('base64');
       const wrapped = `(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
       res.writeHead(200, { 'Content-Type': contentType });
