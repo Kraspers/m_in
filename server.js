@@ -1501,7 +1501,14 @@ function sendFile(res, filePath) {
       return;
     }
     if (ext === '.css') {
-      const css = String(data).replace(/url\((['"]?)(?!data:|https?:|[/#])([^)'"]+)\1\)/g, (_m, q, u) => `url(${q}/${u}${q})`);
+      const cssDir = path.dirname(filePath);
+      const css = String(data).replace(/url\((['"]?)(?!data:|https?:|[/#])([^)'"]+)\1\)/g, (m, q, u) => {
+        const assetPath = path.join(cssDir, u);
+        if (!assetPath.startsWith(ROOT) || !fs.existsSync(assetPath)) return `url(${q}/${u}${q})`;
+        const assetType = MIME_TYPES[path.extname(assetPath).toLowerCase()] || 'application/octet-stream';
+        const assetData = fs.readFileSync(assetPath).toString('base64');
+        return `url(${q}data:${assetType.split(';')[0]};base64,${assetData}${q})`;
+      });
       const encoded = Buffer.from(css, 'utf8').toString('base64');
       const wrapped = `@import url("data:text/css;charset=utf-8;base64,${encoded}");`;
       res.writeHead(200, { 'Content-Type': contentType });
