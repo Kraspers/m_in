@@ -22,6 +22,7 @@
   let localTypingLastSentAt=0;
   let presenceClockTimer=null;
   const USERNAME_RE=/^[A-Za-z0-9_]{5,70}$/;
+  const minPreviewCache=new Map();
   function parseMinLink(url){
     try{
       const u=new URL(String(url||''),location.origin);
@@ -56,6 +57,7 @@
     if(item&&item.id) el.dataset.minId=item.id;
     if(item&&item.inviteCode) el.dataset.minCode=item.inviteCode;
     if(item&&item.username) el.dataset.minUsername=String(item.username).toLowerCase();
+    if(el.dataset.url) minPreviewCache.set(el.dataset.url,{kind,item,notFound});
     if(el.dataset.minSig===sig) return;
     el.dataset.minSig=sig;
     el.innerHTML=minPreviewHtml(item,kind,notFound);
@@ -973,8 +975,8 @@
         else window.open(url,'_blank','noopener,noreferrer');
       });
       if(minInfo){
-        const data=await loadMinPreview(url,backendApi);
-        applyMinPreviewData(p,data,minInfo.type);
+        const cached=minPreviewCache.get(url);
+        applyMinPreviewData(p,cached||await loadMinPreview(url,backendApi),minInfo.type);
       }else{
         p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
         p.innerHTML=`<div style="font-size:12px;opacity:.7;">${t('loading_preview')}</div><div style="font-size:13px;opacity:.9;">${url}</div>`;
@@ -3657,8 +3659,8 @@
         p.href='#';
         p.addEventListener('click',e=>{ e.preventDefault(); if(minInfo){ handleMinLinkClick(url,api,p); return; } openExternalLinkModal(url); });
         if(minInfo){
-          const data=await loadMinPreview(url,api);
-          applyMinPreviewData(p,data,minInfo.type);
+          const cached=minPreviewCache.get(url);
+          applyMinPreviewData(p,cached||await loadMinPreview(url,api),minInfo.type);
         }else if(fromCache){
           p.style.cssText='display:block;margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.10);text-decoration:none;color:#fff;';
           p.innerHTML=`<div style="font-size:12px;opacity:.7;">${esc(fromCache.site||t('link'))}</div><div style="font-size:14px;font-weight:600;line-height:1.3;">${esc(fromCache.title||url)}</div>${fromCache.description?`<div style="font-size:12px;opacity:.8;line-height:1.25;margin-top:2px;">${esc(fromCache.description)}</div>`:''}`;
