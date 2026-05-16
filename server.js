@@ -1483,6 +1483,27 @@ function handleApi(req, res, urlObj) {
   return sendJson(res, 404, { error: 'Not found' });
 }
 
+function compactCss(source) {
+  return String(source || '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/[\n\r\t]+/g, '')
+    .trim();
+}
+
+function encodeClientText(text) {
+  return Buffer.from(String(text || ''), 'utf8').toString('base64');
+}
+
+function protectHtmlForBrowser(html) {
+  const encoded = encodeClientText(html);
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>(()=>{const c="${encoded}";const b=atob(c);const u=Uint8Array.from(b,x=>x.charCodeAt(0));const h=new TextDecoder('utf-8').decode(u);document.open();document.write(h);document.close();})();</script></head><body></body></html>`;
+}
+
+function protectJsForBrowser(js) {
+  const encoded = encodeClientText(js);
+  return `(()=>{const c="${encoded}";const b=atob(c);const u=Uint8Array.from(b,x=>x.charCodeAt(0));const s=new TextDecoder('utf-8').decode(u);(0,eval)(s);})();`;
+}
+
 function sendFile(res, filePath) {
   fs.readFile(filePath, (err, data) => {
     if (err) {
@@ -1493,14 +1514,27 @@ function sendFile(res, filePath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    if (path.basename(filePath) === 'app.js') {
-      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
-      const wrapped = `(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(wrapped);
+    const headers = {
+      'Content-Type': contentType,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': ['.html', '.css', '.js'].includes(ext) ? 'no-store' : 'public, max-age=31536000, immutable'
+    };
+    if (ext === '.html') {
+      res.writeHead(200, headers);
+      res.end(protectHtmlForBrowser(data));
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    if (ext === '.js') {
+      res.writeHead(200, headers);
+      res.end(protectJsForBrowser(data));
+      return;
+    }
+    if (ext === '.css') {
+      res.writeHead(200, headers);
+      res.end(compactCss(data));
+      return;
+    }
+    res.writeHead(200, headers);
     res.end(data);
   });
 }
