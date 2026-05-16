@@ -1501,7 +1501,8 @@ function sendFile(res, filePath) {
       return;
     }
     if (ext === '.css') {
-      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
+      const css = String(data).replace(/url\((['"]?)(?!data:|https?:|[/#])([^)'"]+)\1\)/g, (_m, q, u) => `url(${q}/${u}${q})`);
+      const encoded = Buffer.from(css, 'utf8').toString('base64');
       const wrapped = `@import url("data:text/css;charset=utf-8;base64,${encoded}");`;
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(wrapped);
