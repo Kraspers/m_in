@@ -749,3 +749,16 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 .msg-fwd .group-sender-name{margin:6px 10px 8px 10px;max-width:calc(100% - 20px);}
 .msg-bubble .group-sender-name:first-child + .msg-media-grid,
 .msg-bubble .group-sender-name:first-child + div .msg-media-grid{border-top-left-radius:0!important;border-top-right-radius:0!important;}
+
+.chat-folder-tabs{margin:10px 12px 0;padding:6px;display:flex;gap:6px;overflow-x:auto;border-radius:999px;background:rgba(255,255,255,.12);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);scrollbar-width:none;flex-shrink:0;}
+.chat-folder-tabs::-webkit-scrollbar{display:none;}
+.chat-folder-tab{border:none;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;padding:7px 15px;font-size:15px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.chat-folder-tab.active{background:rgba(255,255,255,.28);}
+.chat-folders-menu-list{padding:14px 16px 34px;display:flex;flex-direction:column;gap:10px;}
+.chat-folder-menu-pill{width:100%;border:none;border-radius:999px;background:#2C2C2E;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:12px;font-size:16px;font-weight:800;font-family:inherit;text-align:left;cursor:pointer;}
+.chat-folder-menu-pill svg{width:21px;height:21px;fill:currentColor;flex-shrink:0;}
+.chat-folder-menu-pill.create{color:#5AC8FA;}
+#folder-chat-search-wrap{padding:14px 16px 6px;}
+#folder-chat-search{width:100%;background:#2C2C2E;border:none;border-radius:999px;padding:14px 16px;color:#fff;font-size:16px;font-family:inherit;outline:none;-webkit-user-select:text;user-select:text;}
+.mi-primary-pill.loading{position:relative;color:transparent!important;pointer-events:none;}
+.mi-primary-pill.loading::after{content:'';position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(255,255,255,.55);border-top-color:#fff;border-radius:50%;animation:spinUpload .75s linear infinite;}
