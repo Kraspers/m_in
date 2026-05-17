@@ -359,8 +359,8 @@ function normalizeCustomization(value) {
   return { theme, background };
 }
 
-function publicUser(user) {
-  return {
+function publicUser(user, includePrivate = false) {
+  const out = {
     id: user.id,
     name: user.name,
     username: user.username,
@@ -371,6 +371,8 @@ function publicUser(user) {
     language: normalizeLanguage(user.language),
     verified: !!user.verified
   };
+  if (includePrivate) out.chatFolders = normalizeChatFolders(user);
+  return out;
 }
 
 function isUserOnline(userId) {
@@ -400,6 +402,39 @@ function ensurePinnedChats(user) {
   if (!user || !Array.isArray(user.pinnedChatUserIds)) user.pinnedChatUserIds = [];
   user.pinnedChatUserIds = user.pinnedChatUserIds.filter(Boolean);
   return user.pinnedChatUserIds;
+}
+
+function normalizeChatFolders(user) {
+  if (!user || !Array.isArray(user.chatFolders)) user.chatFolders = [];
+  const seen = new Set();
+  user.chatFolders = user.chatFolders
+    .filter(f => f && typeof f === 'object')
+    .map(f => {
+      const id = String(f.id || '').trim() || `folder_${crypto.randomUUID()}`;
+      const name = String(f.name || '').trim().slice(0, 32);
+      const chatIds = Array.isArray(f.chatIds) ? Array.from(new Set(f.chatIds.map(String).filter(Boolean))).slice(0, 300) : [];
+      return { id, name, chatIds, createdAt: f.createdAt || new Date().toISOString() };
+    })
+    .filter(f => f.name && !seen.has(f.id) && (seen.add(f.id), true))
+    .slice(0, 30);
+  return user.chatFolders;
+}
+
+function ensureFolderPinnedChats(user) {
+  if (!user || !user.folderPinnedChatIds || typeof user.folderPinnedChatIds !== 'object' || Array.isArray(user.folderPinnedChatIds)) user.folderPinnedChatIds = {};
+  const folders = normalizeChatFolders(user);
+  const allowedFolders = new Set(folders.map(f => f.id));
+  Object.keys(user.folderPinnedChatIds).forEach(fid => {
+    if (!allowedFolders.has(fid) || !Array.isArray(user.folderPinnedChatIds[fid])) delete user.folderPinnedChatIds[fid];
+    else user.folderPinnedChatIds[fid] = user.folderPinnedChatIds[fid].map(String).filter(Boolean);
+  });
+  return user.folderPinnedChatIds;
+}
+
+function chatFolderForUser(user, folderId) {
+  const fid = String(folderId || '').trim();
+  if (!fid || fid === 'all') return null;
+  return normalizeChatFolders(user).find(f => f.id === fid) || null;
 }
 
 
@@ -497,7 +532,7 @@ function broadcastPresence(userId, online, lastSeenAt = '') {
 }
 
 function broadcastProfile(user) {
-  sendEventToUser(user.id, 'profile', publicUser(user));
+  sendEventToUser(user.id, 'profile', publicUser(user, true));
 }
 function broadcastPublicProfile(user) {
   sendEventToAll('public_profile_update', publicUser(user));
@@ -596,6 +631,8 @@ function handleApi(req, res, urlObj) {
           vpscCodeEnc: encryptString(makeUniqueVpscCode(db)),
           blockedUsers: [],
           pinnedChatUserIds: [],
+          chatFolders: [],
+          folderPinnedChatIds: {},
           bio: '',
           avatarDataUrl: '',
           bannerDataUrl: '',
@@ -607,7 +644,7 @@ function handleApi(req, res, urlObj) {
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
-        sendJson(res, 201, { token, user: publicUser(user) });
+        sendJson(res, 201, { token, user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -633,7 +670,7 @@ function handleApi(req, res, urlObj) {
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
-        sendJson(res, 200, { token, user: publicUser(user) });
+        sendJson(res, 200, { token, user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -704,7 +741,7 @@ function handleApi(req, res, urlObj) {
         const session = createSession(req, user.id);
         const token = session.token;
         broadcastSessionsUpdate(user.id);
-        sendJson(res, 200, { token, user: publicUser(user) });
+        sendJson(res, 200, { token, user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -716,7 +753,40 @@ function handleApi(req, res, urlObj) {
     const activeBan = getActiveBan(db, user.id) || getActiveDeviceBan(db, req);
     if (activeBan) return sendBanResponse(res, 'Вы были заблокированы', activeBan);
     if (migrateUserSecrets(user)) writeDb(db);
-    return sendJson(res, 200, { user: publicUser(user) });
+    return sendJson(res, 200, { user: publicUser(user, true) });
+  }
+
+  if (pathname === '/api/me/chat-folders' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    return sendJson(res, 200, { folders: normalizeChatFolders(user) });
+  }
+
+  if (pathname === '/api/me/chat-folders' && method === 'POST') {
+    return readBody(req)
+      .then(body => {
+        const db = readDb();
+        const user = getUserByToken(req, db);
+        if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+        const folders = normalizeChatFolders(user);
+        if (folders.length >= 30) return sendJson(res, 400, { error: 'Максимум 30 папок' });
+        const name = String(body.name || '').trim().slice(0, 32);
+        if (!name) return sendJson(res, 400, { error: 'Название папки обязательно' });
+        const requested = Array.isArray(body.chatIds) ? Array.from(new Set(body.chatIds.map(String).filter(Boolean))) : [];
+        if (!requested.length) return sendJson(res, 400, { error: 'Выберите чаты' });
+        const groupIds = new Set((db.groups || []).filter(g => g && Array.isArray(g.members) && g.members.includes(user.id)).map(g => g.id));
+        const userIds = new Set((db.users || []).map(u => u.id).filter(id => id && id !== user.id));
+        const chatIds = requested.filter(id => groupIds.has(id) || userIds.has(id)).slice(0, 300);
+        if (!chatIds.length) return sendJson(res, 400, { error: 'Выберите доступные чаты' });
+        const folder = { id: `folder_${crypto.randomUUID()}`, name, chatIds, createdAt: new Date().toISOString() };
+        user.chatFolders = [...folders, folder];
+        writeDb(db);
+        const payload = normalizeChatFolders(user);
+        sendEventToUser(user.id, 'chat_folders_update', { folders: payload });
+        sendJson(res, 201, { folder, folders: payload });
+      })
+      .catch(err => sendJson(res, 400, { error: err.message }));
   }
 
   if (pathname === '/api/me/sessions' && method === 'GET') {
@@ -779,7 +849,7 @@ function handleApi(req, res, urlObj) {
         writeDb(db);
         broadcastProfile(user);
         broadcastPublicProfile(user);
-        sendJson(res, 200, { user: publicUser(user) });
+        sendJson(res, 200, { user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -796,7 +866,7 @@ function handleApi(req, res, urlObj) {
         });
         writeDb(db);
         broadcastProfile(user);
-        sendJson(res, 200, { user: publicUser(user) });
+        sendJson(res, 200, { user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -810,7 +880,7 @@ function handleApi(req, res, urlObj) {
         user.language = normalizeLanguage(body.language);
         writeDb(db);
         broadcastProfile(user);
-        sendJson(res, 200, { user: publicUser(user) });
+        sendJson(res, 200, { user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -827,7 +897,7 @@ function handleApi(req, res, urlObj) {
         writeDb(db);
         broadcastProfile(user);
         broadcastPublicProfile(user);
-        sendJson(res, 200, { user: publicUser(user) });
+        sendJson(res, 200, { user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -843,7 +913,7 @@ function handleApi(req, res, urlObj) {
         user.bannerDataUrl = dataUrl;
         writeDb(db);
         broadcastProfile(user);
-        sendJson(res, 200, { user: publicUser(user) });
+        sendJson(res, 200, { user: publicUser(user, true) });
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
@@ -912,7 +982,10 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
-    const pinnedChatUserIds = ensurePinnedChats(user);
+    const folder = chatFolderForUser(user, searchParams.get('folderId'));
+    const folderChatIds = folder ? new Set(folder.chatIds || []) : null;
+    const folderPinned = ensureFolderPinnedChats(user);
+    const pinnedChatUserIds = folder ? (folderPinned[folder.id] || []) : ensurePinnedChats(user);
     const pinOrder = new Map(pinnedChatUserIds.map((uid, idx) => [uid, idx]));
     const messages = db.messages || [];
     let securedMessages = false;
@@ -985,6 +1058,7 @@ function handleApi(req, res, urlObj) {
         return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? '📷 Медиа' : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
       }))
       .filter(u => {
+        if (folderChatIds && !folderChatIds.has(u.id)) return false;
         const n = String(u.name || '').toLowerCase();
         const un = String((u.username || '')).toLowerCase();
         return !q || n.includes(q) || un.includes(q);
@@ -1008,14 +1082,26 @@ function handleApi(req, res, urlObj) {
         const peerId = String(chatMatch[1] || '');
         if (!peerId || peerId === user.id) return sendJson(res, 400, { error: 'Некорректный чат' });
         const action = String(body.action || '').toLowerCase();
-        const pinnedChatUserIds = ensurePinnedChats(user);
-        const withoutPeer = pinnedChatUserIds.filter(id => id !== peerId);
-        if (action === 'pin') user.pinnedChatUserIds = [peerId, ...withoutPeer];
-        else if (action === 'unpin') user.pinnedChatUserIds = withoutPeer;
-        else return sendJson(res, 400, { error: 'Unknown action' });
+        const folder = chatFolderForUser(user, body.folderId);
+        let pinnedChatUserIds;
+        if (folder) {
+          const folderPinned = ensureFolderPinnedChats(user);
+          pinnedChatUserIds = Array.isArray(folderPinned[folder.id]) ? folderPinned[folder.id] : [];
+          const withoutPeer = pinnedChatUserIds.filter(id => id !== peerId);
+          if (action === 'pin') folderPinned[folder.id] = [peerId, ...withoutPeer];
+          else if (action === 'unpin') folderPinned[folder.id] = withoutPeer;
+          else return sendJson(res, 400, { error: 'Unknown action' });
+        } else {
+          pinnedChatUserIds = ensurePinnedChats(user);
+          const withoutPeer = pinnedChatUserIds.filter(id => id !== peerId);
+          if (action === 'pin') user.pinnedChatUserIds = [peerId, ...withoutPeer];
+          else if (action === 'unpin') user.pinnedChatUserIds = withoutPeer;
+          else return sendJson(res, 400, { error: 'Unknown action' });
+        }
         writeDb(db);
         sendEventToUser(user.id, 'chat_pin_update', {
           peerId,
+          folderId: folder ? folder.id : 'all',
           pinned: action === 'pin'
         });
         return sendJson(res, 200, {

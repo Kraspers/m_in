@@ -1109,6 +1109,12 @@
   const CUSTOM_THEMES=new Set(['default','aurora','mint','sunset','ocean','flame']);
   const CUSTOM_BACKGROUNDS=new Set(['default','wallpaper']);
   let currentCustomization={theme:'default',background:'default'};
+  let chatFolders=[];
+  let activeChatFolderId='all';
+  let latestChatItems=[];
+  let folderPickedIds=new Set();
+  let folderPickItems=[];
+  let folderCreateInFlight=false;
 
   const LANGUAGES=[
     {code:'ru',label:'RU',name:'Русский',english:'Russian'},
@@ -2067,9 +2073,17 @@
     if(!currentChatListEl)return closeChatListCtxClean();
     const el=currentChatListEl;
     const uid=el.dataset.chatId||'';
+    const chat=usersMap.get(uid)||{};
     closeChatListCtxClean();
     if(uid){
-      try{ await api(`/chats/${encodeURIComponent(uid)}`,{method:'DELETE'}); }catch(_){}
+      try{
+        if(chat&&chat.isGroup){
+          if(chat.isOwner) await api(`/groups/${encodeURIComponent(uid)}`,{method:'DELETE'});
+          else await api(`/groups/${encodeURIComponent(uid)}/leave`,{method:'POST'});
+        }else{
+          await api(`/chats/${encodeURIComponent(uid)}`,{method:'DELETE'});
+        }
+      }catch(_){}
     }
     setTimeout(()=>{if(el&&el.parentElement)el.remove();},320);
     if(currentChatUserId===uid){
@@ -2489,6 +2503,7 @@
   function openChatListCtx(el){
     currentChatListEl=el;
     updateChatPinActionUI(el.classList.contains('chat-pinned'));
+    updateChatListDeleteActionUI(el);
     if(clCloseTimer){clearTimeout(clCloseTimer);clCloseTimer=null;}
     clOverlay.classList.remove('open');
 
@@ -2518,6 +2533,21 @@
       clRowWrap.style.transition='transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94)';
       clRowWrap.style.transform='translateY(0)';
     }));
+  }
+
+  function updateChatListDeleteActionUI(el){
+    const uid=el&&el.dataset?el.dataset.chatId:'';
+    const chat=usersMap.get(uid)||{};
+    const label=document.getElementById('chatlist-delete-label');
+    const icon=document.getElementById('chatlist-delete-icon');
+    if(!label) return;
+    if(chat&&chat.isGroup&&!chat.isOwner){
+      label.textContent='Покинуть группу';
+      if(icon) icon.outerHTML='<svg id="chatlist-delete-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#FF453A"><path d="M224 160C241.7 160 256 145.7 256 128C256 110.3 241.7 96 224 96L160 96C107 96 64 139 64 192L64 448C64 501 107 544 160 544L224 544C241.7 544 256 529.7 256 512C256 494.3 241.7 480 224 480L160 480C142.3 480 128 465.7 128 448L128 192C128 174.3 142.3 160 160 160L224 160zM566.6 342.6C579.1 330.1 579.1 309.8 566.6 297.3L438.6 169.3C426.1 156.8 405.8 156.8 393.3 169.3C380.8 181.8 380.8 202.1 393.3 214.6L466.7 288L256 288C238.3 288 224 302.3 224 320C224 337.7 238.3 352 256 352L466.7 352L393.3 425.4C380.8 437.9 380.8 458.2 393.3 470.7C405.8 483.2 426.1 483.2 438.6 470.7L566.6 342.7z"/></svg>';
+      return;
+    }
+    label.textContent=(chat&&chat.isGroup&&chat.isOwner)?'Удалить группу':'Удалить';
+    if(icon) icon.outerHTML='<svg id="chatlist-delete-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>';
   }
 
   function closeChatListCtx(e){
@@ -2718,7 +2748,7 @@
     }
     updateChatPinActionUI(!isPinned);
     try{
-      await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
+      await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin',folderId:activeChatFolderId})});
     }catch(_){
       updateChatPinActionUI(wasPinned);
       decorateChatPinnedUi(el,wasPinned);
@@ -3123,7 +3153,7 @@
       };
     }
     function setBodyToken(prefix,value,allowed){
-      document.body.classList.forEach(cls=>{ if(cls.startsWith(prefix)) document.body.classList.remove(cls); });
+      Array.from(document.body.classList).forEach(cls=>{ if(cls.startsWith(prefix)) document.body.classList.remove(cls); });
       document.body.classList.add(prefix+(allowed.has(value)?value:'default'));
     }
     function applyCustomizationUI(value){
@@ -3167,6 +3197,7 @@
       const avatar=profile.avatarDataUrl||'';
       const banner=profile.bannerDataUrl||'';
       applyCustomizationUI(profile.customization);
+      if(Array.isArray(profile.chatFolders)){ chatFolders=profile.chatFolders; renderChatFolderTabs(); }
       const mainName=document.getElementById('profile-main-name');
       if(mainName) delete mainName.dataset.i18nAuto;
       setNameWithVerification(mainName,name,!!profile.verified);
@@ -3334,6 +3365,81 @@
       if(low.includes('закреп')) return `<span class="chat-row-preview chat-row-preview-system">${pinIcon}<span>${esc(pv)}</span></span>`;
       return `<span class="chat-row-preview">${esc(pv)}</span>`;
     }
+    function renderChatFolderTabs(){
+      const bar=document.getElementById('chat-folder-tabs');
+      if(!bar) return;
+      const folders=Array.isArray(chatFolders)?chatFolders:[];
+      if(!folders.length){ bar.style.display='none'; bar.innerHTML=''; activeChatFolderId='all'; return; }
+      if(activeChatFolderId!=='all'&&!folders.some(f=>f.id===activeChatFolderId)) activeChatFolderId='all';
+      bar.style.display='flex';
+      const tabs=[{id:'all',name:'Все'},...folders];
+      bar.innerHTML=tabs.map(f=>`<button class="chat-folder-tab ${f.id===activeChatFolderId?'active':''}" data-folder-id="${esc(f.id)}">${esc(f.name)}</button>`).join('');
+      bar.querySelectorAll('.chat-folder-tab').forEach(btn=>btn.onclick=()=>{ activeChatFolderId=btn.dataset.folderId||'all'; renderChatFolderTabs(); loadChats('',{showSkeleton:false}); });
+    }
+
+    function chatFoldersMenuIcon(type){
+      if(type==='plus') return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/></svg>';
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M576 304C576 436.5 461.4 544 320 544C282.9 544 247.7 536.6 215.9 523.3L97.5 574.1C88.1 578.1 77.3 575.8 70.4 568.3C63.5 560.8 62 549.8 66.8 540.8L115.6 448.6C83.2 408.3 64 358.3 64 304C64 171.5 178.6 64 320 64C461.4 64 576 171.5 576 304z"/></svg>';
+    }
+
+    function renderChatFoldersMenu(){
+      const box=document.getElementById('chat-folders-list');
+      if(!box) return;
+      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button><button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
+    }
+
+    window.openChatFoldersMenu=function(){
+      renderChatFoldersMenu();
+      const w=document.getElementById('chat-folders-wrap'); if(!w)return;
+      w.style.display=''; requestAnimationFrame(()=>w.classList.add('open'));
+    };
+    window.closeChatFoldersMenu=function(){const w=document.getElementById('chat-folders-wrap'); if(!w)return; w.classList.remove('open');};
+
+    function updateFolderNextButton(){ const btn=document.getElementById('folder-next-btn'); if(btn) btn.style.display=folderPickedIds.size?'block':'none'; }
+    function renderFolderPickItems(items){
+      folderPickItems=items||[];
+      const box=document.getElementById('folder-chat-list'); if(!box)return;
+      box.innerHTML=folderPickItems.length?folderPickItems.map(c=>renderMenuChatRow(c,{selected:folderPickedIds.has(c.id),check:true})).join(''):`<div style="color:#8E8E93;text-align:center;padding:24px;">${t('nothing_found')}</div>`;
+      box.querySelectorAll('[data-uid]').forEach(b=>b.onclick=()=>{const id=b.dataset.uid; folderPickedIds.has(id)?folderPickedIds.delete(id):folderPickedIds.add(id); renderFolderPickItems(folderPickItems); updateFolderNextButton();});
+      updateFolderNextButton();
+    }
+    window.searchFolderChats=async function(q=''){
+      const query=String(q||'').trim().toLowerCase();
+      try{
+        const data=await api(`/chats?q=${encodeURIComponent(query)}`);
+        let items=data.items||[];
+        items=await Promise.all(items.map(decryptChatPreview));
+        items=Array.from(new Map(items.map(it=>[String(it&&it.id||''),it])).values()).filter(it=>it&&it.id);
+        renderFolderPickItems(items);
+      }catch(_){ renderFolderPickItems(latestChatItems.filter(c=>!query||String(c.name||'').toLowerCase().includes(query)||String(c.username||'').toLowerCase().includes(query))); }
+    };
+    window.openCreateFolderMenu=function(){
+      closeChatFoldersMenu();
+      folderPickedIds=new Set(); folderPickItems=[]; folderCreateInFlight=false;
+      const pick=document.getElementById('folder-pick-step'), name=document.getElementById('folder-name-step'), input=document.getElementById('folder-chat-search'), nameInput=document.getElementById('folder-name-input');
+      if(pick) pick.style.display='block'; if(name) name.style.display='none'; if(input) input.value=''; if(nameInput) nameInput.value=''; updateCreateFolderButton(); updateFolderNextButton();
+      const w=document.getElementById('create-folder-wrap'); if(!w)return;
+      w.style.display=''; requestAnimationFrame(()=>w.classList.add('open'));
+      searchFolderChats(''); setTimeout(()=>input&&input.focus(),120);
+    };
+    window.closeCreateFolderMenu=function(){const w=document.getElementById('create-folder-wrap'); if(!w)return; w.classList.remove('open');};
+    window.continueFolderCreate=function(){ if(!folderPickedIds.size)return; document.getElementById('folder-pick-step').style.display='none'; document.getElementById('folder-name-step').style.display='block'; updateCreateFolderButton(); setTimeout(()=>document.getElementById('folder-name-input')?.focus(),120); };
+    window.updateCreateFolderButton=function(){ const btn=document.getElementById('create-folder-btn'); const input=document.getElementById('folder-name-input'); if(btn) btn.style.display=(input&&input.value.trim()&&folderPickedIds.size)?'block':'none'; };
+    window.createFolderNow=async function(){
+      if(folderCreateInFlight) return;
+      const btn=document.getElementById('create-folder-btn');
+      const name=(document.getElementById('folder-name-input')?.value||'').trim();
+      if(!name||!folderPickedIds.size) return;
+      folderCreateInFlight=true; if(btn){btn.disabled=true;btn.classList.add('loading');}
+      try{
+        const res=await api('/me/chat-folders',{method:'POST',body:JSON.stringify({name,chatIds:[...folderPickedIds]})});
+        chatFolders=Array.isArray(res.folders)?res.folders:chatFolders;
+        activeChatFolderId='all';
+        closeCreateFolderMenu(); showScreen('screen-list'); renderChatFolderTabs(); await loadChats('',{showSkeleton:false});
+      }catch(e){ alert(e.message||t('generic_error')); }
+      finally{ folderCreateInFlight=false; if(btn){btn.disabled=false;btn.classList.remove('loading');} }
+    };
+
     async function loadChats(query='',opts={}){
       const showSkeleton=opts.showSkeleton!==false;
       const holder=document.getElementById('chat-list');
@@ -3352,10 +3458,18 @@
         holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
       }
       try{
-        const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
+        const folderParam=activeChatFolderId&&activeChatFolderId!=='all'?`&folderId=${encodeURIComponent(activeChatFolderId)}`:'';
+        const data=await api(`/chats?q=${encodeURIComponent(query.trim())}${folderParam}`);
         let items=data.items||[];
         items=await Promise.all(items.map(decryptChatPreview));
         items=Array.from(new Map(items.map(it=>[String(it&&it.id||''),it])).values()).filter(it=>it&&it.id);
+        latestChatItems=items;
+        renderChatFolderTabs();
+        if(activeChatFolderId!=='all'){
+          const folder=chatFolders.find(f=>f.id===activeChatFolderId);
+          const ids=new Set(folder&&Array.isArray(folder.chatIds)?folder.chatIds:[]);
+          items=items.filter(it=>ids.has(it.id));
+        }
         const empty=document.getElementById('chat-list-empty');
         if(empty) empty.style.display=items.length?'none':'block';
         holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
@@ -3795,6 +3909,9 @@
         scheduleChatsRefresh();
         if(currentChatUserId) scheduleOpenCurrentChat();
       });
+      stream.addEventListener('chat_folders_update',ev=>{
+        try{ const p=JSON.parse(ev.data||'{}'); chatFolders=Array.isArray(p.folders)?p.folders:[]; renderChatFolderTabs(); loadChats('',{showSkeleton:false}); }catch(_){}
+      });
       stream.addEventListener('chat_group_update',ev=>{
         try{
           const g=JSON.parse(ev.data||'{}');
@@ -3985,6 +4102,14 @@
       if(!CUSTOM_BACKGROUNDS.has(background)) return;
       saveCustomization({background});
     };
+    document.querySelectorAll('.custom-bg-card[data-background]').forEach(btn=>{
+      if(btn.dataset.bgTouchBound==='1') return;
+      btn.dataset.bgTouchBound='1';
+      btn.addEventListener('touchend',e=>{
+        e.preventDefault();
+        window.selectCustomizationBackground(btn.dataset.background);
+      },{passive:false});
+    });
     window.openProfileEdit=function(){
       profileJustOpened=true;
       document.getElementById('profile-edit-wrap').classList.add('open');
@@ -4306,7 +4431,7 @@
         setUpvPinUi(!!(rowAfter&&rowAfter.classList.contains('chat-pinned')));
       }else if(uid){
         try{
-          await api(`/chats/${encodeURIComponent(uid)}`,{method:'PATCH',body:JSON.stringify({action:'pin'})});
+          await api(`/chats/${encodeURIComponent(uid)}`,{method:'PATCH',body:JSON.stringify({action:'pin',folderId:activeChatFolderId})});
           await loadChats('',{showSkeleton:false});
           setUpvPinUi(true);
         }catch(_){}
