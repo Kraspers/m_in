@@ -2748,7 +2748,7 @@
     }
     updateChatPinActionUI(!isPinned);
     try{
-      await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin'})});
+      await api(`/chats/${encodeURIComponent(el.dataset.chatId||'')}`,{method:'PATCH',body:JSON.stringify({action:isPinned?'unpin':'pin',folderId:activeChatFolderId})});
     }catch(_){
       updateChatPinActionUI(wasPinned);
       decorateChatPinnedUi(el,wasPinned);
@@ -3385,7 +3385,7 @@
     function renderChatFoldersMenu(){
       const box=document.getElementById('chat-folders-list');
       if(!box) return;
-      box.innerHTML=`<button class="chat-folder-menu-pill" type="button">${chatFoldersMenuIcon('comment')}<span>Все</span></button><button class="chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()">${chatFoldersMenuIcon('plus')}<span>Создать папку</span></button>`;
+      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button><button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
     }
 
     window.openChatFoldersMenu=function(){
@@ -3458,7 +3458,8 @@
         holder.insertAdjacentHTML('beforeend',renderChatSkeletonRows(6));
       }
       try{
-        const data=await api(`/chats?q=${encodeURIComponent(query.trim())}`);
+        const folderParam=activeChatFolderId&&activeChatFolderId!=='all'?`&folderId=${encodeURIComponent(activeChatFolderId)}`:'';
+        const data=await api(`/chats?q=${encodeURIComponent(query.trim())}${folderParam}`);
         let items=data.items||[];
         items=await Promise.all(items.map(decryptChatPreview));
         items=Array.from(new Map(items.map(it=>[String(it&&it.id||''),it])).values()).filter(it=>it&&it.id);
@@ -4101,6 +4102,14 @@
       if(!CUSTOM_BACKGROUNDS.has(background)) return;
       saveCustomization({background});
     };
+    document.querySelectorAll('.custom-bg-card[data-background]').forEach(btn=>{
+      if(btn.dataset.bgTouchBound==='1') return;
+      btn.dataset.bgTouchBound='1';
+      btn.addEventListener('touchend',e=>{
+        e.preventDefault();
+        window.selectCustomizationBackground(btn.dataset.background);
+      },{passive:false});
+    });
     window.openProfileEdit=function(){
       profileJustOpened=true;
       document.getElementById('profile-edit-wrap').classList.add('open');
@@ -4422,7 +4431,7 @@
         setUpvPinUi(!!(rowAfter&&rowAfter.classList.contains('chat-pinned')));
       }else if(uid){
         try{
-          await api(`/chats/${encodeURIComponent(uid)}`,{method:'PATCH',body:JSON.stringify({action:'pin'})});
+          await api(`/chats/${encodeURIComponent(uid)}`,{method:'PATCH',body:JSON.stringify({action:'pin',folderId:activeChatFolderId})});
           await loadChats('',{showSkeleton:false});
           setUpvPinUi(true);
         }catch(_){}

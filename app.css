@@ -762,3 +762,15 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 #folder-chat-search{width:100%;background:#2C2C2E;border:none;border-radius:999px;padding:14px 16px;color:#fff;font-size:16px;font-family:inherit;outline:none;-webkit-user-select:text;user-select:text;}
 .mi-primary-pill.loading{position:relative;color:transparent!important;pointer-events:none;}
 .mi-primary-pill.loading::after{content:'';position:absolute;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;border:2px solid rgba(255,255,255,.55);border-top-color:#fff;border-radius:50%;animation:spinUpload .75s linear infinite;}
+
+@media (max-width:767px){
+  #chat-folders-wrap .mi-sheet{min-height:72dvh;max-height:96dvh;}
+  #create-folder-wrap .mi-sheet{min-height:84dvh;max-height:96dvh;}
+}
+#chat-folder-tabs{justify-content:stretch;}
+.chat-folder-tab{flex:1 0 auto;text-align:center;}
+.chat-folder-menu-pill{margin:0;width:100%;}
+.chat-folder-menu-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;color:#fff;background:linear-gradient(135deg,#0078FF,#005fcc);}
+.chat-folder-menu-icon svg{width:20px;height:20px;fill:currentColor;}
+.chat-folder-menu-pill.create .chat-folder-menu-icon{background:rgba(90,200,250,.14);color:#5AC8FA;}
+.chat-folder-menu-pill.create .chat-row-name{color:#5AC8FA!important;}
