@@ -606,6 +606,25 @@
   </div>
 </div>
 
+<div id="folder-manage-wrap" class="mi-sheet-wrap">
+  <div class="mi-sheet-bg" onclick="closeFolderManageMenu()"></div>
+  <div class="mi-sheet-slideable">
+    <div class="mi-sheet-close-row"><button onclick="closeFolderManageMenu()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span>Папка</span></button></div>
+    <div class="mi-sheet"><div class="mi-sheet-grip"></div><div style="padding:12px 16px 24px;">
+      <button class="ctx-item" onclick="renameFolderNow()"><span><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span><span>Переименовать</span></button>
+      <button class="ctx-item danger" onclick="deleteFolderNow()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg><span>Удалить</span></button>
+    </div></div>
+  </div>
+</div>
+
+<div id="add-to-folder-wrap" class="mi-sheet-wrap">
+  <div class="mi-sheet-bg" onclick="closeAddToFolderMenu()"></div>
+  <div class="mi-sheet-slideable">
+    <div class="mi-sheet-close-row"><button onclick="closeAddToFolderMenu()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span>Добавить в папку</span></button></div>
+    <div class="mi-sheet"><div class="mi-sheet-grip"></div><div id="add-to-folder-list" class="chat-folders-menu-list"></div></div>
+  </div>
+</div>
+
 <div id="screen-search" class="screen">
   <div style="padding:52px 0 0;flex-shrink:0;">
     <div id="search-bar-wrap">
@@ -624,6 +643,10 @@
     <button id="chatlist-pin-btn" class="ctx-item" onclick="pinChat();closeChatListCtxClean();">
       <span id="chatlist-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></span>
       <span id="chatlist-pin-label">Закрепить</span>
+    </button>
+    <button id="chatlist-add-folder-btn" class="ctx-item" onclick="openAddToFolderMenuFromChat();closeChatListCtxClean();" style="display:none;">
+      <span id="chatlist-add-folder-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 640 640" fill="#fff"><path d="M576 448C576 483.3 547.3 512 512 512L128 512C92.7 512 64 483.3 64 448L64 160C64 124.7 92.7 96 128 96L266.7 96C280.5 96 294 100.5 305.1 108.8L343.5 137.6C349 141.8 355.8 144 362.7 144L512 144C547.3 144 576 172.7 576 208L576 448zM320 224C306.7 224 296 234.7 296 248L296 296L248 296C234.7 296 224 306.7 224 320C224 333.3 234.7 344 248 344L296 344L296 392C296 405.3 306.7 416 320 416C333.3 416 344 405.3 344 392L344 344L392 344C405.3 344 416 333.3 416 320C416 306.7 405.3 296 392 296L344 296L344 248C344 234.7 306.7 224 320 224z"/></svg></span>
+      <span id="chatlist-add-folder-label">Добавить в папку</span>
     </button>
     <button id="chatlist-delete-btn" class="ctx-item danger" onclick="doDeleteChat()">
       <svg id="chatlist-delete-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>

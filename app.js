@@ -2504,6 +2504,7 @@
     currentChatListEl=el;
     updateChatPinActionUI(el.classList.contains('chat-pinned'));
     updateChatListDeleteActionUI(el);
+    const addBtn=document.getElementById('chatlist-add-folder-btn'); if(addBtn) addBtn.style.display=(chatFolders&&chatFolders.length)?'flex':'none';
     if(clCloseTimer){clearTimeout(clCloseTimer);clCloseTimer=null;}
     clOverlay.classList.remove('open');
 
@@ -2515,7 +2516,7 @@
     const rect=el.getBoundingClientRect();
     const vh=window.innerHeight;
     const safeTop=80,safeBot=vh-16,gap=10;
-    const menuH=108;
+    const menuH=160;
 
     let cloneTop=Math.max(safeTop,rect.top);
     const spaceBelow=safeBot-(cloneTop+rect.height+gap);
@@ -3385,7 +3386,12 @@
     function renderChatFoldersMenu(){
       const box=document.getElementById('chat-folders-list');
       if(!box) return;
-      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button><button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
+      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon plain">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button>${(chatFolders||[]).map(f=>`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button" data-folder-id="${esc(f.id)}"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">${esc(f.name)}</span></button>`).join('')}<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
+      box.querySelectorAll('[data-folder-id]').forEach(b=>{
+        b.onclick=()=>{ activeChatFolderId=b.dataset.folderId||'all'; closeChatFoldersMenu(); renderChatFolderTabs(); loadChats('',{showSkeleton:false}); };
+        b.oncontextmenu=(e)=>{ e.preventDefault(); openFolderManageMenu(b.dataset.folderId||''); };
+        let t=null; b.addEventListener('pointerdown',()=>{ t=setTimeout(()=>openFolderManageMenu(b.dataset.folderId||''),420); }); b.addEventListener('pointerup',()=>{ if(t) clearTimeout(t); }); b.addEventListener('pointerleave',()=>{ if(t) clearTimeout(t); });
+      });
     }
 
     window.openChatFoldersMenu=function(){
@@ -3440,6 +3446,14 @@
       finally{ folderCreateInFlight=false; if(btn){btn.disabled=false;btn.classList.remove('loading');} }
     };
 
+
+    let currentFolderManageId='';
+    window.openFolderManageMenu=function(folderId){ if(!folderId)return; currentFolderManageId=folderId; const w=document.getElementById('folder-manage-wrap'); if(!w)return; w.style.display=''; requestAnimationFrame(()=>w.classList.add('open')); };
+    window.closeFolderManageMenu=function(){ const w=document.getElementById('folder-manage-wrap'); if(!w)return; w.classList.remove('open'); };
+    window.renameFolderNow=function(){ const f=(chatFolders||[]).find(x=>x.id===currentFolderManageId); if(!f) return; closeFolderManageMenu(); openCreateFolderMenu(); document.getElementById('folder-pick-step').style.display='none'; document.getElementById('folder-name-step').style.display='block'; folderPickedIds=new Set((f.chatIds||[]).map(String)); const i=document.getElementById('folder-name-input'); if(i) i.value=f.name||''; const b=document.getElementById('create-folder-btn'); if(b){ b.textContent='Сохранить'; b.style.display='block'; b.onclick=async function(){ const name=(i?.value||'').trim(); if(!name)return; await api(`/me/chat-folders/${encodeURIComponent(currentFolderManageId)}`,{method:'PATCH',body:JSON.stringify({name})}); closeCreateFolderMenu(); chatFolders=(await api('/me/chat-folders')).folders||chatFolders; renderChatFolderTabs(); renderChatFoldersMenu(); loadChats('',{showSkeleton:false}); b.onclick=createFolderNow; b.textContent='Создать папку'; }; }; };
+    window.deleteFolderNow=async function(){ if(!currentFolderManageId) return; await api(`/me/chat-folders/${encodeURIComponent(currentFolderManageId)}`,{method:'DELETE'}); closeFolderManageMenu(); if(activeChatFolderId===currentFolderManageId) activeChatFolderId='all'; renderChatFolderTabs(); renderChatFoldersMenu(); loadChats('',{showSkeleton:false}); };
+    window.openAddToFolderMenuFromChat=function(){ if(!currentChatListEl||!chatFolders.length) return; const box=document.getElementById('add-to-folder-list'); if(!box) return; const cid=currentChatListEl.dataset.chatId||''; box.innerHTML=chatFolders.map(f=>`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button" data-folder-id="${esc(f.id)}"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">${esc(f.name)}</span></button>`).join(''); box.querySelectorAll('[data-folder-id]').forEach(b=>b.onclick=async()=>{ await api(`/chats/${encodeURIComponent(cid)}`,{method:'PATCH',body:JSON.stringify({action:'add_to_folder',folderId:b.dataset.folderId})}); closeAddToFolderMenu(); }); const w=document.getElementById('add-to-folder-wrap'); if(!w) return; w.style.display=''; requestAnimationFrame(()=>w.classList.add('open')); };
+    window.closeAddToFolderMenu=function(){const w=document.getElementById('add-to-folder-wrap'); if(!w)return; w.classList.remove('open');};
     async function loadChats(query='',opts={}){
       const showSkeleton=opts.showSkeleton!==false;
       const holder=document.getElementById('chat-list');

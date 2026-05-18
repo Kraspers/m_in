@@ -788,6 +788,39 @@ function handleApi(req, res, urlObj) {
       })
       .catch(err => sendJson(res, 400, { error: err.message }));
   }
+  const folderMatch = pathname.match(/^\/api\/me\/chat-folders\/([^/]+)$/);
+  if (folderMatch && method === 'PATCH') {
+    return readBody(req).then(body => {
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      const folders = normalizeChatFolders(user);
+      const folder = folders.find(f => f.id === String(folderMatch[1] || ''));
+      if (!folder) return sendJson(res, 404, { error: 'Папка не найдена' });
+      const name = String(body.name || '').trim().slice(0, 32);
+      if (!name) return sendJson(res, 400, { error: 'Название папки обязательно' });
+      folder.name = name;
+      user.chatFolders = folders;
+      writeDb(db);
+      const payload = normalizeChatFolders(user);
+      sendEventToUser(user.id, 'chat_folders_update', { folders: payload });
+      return sendJson(res, 200, { ok: true, folders: payload });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+  if (folderMatch && method === 'DELETE') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const fid = String(folderMatch[1] || '');
+    const folders = normalizeChatFolders(user).filter(f => f.id !== fid);
+    user.chatFolders = folders;
+    const fp = ensureFolderPinnedChats(user);
+    if (fp[fid]) delete fp[fid];
+    writeDb(db);
+    const payload = normalizeChatFolders(user);
+    sendEventToUser(user.id, 'chat_folders_update', { folders: payload });
+    return sendJson(res, 200, { ok: true, folders: payload });
+  }
 
   if (pathname === '/api/me/sessions' && method === 'GET') {
     const db = readDb();
@@ -1082,6 +1115,15 @@ function handleApi(req, res, urlObj) {
         const peerId = String(chatMatch[1] || '');
         if (!peerId || peerId === user.id) return sendJson(res, 400, { error: 'Некорректный чат' });
         const action = String(body.action || '').toLowerCase();
+        if (action === 'add_to_folder') {
+          const folder = chatFolderForUser(user, body.folderId);
+          if (!folder) return sendJson(res, 404, { error: 'Папка не найдена' });
+          folder.chatIds = Array.from(new Set([...(Array.isArray(folder.chatIds) ? folder.chatIds : []), peerId])).slice(0, 300);
+          writeDb(db);
+          const payload = normalizeChatFolders(user);
+          sendEventToUser(user.id, 'chat_folders_update', { folders: payload });
+          return sendJson(res, 200, { ok: true, folders: payload });
+        }
         const folder = chatFolderForUser(user, body.folderId);
         let pinnedChatUserIds;
         if (folder) {
