@@ -606,14 +606,12 @@
   </div>
 </div>
 
-<div id="folder-manage-wrap" class="mi-sheet-wrap">
-  <div class="mi-sheet-bg" onclick="closeFolderManageMenu()"></div>
-  <div class="mi-sheet-slideable">
-    <div class="mi-sheet-close-row"><button onclick="closeFolderManageMenu()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg><span>Папка</span></button></div>
-    <div class="mi-sheet"><div class="mi-sheet-grip"></div><div style="padding:12px 16px 24px;">
-      <button class="ctx-item" onclick="renameFolderNow()"><span><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span><span>Переименовать</span></button>
-      <button class="ctx-item danger" onclick="deleteFolderNow()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg><span>Удалить</span></button>
-    </div></div>
+<div id="folder-ctx-overlay" onclick="closeFolderCtx(event)">
+  <div id="chatlist-ctx-blur-bg"></div>
+  <div id="folder-ctx-row-wrap"></div>
+  <div id="folder-ctx-menu">
+    <button class="ctx-item" onclick="renameFolderNow();closeFolderCtxClean();"><span><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span><span>Переименовать</span></button>
+    <button class="ctx-item danger" onclick="deleteFolderNow();closeFolderCtxClean();"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg><span>Удалить</span></button>
   </div>
 </div>
 

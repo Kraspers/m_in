@@ -1118,7 +1118,10 @@ function handleApi(req, res, urlObj) {
         if (action === 'add_to_folder') {
           const folder = chatFolderForUser(user, body.folderId);
           if (!folder) return sendJson(res, 404, { error: 'Папка не найдена' });
+          const folders = normalizeChatFolders(user);
+          folders.forEach(f => { if (f.id !== folder.id) f.chatIds = (Array.isArray(f.chatIds) ? f.chatIds : []).filter(id => id !== peerId); });
           folder.chatIds = Array.from(new Set([...(Array.isArray(folder.chatIds) ? folder.chatIds : []), peerId])).slice(0, 300);
+          user.chatFolders = folders;
           writeDb(db);
           const payload = normalizeChatFolders(user);
           sendEventToUser(user.id, 'chat_folders_update', { folders: payload });
