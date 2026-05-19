@@ -352,7 +352,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   #privacy-sheet::-webkit-scrollbar{display:none;}
 
   /* ── Шторка Кастомизация ── */
-  #customization-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:flex-end;pointer-events:none;}
+  #customization-wrap{position:fixed;inset:0;z-index:700;display:flex;align-items:flex-end;pointer-events:none;}
   #customization-wrap.open{pointer-events:all;}
   #customization-bg{position:absolute;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;transition:opacity 0.2s ease;}
   #customization-wrap.open #customization-bg{opacity:1;}
