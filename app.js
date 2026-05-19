@@ -2504,6 +2504,7 @@
     currentChatListEl=el;
     updateChatPinActionUI(el.classList.contains('chat-pinned'));
     updateChatListDeleteActionUI(el);
+    const addBtn=document.getElementById('chatlist-add-folder-btn'); if(addBtn) addBtn.style.display=(chatFolders&&chatFolders.length)?'flex':'none';
     if(clCloseTimer){clearTimeout(clCloseTimer);clCloseTimer=null;}
     clOverlay.classList.remove('open');
 
@@ -2515,7 +2516,7 @@
     const rect=el.getBoundingClientRect();
     const vh=window.innerHeight;
     const safeTop=80,safeBot=vh-16,gap=10;
-    const menuH=108;
+    const menuH=160;
 
     let cloneTop=Math.max(safeTop,rect.top);
     const spaceBelow=safeBot-(cloneTop+rect.height+gap);
@@ -2620,6 +2621,14 @@
   }
 
   document.querySelectorAll('.chat-row-item').forEach(bindChatRow);
+  const mainChatList=document.getElementById('chat-list');
+  if(mainChatList){
+    mainChatList.addEventListener('wheel',e=>{
+      if(!isDesktop()) return;
+      mainChatList.scrollTop+=e.deltaY;
+      e.preventDefault();
+    },{passive:false});
+  }
 
   /* ── Нажатие на цитату → переход к оригиналу ── */
   function bindQuoteTap(quoteEl){
@@ -3160,6 +3169,9 @@
       currentCustomization=normalizeClientCustomization(value);
       setBodyToken('chat-theme-',currentCustomization.theme,CUSTOM_THEMES);
       setBodyToken('chat-bg-',currentCustomization.background,CUSTOM_BACKGROUNDS);
+      const chatScreen=document.getElementById('screen-chat');
+      const favScreen=document.getElementById('screen-favorites');
+      [chatScreen,favScreen].forEach(el=>{ if(!el) return; el.style.backgroundImage=''; el.style.backgroundSize=''; el.style.backgroundPosition=''; el.style.backgroundRepeat=''; });
       const content=document.querySelector('.customization-content');
       if(content){
         content.classList.toggle('preview-bg-wallpaper',currentCustomization.background==='wallpaper');
@@ -3373,8 +3385,33 @@
       if(activeChatFolderId!=='all'&&!folders.some(f=>f.id===activeChatFolderId)) activeChatFolderId='all';
       bar.style.display='flex';
       const tabs=[{id:'all',name:'Все'},...folders];
-      bar.innerHTML=tabs.map(f=>`<button class="chat-folder-tab ${f.id===activeChatFolderId?'active':''}" data-folder-id="${esc(f.id)}">${esc(f.name)}</button>`).join('');
-      bar.querySelectorAll('.chat-folder-tab').forEach(btn=>btn.onclick=()=>{ activeChatFolderId=btn.dataset.folderId||'all'; renderChatFolderTabs(); loadChats('',{showSkeleton:false}); });
+      bar.innerHTML=`<div class="chat-folder-active-pill"></div>${tabs.map(f=>`<button class="chat-folder-tab ${f.id===activeChatFolderId?'active':''}" data-folder-id="${esc(f.id)}" title="${esc(f.name)}">${esc(f.name)}</button>`).join('')}`;
+      const activeBtn=bar.querySelector('.chat-folder-tab.active');
+      const pill=bar.querySelector('.chat-folder-active-pill');
+      if(activeBtn&&pill){ pill.style.left=activeBtn.offsetLeft+'px'; pill.style.width=activeBtn.offsetWidth+'px'; }
+      if(activeBtn) activeBtn.scrollIntoView({behavior:'auto',inline:'center',block:'nearest'});
+      bar.querySelectorAll('.chat-folder-tab').forEach(btn=>btn.onclick=()=>{
+        activeChatFolderId=btn.dataset.folderId||'all';
+        renderChatFolderTabs();
+        const holder=document.getElementById('chat-list');
+        if(holder&&Array.isArray(latestChatItems)){
+          let items=[...latestChatItems];
+          if(activeChatFolderId!=='all'){
+            const folder=chatFolders.find(f=>f.id===activeChatFolderId);
+            const ids=new Set(folder&&Array.isArray(folder.chatIds)?folder.chatIds:[]);
+            items=items.filter(it=>ids.has(it.id));
+          }
+          const empty=document.getElementById('chat-list-empty'); if(empty) empty.style.display=items.length?'none':'block';
+          holder.querySelectorAll('.chat-row-item,.chat-row-skeleton').forEach(n=>n.remove());
+          holder.insertAdjacentHTML('beforeend',items.map(c=>`<button class="chat-row chat-row-item ${c.isPinned?'chat-pinned':''}" data-chat-id="${esc(c.id||'')}">${c.isPinned?'<div class="chat-pin-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 640 640" fill="rgba(255,255,255,0.9)"><path d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/></svg></div>':''}<div class="chat-avatar-wrap ${presenceFor(c.id).online?'is-online':''}" data-chat-id="${esc(c.id||'')}"><div class="tg-avatar chat-open-avatar" data-chat-id="${esc(c.id||'')}" style="width:48px;height:48px;background:${esc(c.color||'linear-gradient(135deg,#0078FF,#005fcc)')};font-size:20px;overflow:hidden;">${c.avatarDataUrl?`<img src="${esc(c.avatarDataUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:(c.deleted||c.avatar==='⌧'?deletedAvatarMarkup(22):esc(c.avatar||'U'))}</div><span class="online-dot"></span></div><div style="flex:1;min-width:0;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span class="chat-row-name" style="color:#fff;font-size:16px;font-weight:600;">${nameWithVerificationHtml(c.name||t('user'),!!c.verified)}</span></div>${renderChatPreviewHtml(c.preview)}</div></button>`).join(''));
+          holder.querySelectorAll('.chat-row-item').forEach(bindChatRow);
+        }
+        loadChats('',{showSkeleton:false});
+      });
+      if(!bar.dataset.wheelBound){
+        bar.dataset.wheelBound='1';
+        bar.addEventListener('wheel',e=>{ if(!isDesktop()) return; bar.scrollLeft+=e.deltaY+e.deltaX; e.preventDefault(); },{passive:false});
+      }
     }
 
     function chatFoldersMenuIcon(type){
@@ -3385,7 +3422,12 @@
     function renderChatFoldersMenu(){
       const box=document.getElementById('chat-folders-list');
       if(!box) return;
-      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button><button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
+      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon plain">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button>${(chatFolders||[]).map(f=>`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button" data-folder-id="${esc(f.id)}"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">${esc(f.name)}</span></button>`).join('')}<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
+      box.querySelectorAll('[data-folder-id]').forEach(b=>{
+        b.onclick=()=>{ activeChatFolderId=b.dataset.folderId||'all'; closeChatFoldersMenu(); renderChatFolderTabs(); loadChats('',{showSkeleton:false}); };
+        b.oncontextmenu=(e)=>{ e.preventDefault(); openFolderManageMenu(b.dataset.folderId||'',b); };
+        let t=null; b.addEventListener('pointerdown',()=>{ t=setTimeout(()=>openFolderManageMenu(b.dataset.folderId||'',b),420); }); b.addEventListener('pointerup',()=>{ if(t) clearTimeout(t); }); b.addEventListener('pointerleave',()=>{ if(t) clearTimeout(t); });
+      });
     }
 
     window.openChatFoldersMenu=function(){
@@ -3440,6 +3482,15 @@
       finally{ folderCreateInFlight=false; if(btn){btn.disabled=false;btn.classList.remove('loading');} }
     };
 
+
+    let currentFolderManageId='',currentFolderManageEl=null,folderCtxCloseTimer=null,folderMsgOriginalOffset=0;
+    window.openFolderManageMenu=function(folderId,el){ if(!folderId||!el)return; currentFolderManageId=folderId; currentFolderManageEl=el; const ov=document.getElementById('folder-ctx-overlay'); const rw=document.getElementById('folder-ctx-row-wrap'); const mn=document.getElementById('folder-ctx-menu'); if(!ov||!rw||!mn)return; if(folderCtxCloseTimer){clearTimeout(folderCtxCloseTimer);folderCtxCloseTimer=null;} ov.classList.remove('open'); const clone=el.cloneNode(true); clone.style.cssText='display:flex;align-items:center;gap:12px;background:#1A1A1A;border-radius:999px;padding:12px 16px;width:100%;box-sizing:border-box;'; rw.innerHTML=''; rw.appendChild(clone); const rect=el.getBoundingClientRect(); const vh=window.innerHeight; const safeTop=80,safeBot=vh-16,gap=10,menuH=108; let cloneTop=Math.max(safeTop,rect.top); const spaceBelow=safeBot-(cloneTop+rect.height+gap); let menuTop=spaceBelow>=menuH?cloneTop+rect.height+gap:cloneTop-menuH-gap; rw.style.top=cloneTop+'px'; mn.style.top=menuTop+'px'; folderMsgOriginalOffset=rect.top-cloneTop; rw.style.transition='none'; rw.style.transform=`translateY(${folderMsgOriginalOffset}px)`; requestAnimationFrame(()=>requestAnimationFrame(()=>{ov.classList.add('open'); rw.style.transition='transform 0.32s cubic-bezier(0.25,0.46,0.45,0.94)'; rw.style.transform='translateY(0)';})); };
+    window.closeFolderCtx=function(e){const ov=document.getElementById('folder-ctx-overlay'); if(!ov)return; if(e&&e.target!==ov&&e.target!==document.getElementById('folder-ctx-blur-bg'))return; closeFolderCtxClean();};
+    window.closeFolderCtxClean=function(){ const ov=document.getElementById('folder-ctx-overlay'); const rw=document.getElementById('folder-ctx-row-wrap'); const mn=document.getElementById('folder-ctx-menu'); if(!ov||!rw||!mn)return; ov.style.pointerEvents='none'; ov.style.transition='opacity 0.30s ease'; ov.style.opacity='0'; rw.style.transition='transform 0.28s cubic-bezier(0.36,0,0.66,0)'; rw.style.transform=`translateY(${folderMsgOriginalOffset}px)`; mn.style.transition='transform 0.28s cubic-bezier(0.36,0,0.66,0),opacity 0.24s ease'; mn.style.transform='translateX(-50%) scale(0.86)'; mn.style.opacity='0'; folderCtxCloseTimer=setTimeout(()=>{ ov.classList.remove('open'); ov.style.transition='';ov.style.opacity='';ov.style.pointerEvents=''; rw.style.transition='';rw.style.transform=''; mn.style.transition='';mn.style.transform='';mn.style.opacity=''; setTimeout(()=>{rw.innerHTML='';folderCtxCloseTimer=null;},100); },310); };
+    window.renameFolderNow=function(){ const f=(chatFolders||[]).find(x=>x.id===currentFolderManageId); if(!f) return; closeFolderCtxClean(); openCreateFolderMenu(); document.getElementById('folder-pick-step').style.display='none'; document.getElementById('folder-name-step').style.display='block'; folderPickedIds=new Set((f.chatIds||[]).map(String)); const i=document.getElementById('folder-name-input'); if(i) i.value=f.name||''; const b=document.getElementById('create-folder-btn'); if(b){ b.textContent='Сохранить'; b.style.display='block'; b.onclick=async function(){ const name=(i?.value||'').trim(); if(!name)return; await api(`/me/chat-folders/${encodeURIComponent(currentFolderManageId)}`,{method:'PATCH',body:JSON.stringify({name})}); closeCreateFolderMenu(); chatFolders=(await api('/me/chat-folders')).folders||chatFolders; renderChatFolderTabs(); renderChatFoldersMenu(); loadChats('',{showSkeleton:false}); b.onclick=createFolderNow; b.textContent='Создать папку'; }; }; };
+    window.deleteFolderNow=async function(){ if(!currentFolderManageId) return; await api(`/me/chat-folders/${encodeURIComponent(currentFolderManageId)}`,{method:'DELETE'}); closeFolderCtxClean(); if(activeChatFolderId===currentFolderManageId) activeChatFolderId='all'; renderChatFolderTabs(); renderChatFoldersMenu(); loadChats('',{showSkeleton:false}); };
+    window.openAddToFolderMenuFromChat=function(){ if(!currentChatListEl||!chatFolders.length) return; const box=document.getElementById('add-to-folder-list'); if(!box) return; const cid=currentChatListEl.dataset.chatId||''; box.innerHTML=chatFolders.map(f=>`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button" data-folder-id="${esc(f.id)}"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">${esc(f.name)}</span></button>`).join(''); box.querySelectorAll('[data-folder-id]').forEach(b=>b.onclick=async()=>{ try{ const res=await api(`/chats/${encodeURIComponent(cid)}`,{method:'PATCH',body:JSON.stringify({action:'add_to_folder',folderId:b.dataset.folderId})}); if(res&&Array.isArray(res.folders)){ chatFolders=res.folders; renderChatFolderTabs(); } closeAddToFolderMenu(); loadChats('',{showSkeleton:false}); }catch(e){ alert(e.message||t('generic_error')); } }); const w=document.getElementById('add-to-folder-wrap'); if(!w) return; w.style.display=''; requestAnimationFrame(()=>w.classList.add('open')); };
+    window.closeAddToFolderMenu=function(){const w=document.getElementById('add-to-folder-wrap'); if(!w)return; w.classList.remove('open');};
     async function loadChats(query='',opts={}){
       const showSkeleton=opts.showSkeleton!==false;
       const holder=document.getElementById('chat-list');
