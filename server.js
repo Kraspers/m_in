@@ -189,6 +189,9 @@ function isValidUsername(username) {
   const u = String(username || '').trim();
   return /^[A-Za-z0-9_]{5,70}$/.test(u);
 }
+function normalizeUsername(username) {
+  return String(username || '').trim().toLowerCase();
+}
 
 function makeVpscCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
@@ -580,18 +583,20 @@ function handleApi(req, res, urlObj) {
     return readBody(req)
       .then(body => {
         const { name, username, password } = body;
-        if (!username || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
-        if (!isValidUsername(username)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
+        const usernameRaw = String(username || '').trim();
+        const usernameNorm = normalizeUsername(usernameRaw);
+        if (!usernameRaw || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
+        if (!isValidUsername(usernameRaw)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
         const db = readDb();
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Регистрация заблокирована.', deviceBan);
-        if (db.users.some(u => u.username.toLowerCase() === String(username).toLowerCase())) {
+        if (db.users.some(u => normalizeUsername(u.username) === usernameNorm)) {
           return sendJson(res, 409, { error: 'Пользователь уже существует' });
         }
         const user = {
           id: crypto.randomUUID(),
-          name: name || username,
-          username,
+          name: name || usernameRaw,
+          username: usernameRaw,
           passwordHash: hashPasswordSecure(password),
           vpscCodeEnc: encryptString(makeUniqueVpscCode(db)),
           blockedUsers: [],
@@ -616,10 +621,12 @@ function handleApi(req, res, urlObj) {
     return readBody(req)
       .then(body => {
         const { username, password } = body;
+        const usernameNorm = normalizeUsername(username);
+        if (!usernameNorm || !password) return sendJson(res, 400, { error: 'username и пароль обязательны' });
         const db = readDb();
         const deviceBan = getActiveDeviceBan(db, req);
         if (deviceBan) return sendBanResponse(res, 'Вы были заблокированы', deviceBan);
-        const user = db.users.find(u => u.username === username && verifyPassword(password || '', u.passwordHash));
+        const user = db.users.find(u => normalizeUsername(u.username) === usernameNorm && verifyPassword(password || '', u.passwordHash));
         if (!user) return sendJson(res, 401, { error: 'Неверный логин или пароль' });
         let secretsChanged = migrateUserSecrets(user);
         if (shouldUpgradePasswordHash(user.passwordHash)) { user.passwordHash = hashPasswordSecure(password || ''); secretsChanged = true; }
@@ -769,8 +776,9 @@ function handleApi(req, res, urlObj) {
         const user = getUserByToken(req, db);
         if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
         const nextUsername = String(body.username || '').trim();
+        const nextUsernameNorm = normalizeUsername(nextUsername);
         if (nextUsername && !isValidUsername(nextUsername)) return sendJson(res, 400, { error: 'username: только латиница/цифры/_ и длина 5-70' });
-        if (nextUsername && db.users.some(u => u.id !== user.id && u.username.toLowerCase() === nextUsername.toLowerCase())) {
+        if (nextUsername && db.users.some(u => u.id !== user.id && normalizeUsername(u.username) === nextUsernameNorm)) {
           return sendJson(res, 409, { error: 'username уже занят' });
         }
         user.name = String(body.name || user.name || '').trim() || user.name;
@@ -933,6 +941,24 @@ function handleApi(req, res, urlObj) {
         .filter(id => id && !String(id).startsWith('group_') && !groupIds.has(id))
     );
     const userById = new Map((db.users || []).map(u => [u.id, u]));
+
+    const publicGroups = q
+      ? (db.groups || [])
+          .filter(g => g && g.id && !Array.isArray(g.members) ? false : true)
+          .filter(g => g && g.id && !((g.members || []).includes(user.id)))
+          .filter(g => String(g.name || '').toLowerCase().includes(q) || String(g.bio || '').toLowerCase().includes(q) || String(g.inviteCode || '').toLowerCase().includes(q))
+          .map(g => ({
+            ...publicGroupPreview(g),
+            isGroup: true,
+            isPublicPreview: true,
+            preview: g.bio || 'Группа',
+            lastCreatedAt: g.createdAt || '',
+            isPinned: false,
+            pinIndex: Number.MAX_SAFE_INTEGER,
+            unreadCount: 0
+          }))
+      : [];
+
     const items = [...dialogUserIds]
       .map(uid => {
         const u = userById.get(uid);
@@ -982,8 +1008,10 @@ function handleApi(req, res, urlObj) {
         const lastMedia = last ? messageMedia(last) : [];
         const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
         const lastReadAt = String(readMap[g.id] || '');
-        return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? '📷 Медиа' : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
+        const hasVoiceMedia = lastMedia.some(raw => String(raw || '').startsWith('data:audio'));
+        return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? (hasVoiceMedia ? '🎤 Голосовое сообщение' : '📷 Медиа') : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
       }))
+      .concat(publicGroups)
       .filter(u => {
         const n = String(u.name || '').toLowerCase();
         const un = String((u.username || '')).toLowerCase();
@@ -1091,9 +1119,9 @@ function handleApi(req, res, urlObj) {
 
   if (pathname === '/api/public-profile' && method === 'GET') {
     const db = readDb();
-    const username = String(searchParams.get('username') || '').trim().toLowerCase();
+    const username = normalizeUsername(searchParams.get('username') || '');
     if (!username) return sendJson(res, 200, { user: null });
-    const u = db.users.find(x => String(x.username || '').toLowerCase() === username);
+    const u = db.users.find(x => normalizeUsername(x.username) === username);
     if (!u) return sendJson(res, 200, { user: null });
     return sendJson(res, 200, { user: publicUser(u) });
   }
