@@ -1,14 +1,2 @@
-async function loginAdmin(){
-  const pass=document.getElementById('pass').value;
-  const err=document.getElementById('err');
-  err.textContent='';
-  try{
-    const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(j.error||'Ошибка входа');
-    localStorage.setItem('adminToken',j.token);
-    location.href='/admin-panel';
-  }catch(e){err.textContent=e.message;}
-}
-document.getElementById('loginBtn').addEventListener('click',loginAdmin);
-document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')loginAdmin();});
+/* protected bundle */
+(()=>{const d='Lyogb2JmdXNjYXRlZCBidW5kbGUgKi8KKGZ1bmN0aW9uKCl7Y29uc3QgX19iNjQ9J1lYTjVibU1nWm5WdVkzUnBiMjRnYkc5bmFXNUJaRzFwYmlncGV3b2dJR052Ym5OMElIQmhjM005Wkc5amRXMWxiblF1WjJWMFJXeGxiV1Z1ZEVKNVNXUW9KM0JoYzNNbktTNTJZV3gxWlRzS0lDQmpiMjV6ZENCbGNuSTlaRzlqZFcxbGJuUXVaMlYwUld4bGJXVnVkRUo1U1dRb0oyVnljaWNwT3dvZ0lHVnljaTUwWlhoMFEyOXVkR1Z1ZEQwbkp6c0tJQ0IwY25sN0NpQWdJQ0JqYjI1emRDQnlQV0YzWVdsMElHWmxkR05vS0NjdllYQnBMMkZrYldsdUwyeHZaMmx1Snl4N2JXVjBhRzlrT2lkUVQxTlVKeXhvWldGa1pYSnpPbnNuUTI5dWRHVnVkQzFVZVhCbEp6b25ZWEJ3YkdsallYUnBiMjR2YW5OdmJpZDlMR0p2WkhrNlNsTlBUaTV6ZEhKcGJtZHBabmtvZTNCaGMzTjNiM0prT25CaGMzTjlLWDBwT3dvZ0lDQWdZMjl1YzNRZ2FqMWhkMkZwZENCeUxtcHpiMjRvS1M1allYUmphQ2dvS1QwK0tIdDlLU2s3Q2lBZ0lDQnBaaWdoY2k1dmF5a2dkR2h5YjNjZ2JtVjNJRVZ5Y205eUtHb3VaWEp5YjNKOGZDZlFudEdJMExqUXNkQzYwTEFnMExMUmhkQyswTFRRc0NjcE93b2dJQ0FnYkc5allXeFRkRzl5WVdkbExuTmxkRWwwWlcwb0oyRmtiV2x1Vkc5clpXNG5MR291ZEc5clpXNHBPd29nSUNBZ2JHOWpZWFJwYjI0dWFISmxaajBuTDJGa2JXbHVMWEJoYm1Wc0p6c0tJQ0I5WTJGMFkyZ29aU2w3WlhKeUxuUmxlSFJEYjI1MFpXNTBQV1V1YldWemMyRm5aVHQ5Q24wS1pHOWpkVzFsYm5RdVoyVjBSV3hsYldWdWRFSjVTV1FvSjJ4dloybHVRblJ1SnlrdVlXUmtSWFpsYm5STWFYTjBaVzVsY2lnblkyeHBZMnNuTEd4dloybHVRV1J0YVc0cE93cGtiMk4xYldWdWRDNW5aWFJGYkdWdFpXNTBRbmxKWkNnbmNHRnpjeWNwTG1Ga1pFVjJaVzUwVEdsemRHVnVaWElvSjJ0bGVXUnZkMjRuTEdVOVBudHBaaWhsTG10bGVUMDlQU2RGYm5SbGNpY3BiRzluYVc1QlpHMXBiaWdwTzMwcE93bz0nO2NvbnN0IF9fc3JjPWRlY29kZVVSSUNvbXBvbmVudChlc2NhcGUoYXRvYihfX2I2NCkpKTsoMCxldmFsKShfX3NyYyk7fSkoKTsK';const s=decodeURIComponent(escape(atob(d)));(0,eval)(s);})();
