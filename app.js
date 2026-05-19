@@ -2621,6 +2621,14 @@
   }
 
   document.querySelectorAll('.chat-row-item').forEach(bindChatRow);
+  const mainChatList=document.getElementById('chat-list');
+  if(mainChatList){
+    mainChatList.addEventListener('wheel',e=>{
+      if(!isDesktop()) return;
+      mainChatList.scrollTop+=e.deltaY;
+      e.preventDefault();
+    },{passive:false});
+  }
 
   /* ── Нажатие на цитату → переход к оригиналу ── */
   function bindQuoteTap(quoteEl){
@@ -3378,7 +3386,7 @@
       const activeBtn=bar.querySelector('.chat-folder-tab.active');
       const pill=bar.querySelector('.chat-folder-active-pill');
       if(activeBtn&&pill){ pill.style.left=activeBtn.offsetLeft+'px'; pill.style.width=activeBtn.offsetWidth+'px'; }
-      if(activeBtn) activeBtn.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+      if(activeBtn) activeBtn.scrollIntoView({behavior:'auto',inline:'center',block:'nearest'});
       bar.querySelectorAll('.chat-folder-tab').forEach(btn=>btn.onclick=()=>{ activeChatFolderId=btn.dataset.folderId||'all'; renderChatFolderTabs(); loadChats('',{showSkeleton:false}); });
     }
 

@@ -482,6 +482,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   #chatlist-ctx-overlay.open #chatlist-ctx-menu{transform:scale(1);opacity:1;}
   #folder-ctx-overlay{position:fixed;inset:0;z-index:230;opacity:0;pointer-events:none;}
   #folder-ctx-overlay.open{opacity:1;pointer-events:all;}
+  #folder-ctx-blur-bg{position:absolute;inset:0;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(0,0,0,0.55);}
   #folder-ctx-row-wrap{position:absolute;left:12px;right:12px;}
   #folder-ctx-menu{position:absolute;left:12px;right:12px;background:#2C2C2E;border-radius:1.2rem;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6);will-change:transform,opacity;transform-origin:top center;transform:scale(0.86);opacity:0;transition:transform 0.32s cubic-bezier(0.22,1,0.36,1),opacity 0.24s ease;}
   #folder-ctx-overlay.open #folder-ctx-menu{transform:scale(1);opacity:1;}
@@ -548,6 +549,9 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
     #screen-list > .header-blur {
       padding: 20px 20px 18px !important;
       border-radius: 0 !important;
+      background: rgba(100,100,110,0.28) !important;
+      backdrop-filter: blur(28px) !important;
+      -webkit-backdrop-filter: blur(28px) !important;
     }
 
     /* ── Экраны сайдбара (поиск, профиль) — поверх списка чатов ── */
@@ -755,11 +759,11 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 .msg-bubble .group-sender-name:first-child + .msg-media-grid,
 .msg-bubble .group-sender-name:first-child + div .msg-media-grid{border-top-left-radius:0!important;border-top-right-radius:0!important;}
 
-.chat-folder-tabs{margin:10px 12px 0;padding:6px;display:flex;gap:6px;overflow-x:auto;flex-wrap:nowrap;border-radius:999px;background:rgba(255,255,255,.12);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);scrollbar-width:none;flex-shrink:0;position:relative;}
+.chat-folder-tabs{margin:10px 12px 0;padding:6px;display:flex;gap:6px;overflow-x:auto;flex-wrap:nowrap;border-radius:999px;background:rgba(255,255,255,.10);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);scrollbar-width:none;flex-shrink:0;position:relative;box-shadow:none;}
 .chat-folder-tabs::-webkit-scrollbar{display:none;}
-.chat-folder-tab{position:relative;z-index:2;border:none;border-radius:999px;background:transparent;color:#fff;padding:7px 12px;font-size:15px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;text-overflow:ellipsis;flex:0 0 116px;min-width:116px;max-width:116px;}
+.chat-folder-tab{position:relative;z-index:2;border:none;border-radius:999px;background:transparent;color:#fff;padding:7px 12px;font-size:15px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);overflow:hidden;text-overflow:ellipsis;flex:1 0 0;min-width:100px;}
 .chat-folder-tab.active{color:#fff;}
-.chat-folder-active-pill{position:absolute;top:6px;left:6px;height:calc(100% - 12px);border-radius:999px;background:rgba(255,255,255,.28);transition:left .2s ease,width .2s ease;z-index:1;}
+.chat-folder-active-pill{position:absolute;top:6px;left:6px;height:calc(100% - 12px);border-radius:999px;background:rgba(255,255,255,.22);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:left .18s ease,width .18s ease;z-index:1;}
 .chat-folders-menu-list{padding:14px 16px 34px;display:flex;flex-direction:column;gap:10px;}
 .chat-folder-menu-pill{width:100%;border:none;border-radius:999px;background:#2C2C2E;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:12px;font-size:16px;font-weight:800;font-family:inherit;text-align:left;cursor:pointer;}
 .chat-folder-menu-pill svg{width:21px;height:21px;fill:currentColor;flex-shrink:0;}
