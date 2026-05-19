@@ -4112,6 +4112,7 @@
         }
         window.selectCustomizationBackground(btn.dataset.background);
       };
+      btn.addEventListener('touchstart',applyBg,{passive:false});
       btn.addEventListener('touchend',applyBg,{passive:false});
       btn.addEventListener('pointerup',applyBg);
       btn.addEventListener('click',applyBg);
