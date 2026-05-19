@@ -3169,6 +3169,20 @@
       currentCustomization=normalizeClientCustomization(value);
       setBodyToken('chat-theme-',currentCustomization.theme,CUSTOM_THEMES);
       setBodyToken('chat-bg-',currentCustomization.background,CUSTOM_BACKGROUNDS);
+      const bgUrl=isDesktop()?'wallpaper-pc.png':'wallpaper-mob.png';
+      const chatScreen=document.getElementById('screen-chat');
+      const favScreen=document.getElementById('screen-favorites');
+      [chatScreen,favScreen].forEach(el=>{
+        if(!el) return;
+        if(currentCustomization.background==='wallpaper'){
+          el.style.backgroundImage=`url('${bgUrl}')`;
+          el.style.backgroundSize='cover';
+          el.style.backgroundPosition='center';
+          el.style.backgroundRepeat='no-repeat';
+        }else{
+          el.style.backgroundImage='none';
+        }
+      });
       const content=document.querySelector('.customization-content');
       if(content){
         content.classList.toggle('preview-bg-wallpaper',currentCustomization.background==='wallpaper');
@@ -3388,6 +3402,10 @@
       if(activeBtn&&pill){ pill.style.left=activeBtn.offsetLeft+'px'; pill.style.width=activeBtn.offsetWidth+'px'; }
       if(activeBtn) activeBtn.scrollIntoView({behavior:'auto',inline:'center',block:'nearest'});
       bar.querySelectorAll('.chat-folder-tab').forEach(btn=>btn.onclick=()=>{ activeChatFolderId=btn.dataset.folderId||'all'; renderChatFolderTabs(); loadChats('',{showSkeleton:false}); });
+      if(!bar.dataset.wheelBound){
+        bar.dataset.wheelBound='1';
+        bar.addEventListener('wheel',e=>{ if(!isDesktop()) return; bar.scrollLeft+=e.deltaY+e.deltaX; e.preventDefault(); },{passive:false});
+      }
     }
 
     function chatFoldersMenuIcon(type){
