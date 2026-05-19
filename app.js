@@ -4105,10 +4105,16 @@
     document.querySelectorAll('.custom-bg-card[data-background]').forEach(btn=>{
       if(btn.dataset.bgTouchBound==='1') return;
       btn.dataset.bgTouchBound='1';
-      btn.addEventListener('touchend',e=>{
-        e.preventDefault();
+      const applyBg=e=>{
+        if(e){
+          e.preventDefault();
+          e.stopPropagation();
+        }
         window.selectCustomizationBackground(btn.dataset.background);
-      },{passive:false});
+      };
+      btn.addEventListener('touchend',applyBg,{passive:false});
+      btn.addEventListener('pointerup',applyBg);
+      btn.addEventListener('click',applyBg);
     });
     window.openProfileEdit=function(){
       profileJustOpened=true;
