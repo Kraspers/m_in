@@ -762,7 +762,7 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 
 .chat-folder-tabs{margin:10px 12px 0;padding:6px;display:flex;gap:6px;overflow-x:auto;flex-wrap:nowrap;border-radius:999px;background:rgba(255,255,255,.10);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);scrollbar-width:none;flex-shrink:0;position:relative;box-shadow:none;}
 .chat-folder-tabs::-webkit-scrollbar{display:none;}
-.chat-folder-tabs::after{content:'';position:absolute;inset:2px;border-radius:999px;border:1px solid rgba(255,255,255,.06);pointer-events:none;z-index:3;}
+.chat-folder-tabs::after{content:'';position:absolute;inset:2px;border-radius:999px;border:1px solid transparent;background:rgba(0,0,0,0.001);pointer-events:none;z-index:3;}
 .chat-folder-tab{position:relative;z-index:2;border:none;border-radius:999px;background:transparent;color:#fff;padding:7px 12px;font-size:15px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer;overflow:hidden;text-overflow:ellipsis;flex:1 0 0;min-width:100px;}
 .chat-folder-tab.active{color:#fff;}
 .chat-folder-active-pill{position:absolute;top:6px;left:6px;height:calc(100% - 12px);border-radius:999px;background:rgba(255,255,255,.22);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:opacity .16s ease;z-index:1;}
