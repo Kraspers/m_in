@@ -3375,6 +3375,16 @@
       const tabs=[{id:'all',name:'Все'},...folders];
       bar.innerHTML=tabs.map(f=>`<button class="chat-folder-tab ${f.id===activeChatFolderId?'active':''}" data-folder-id="${esc(f.id)}">${esc(f.name)}</button>`).join('');
       bar.querySelectorAll('.chat-folder-tab').forEach(btn=>btn.onclick=()=>{ activeChatFolderId=btn.dataset.folderId||'all'; renderChatFolderTabs(); loadChats('',{showSkeleton:false}); });
+      if(bar.dataset.wheelBound!=='1'){
+        bar.dataset.wheelBound='1';
+        bar.addEventListener('wheel',e=>{
+          if(window.innerWidth<768) return;
+          const delta=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+          if(!delta) return;
+          e.preventDefault();
+          bar.scrollLeft+=delta;
+        },{passive:false});
+      }
     }
 
     function chatFoldersMenuIcon(type){
@@ -3385,7 +3395,19 @@
     function renderChatFoldersMenu(){
       const box=document.getElementById('chat-folders-list');
       if(!box) return;
-      box.innerHTML=`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('comment')}</span><span class="chat-row-name">Все</span></button><button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-folder-menu-icon">${chatFoldersMenuIcon('plus')}</span><span class="chat-row-name">Создать папку</span></button>`;
+      const rows=[`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button" data-folder-id="all"><span class="chat-row-name">Все</span></button>`];
+      const folders=Array.isArray(chatFolders)?chatFolders:[];
+      folders.forEach(f=>{
+        rows.push(`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill" type="button" data-folder-id="${esc(f.id)}"><span class="chat-row-name">${esc(f.name||'Папка')}</span></button>`);
+      });
+      rows.push(`<button class="chat-row chat-row-item mi-chat-row chat-folder-menu-pill create" type="button" onclick="openCreateFolderMenu()"><span class="chat-row-name">Создать папку</span></button>`);
+      box.innerHTML=rows.join('');
+      box.querySelectorAll('.chat-folder-menu-pill[data-folder-id]').forEach(btn=>btn.onclick=()=>{
+        activeChatFolderId=btn.dataset.folderId||'all';
+        closeChatFoldersMenu();
+        renderChatFolderTabs();
+        loadChats('',{showSkeleton:false});
+      });
     }
 
     window.openChatFoldersMenu=function(){
@@ -4102,21 +4124,6 @@
       if(!CUSTOM_BACKGROUNDS.has(background)) return;
       saveCustomization({background});
     };
-    document.querySelectorAll('.custom-bg-card[data-background]').forEach(btn=>{
-      if(btn.dataset.bgTouchBound==='1') return;
-      btn.dataset.bgTouchBound='1';
-      const applyBg=e=>{
-        if(e){
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        window.selectCustomizationBackground(btn.dataset.background);
-      };
-      btn.addEventListener('touchstart',applyBg,{passive:false});
-      btn.addEventListener('touchend',applyBg,{passive:false});
-      btn.addEventListener('pointerup',applyBg);
-      btn.addEventListener('click',applyBg);
-    });
     window.openProfileEdit=function(){
       profileJustOpened=true;
       document.getElementById('profile-edit-wrap').classList.add('open');
