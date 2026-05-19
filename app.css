@@ -752,8 +752,9 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 
 .chat-folder-tabs{margin:10px 12px 0;padding:6px;display:flex;gap:6px;overflow-x:auto;border-radius:999px;background:rgba(255,255,255,.12);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);scrollbar-width:none;flex-shrink:0;}
 .chat-folder-tabs::-webkit-scrollbar{display:none;}
-.chat-folder-tab{border:none;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;padding:7px 15px;font-size:15px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);}
+.chat-folder-tab{border:none;border-radius:999px;background:transparent;color:#fff;padding:7px 15px;font-size:15px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer;}
 .chat-folder-tab.active{background:rgba(255,255,255,.28);}
+.chat-folder-tab:not(.active){background:transparent;}
 .chat-folders-menu-list{padding:14px 16px 34px;display:flex;flex-direction:column;gap:10px;}
 .chat-folder-menu-pill{width:100%;border:none;border-radius:999px;background:#2C2C2E;color:#fff;padding:13px 16px;display:flex;align-items:center;gap:12px;font-size:16px;font-weight:800;font-family:inherit;text-align:left;cursor:pointer;}
 .chat-folder-menu-pill svg{width:21px;height:21px;fill:currentColor;flex-shrink:0;}
@@ -767,10 +768,16 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
   #chat-folders-wrap .mi-sheet{min-height:72dvh;max-height:96dvh;}
   #create-folder-wrap .mi-sheet{min-height:84dvh;max-height:96dvh;}
 }
-#chat-folder-tabs{justify-content:stretch;}
-.chat-folder-tab{flex:1 0 auto;text-align:center;}
+#chat-folder-tabs{justify-content:flex-start;overflow-x:auto;overflow-y:hidden;}
+.chat-folder-tab{flex:0 0 auto;text-align:center;min-width:108px;}
 .chat-folder-menu-pill{margin:0;width:100%;}
 .chat-folder-menu-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;color:#fff;background:linear-gradient(135deg,#0078FF,#005fcc);}
 .chat-folder-menu-icon svg{width:20px;height:20px;fill:currentColor;}
 .chat-folder-menu-pill.create .chat-folder-menu-icon{background:rgba(90,200,250,.14);color:#5AC8FA;}
 .chat-folder-menu-pill.create .chat-row-name{color:#5AC8FA!important;}
+
+@media (min-width:768px){
+  #create-folder-wrap .mi-sheet-slideable{width:min(620px,94vw)!important;}
+  #create-folder-wrap .mi-sheet{max-height:92dvh!important;min-height:88dvh!important;}
+  #chat-folder-tabs{scroll-behavior:smooth;}
+}
