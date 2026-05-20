@@ -942,7 +942,12 @@ function handleApi(req, res, urlObj) {
     );
     const userById = new Map((db.users || []).map(u => [u.id, u]));
 
-    const publicGroups = [];
+    const memberGroupsBySearch = q
+      ? (db.groups || [])
+          .filter(g => g && g.id && Array.isArray(g.members) && g.members.includes(user.id))
+          .filter(g => String(g.name || '').toLowerCase().includes(q) || String(g.bio || '').toLowerCase().includes(q) || String(g.inviteCode || '').toLowerCase().includes(q))
+          .map(g => g.id)
+      : [];
 
     const items = [...dialogUserIds]
       .map(uid => {
@@ -957,9 +962,9 @@ function handleApi(req, res, urlObj) {
         const lastText = last ? (last.isSystem ? String(last.systemText || '').trim() : messageText(last).trim()) : '';
         const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (lastText || (last.e2ee ? '' : (lastMedia.length
+          ? (lastText || (lastMedia.length
             ? (String(lastMedia[0] || '').startsWith('data:audio') ? 'Голосовое сообщение' : 'Медиа')
-            : '')))
+            : ''))
           : (username ? `@${username}` : '');
         const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
         const lastReadAt = String(readMap[uid] || '');
@@ -996,15 +1001,18 @@ function handleApi(req, res, urlObj) {
         const hasVoiceMedia = lastMedia.some(raw => String(raw || '').startsWith('data:audio'));
         return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? (hasVoiceMedia ? 'Голосовое сообщение' : 'Медиа') : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
       }))
-      .concat(publicGroups)
       .filter(u => {
+        if (!q) return true;
         const n = String(u.name || '').toLowerCase();
         const un = String((u.username || '')).toLowerCase();
-        return !q || n.includes(q) || un.includes(q);
+        if (n.includes(q) || un.includes(q)) return true;
+        return !!(u.isGroup && memberGroupsBySearch.includes(u.id));
       })
       .reduce((acc, item) => {
-        if (!item || !item.id || acc.some(x => x.id === item.id)) return acc;
-        acc.push(item);
+        if (!item || !item.id) return acc;
+        const idx = acc.findIndex(x => x.id === item.id);
+        if (idx === -1) acc.push(item);
+        else acc[idx] = item;
         return acc;
       }, [])
       .sort((a, b) => {
