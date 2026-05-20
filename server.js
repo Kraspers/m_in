@@ -942,21 +942,11 @@ function handleApi(req, res, urlObj) {
     );
     const userById = new Map((db.users || []).map(u => [u.id, u]));
 
-    const publicGroups = q
+    const memberGroupsBySearch = q
       ? (db.groups || [])
-          .filter(g => g && g.id && !Array.isArray(g.members) ? false : true)
-          .filter(g => g && g.id && !((g.members || []).includes(user.id)))
+          .filter(g => g && g.id && Array.isArray(g.members) && g.members.includes(user.id))
           .filter(g => String(g.name || '').toLowerCase().includes(q) || String(g.bio || '').toLowerCase().includes(q) || String(g.inviteCode || '').toLowerCase().includes(q))
-          .map(g => ({
-            ...publicGroupPreview(g),
-            isGroup: true,
-            isPublicPreview: true,
-            preview: g.bio || 'Группа',
-            lastCreatedAt: g.createdAt || '',
-            isPinned: false,
-            pinIndex: Number.MAX_SAFE_INTEGER,
-            unreadCount: 0
-          }))
+          .map(g => g.id)
       : [];
 
     const items = [...dialogUserIds]
@@ -972,9 +962,9 @@ function handleApi(req, res, urlObj) {
         const lastText = last ? (last.isSystem ? String(last.systemText || '').trim() : messageText(last).trim()) : '';
         const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (lastText || (last.e2ee ? '' : (lastMedia.length
-            ? (String(lastMedia[0] || '').startsWith('data:audio') ? '🎤 Голосовое сообщение' : '📷 Медиа')
-            : '')))
+          ? (lastText || (lastMedia.length
+            ? (String(lastMedia[0] || '').startsWith('data:audio') ? 'Голосовое сообщение' : 'Медиа')
+            : ''))
           : (username ? `@${username}` : '');
         const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
         const lastReadAt = String(readMap[uid] || '');
@@ -1009,14 +999,22 @@ function handleApi(req, res, urlObj) {
         const readMap = (user.chatReadAt && typeof user.chatReadAt === 'object') ? user.chatReadAt : {};
         const lastReadAt = String(readMap[g.id] || '');
         const hasVoiceMedia = lastMedia.some(raw => String(raw || '').startsWith('data:audio'));
-        return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? (hasVoiceMedia ? '🎤 Голосовое сообщение' : '📷 Медиа') : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
+        return { ...publicGroup(g, db, user.id), preview: last ? (lastText || (lastMedia.length ? (hasVoiceMedia ? 'Голосовое сообщение' : 'Медиа') : '')) : 'Группа', lastCreatedAt: last ? last.createdAt : g.createdAt || '', isPinned: pinOrder.has(g.id), pinIndex: pinOrder.has(g.id) ? pinOrder.get(g.id) : Number.MAX_SAFE_INTEGER, unreadCount: thread.filter(m => m.fromUserId !== user.id && (!lastReadAt || new Date(m.createdAt).getTime() > new Date(lastReadAt).getTime())).length };
       }))
-      .concat(publicGroups)
       .filter(u => {
+        if (!q) return true;
         const n = String(u.name || '').toLowerCase();
         const un = String((u.username || '')).toLowerCase();
-        return !q || n.includes(q) || un.includes(q);
+        if (n.includes(q) || un.includes(q)) return true;
+        return !!(u.isGroup && memberGroupsBySearch.includes(u.id));
       })
+      .reduce((acc, item) => {
+        if (!item || !item.id) return acc;
+        const idx = acc.findIndex(x => x.id === item.id);
+        if (idx === -1) acc.push(item);
+        else acc[idx] = item;
+        return acc;
+      }, [])
       .sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
         if (a.isPinned && b.isPinned) return a.pinIndex - b.pinIndex;
