@@ -61,3 +61,16 @@
 - API оптимизировать (кэш, батчинг, rate-limit),
 - при росте перейти на недорогой paid для API.
 
+
+## 5) Куда нажимать в твоём окне Cloudflare (как на скриншоте)
+
+1. Нажми **Create application** (синяя кнопка справа сверху).
+2. Выбери **Workers** (не Pages, потому что это backend/API).
+3. Нажми **Start with Hello World**.
+4. Назови сервис: `min-api`.
+5. После создания открой Worker и нажми **Edit code**.
+6. Вставь код из `worker-api/src/index.js` и нажми **Deploy**.
+7. Открой `https://<твой-worker>.workers.dev/health` — должен быть JSON `{"ok":true,...}`.
+8. Далее в Worker зайди в **Settings → Variables and Secrets** и добавь секреты.
+9. Затем **Settings → Triggers / Domains & Routes → Add Custom Domain** и укажи `api.твойдомен`.
+
