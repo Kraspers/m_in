@@ -1,0 +1,4 @@
+name = "min-api"
+main = "src/index.js"
+compatibility_date = "2026-05-21"
+compatibility_flags = ["nodejs_compat"]

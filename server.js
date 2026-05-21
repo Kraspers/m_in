@@ -26,6 +26,35 @@ const MIME_TYPES = {
   '.txt': 'text/plain; charset=utf-8'
 };
 
+
+const GLOBAL_SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+};
+
+function applySecurityHeaders(res, contentType = '') {
+  for (const [key, value] of Object.entries(GLOBAL_SECURITY_HEADERS)) {
+    res.setHeader(key, value);
+  }
+  const type = String(contentType || '').toLowerCase();
+  if (type.includes('text/html')) {
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';");
+  }
+  if (type.includes('javascript') || type.includes('html') || type.includes('json')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+}
+
+function shieldClientCode(source) {
+  const encoded = Buffer.from(String(source), 'utf8').toString('base64');
+  const antiDebug = "(()=>{const _b=()=>{const d=new Date();debugger;return new Date()-d>120;};setInterval(()=>{if(_b())location.reload();},1500);document.addEventListener('contextmenu',e=>e.preventDefault());window.addEventListener('keydown',e=>{const k=e.key||'';if(k==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(k.toUpperCase()))||(e.ctrlKey&&k.toUpperCase()==='U'))e.preventDefault();});})();";
+  return `(()=>{${antiDebug}const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
+}
+
 const sessions = new Map(); // token -> session
 const sseClients = new Map(); // token -> SSE response
 const linkPreviewCache = new Map();
@@ -58,6 +87,7 @@ function writeDb(db) {
 }
 
 function sendJson(res, status, data) {
+  applySecurityHeaders(res, 'application/json; charset=utf-8');
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
 }
@@ -1486,6 +1516,7 @@ function handleApi(req, res, urlObj) {
 function sendFile(res, filePath) {
   fs.readFile(filePath, (err, data) => {
     if (err) {
+      applySecurityHeaders(res, 'text/plain; charset=utf-8');
       res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
       return;
@@ -1493,13 +1524,13 @@ function sendFile(res, filePath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    if (path.basename(filePath) === 'app.js') {
-      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
-      const wrapped = `(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
+    if (ext === '.js') {
+      applySecurityHeaders(res, contentType);
       res.writeHead(200, { 'Content-Type': contentType });
-      res.end(wrapped);
+      res.end(shieldClientCode(data));
       return;
     }
+    applySecurityHeaders(res, contentType);
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(data);
   });
@@ -1517,6 +1548,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (requestUrl.pathname === '/index.html') {
+    applySecurityHeaders(res, 'text/plain; charset=utf-8');
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Not Found');
     return;
@@ -1531,6 +1563,7 @@ const server = http.createServer((req, res) => {
   const filePath = path.join(ROOT, safePath);
 
   if (!filePath.startsWith(ROOT)) {
+    applySecurityHeaders(res, 'text/plain; charset=utf-8');
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Forbidden');
     return;
