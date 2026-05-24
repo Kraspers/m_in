@@ -1494,6 +1494,26 @@ function setSecurityHeaders(res) {
 
 function sendFile(res, filePath) {
   fs.readFile(filePath, (err, data) => {
+    if (err && err.code === 'ENOENT' && STATIC_ROOT !== ROOT) {
+      const fallbackPath = path.join(ROOT, path.relative(STATIC_ROOT, filePath));
+      return fs.readFile(fallbackPath, (fallbackErr, fallbackData) => {
+        if (fallbackErr) {
+          res.writeHead(fallbackErr.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end(fallbackErr.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
+          return;
+        }
+        const ext = path.extname(fallbackPath).toLowerCase();
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+        if (fallbackPath.endsWith('.map')) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Not Found');
+          return;
+        }
+        setSecurityHeaders(res);
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(fallbackData);
+      });
+    }
     if (err) {
       res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
