@@ -5,6 +5,7 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
+const STATIC_ROOT = process.env.NODE_ENV === 'production' ? path.join(ROOT, 'dist') : ROOT;
 const DATA_DIR = path.join(ROOT, 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const MASTER_SECRET = process.env.MINIMUM_SECRET || process.env.SESSION_SECRET || 'minimum-local-development-secret-change-me';
@@ -1483,8 +1484,36 @@ function handleApi(req, res, urlObj) {
   return sendJson(res, 404, { error: 'Not found' });
 }
 
+function setSecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+}
+
 function sendFile(res, filePath) {
   fs.readFile(filePath, (err, data) => {
+    if (err && err.code === 'ENOENT' && STATIC_ROOT !== ROOT) {
+      const fallbackPath = path.join(ROOT, path.relative(STATIC_ROOT, filePath));
+      return fs.readFile(fallbackPath, (fallbackErr, fallbackData) => {
+        if (fallbackErr) {
+          res.writeHead(fallbackErr.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end(fallbackErr.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
+          return;
+        }
+        const ext = path.extname(fallbackPath).toLowerCase();
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+        if (fallbackPath.endsWith('.map')) {
+          res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Not Found');
+          return;
+        }
+        setSecurityHeaders(res);
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(fallbackData);
+      });
+    }
     if (err) {
       res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
@@ -1493,13 +1522,12 @@ function sendFile(res, filePath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    if (path.basename(filePath) === 'app.js') {
-      const encoded = Buffer.from(String(data), 'utf8').toString('base64');
-      const wrapped = `(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(wrapped);
+    if (filePath.endsWith('.map')) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Not Found');
       return;
     }
+    setSecurityHeaders(res);
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(data);
   });
@@ -1528,9 +1556,9 @@ const server = http.createServer((req, res) => {
   const isGroupInviteRoute = /^\/m-in\/group\/[A-Za-z0-9_-]{6,32}$/.test(requestUrl.pathname);
   const normalizedPath = requestUrl.pathname === '/' ? '/index.html' : (isAppRoute ? '/index.html' : (requestUrl.pathname === '/banned' ? '/banned.html' : ((isPublicProfileRoute || isGroupInviteRoute) ? '/m-in.html' : (requestUrl.pathname === '/admin-panel' ? '/admin-panel.html' : ((requestUrl.pathname === '/admin' || isAdminAlias) ? '/admin-login.html' : requestUrl.pathname)))));
   const safePath = path.normalize(normalizedPath).replace(/^([.][.][/\\])+/, '');
-  const filePath = path.join(ROOT, safePath);
+  const filePath = path.join(STATIC_ROOT, safePath);
 
-  if (!filePath.startsWith(ROOT)) {
+  if (!filePath.startsWith(STATIC_ROOT)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Forbidden');
     return;
