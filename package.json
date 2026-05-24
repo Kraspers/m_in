@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "build": "node build-secure.js",
+    "start": "NODE_ENV=production node server.js",
+    "start:dev": "node server.js"
+  },
+  "dependencies": {
+    "terser": "^5.31.0",
+    "clean-css": "^5.3.3",
+    "html-minifier-terser": "^7.2.0",
+    "javascript-obfuscator": "^4.1.1"
   }
 }
