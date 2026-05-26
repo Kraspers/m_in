@@ -1,14 +1,1 @@
-async function loginAdmin(){
-  const pass=document.getElementById('pass').value;
-  const err=document.getElementById('err');
-  err.textContent='';
-  try{
-    const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(j.error||'Ошибка входа');
-    localStorage.setItem('adminToken',j.token);
-    location.href='/admin-panel';
-  }catch(e){err.textContent=e.message;}
-}
-document.getElementById('loginBtn').addEventListener('click',loginAdmin);
-document.getElementById('pass').addEventListener('keydown',e=>{if(e.key==='Enter')loginAdmin();});
+(()=>{const s='YXN5bmMgZnVuY3Rpb24gbG9naW5BZG1pbigpewogIGNvbnN0IHBhc3M9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3Bhc3MnKS52YWx1ZTsKICBjb25zdCBlcnI9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2VycicpOwogIGVyci50ZXh0Q29udGVudD0nJzsKICB0cnl7CiAgICBjb25zdCByPWF3YWl0IGZldGNoKCcvYXBpL2FkbWluL2xvZ2luJyx7bWV0aG9kOidQT1NUJyxoZWFkZXJzOnsnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24vanNvbid9LGJvZHk6SlNPTi5zdHJpbmdpZnkoe3Bhc3N3b3JkOnBhc3N9KX0pOwogICAgY29uc3Qgaj1hd2FpdCByLmpzb24oKS5jYXRjaCgoKT0+KHt9KSk7CiAgICBpZighci5vaykgdGhyb3cgbmV3IEVycm9yKGouZXJyb3J8fCfQntGI0LjQsdC60LAg0LLRhdC+0LTQsCcpOwogICAgbG9jYWxTdG9yYWdlLnNldEl0ZW0oJ2FkbWluVG9rZW4nLGoudG9rZW4pOwogICAgbG9jYXRpb24uaHJlZj0nL2FkbWluLXBhbmVsJzsKICB9Y2F0Y2goZSl7ZXJyLnRleHRDb250ZW50PWUubWVzc2FnZTt9Cn0KZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2xvZ2luQnRuJykuYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLGxvZ2luQWRtaW4pOwpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgncGFzcycpLmFkZEV2ZW50TGlzdGVuZXIoJ2tleWRvd24nLGU9PntpZihlLmtleT09PSdFbnRlcicpbG9naW5BZG1pbigpO30pOwo=';const c=atob(s);const a=new Uint8Array(c.length);for(let i=0;i<c.length;i++)a[i]=c.charCodeAt(i);(0,eval)(new TextDecoder().decode(a));})();
