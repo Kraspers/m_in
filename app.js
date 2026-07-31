@@ -2545,6 +2545,14 @@
     updateChatPinActionUI(el.classList.contains('chat-pinned'));
     if(clCloseTimer){clearTimeout(clCloseTimer);clCloseTimer=null;}
     clOverlay.classList.remove('open');
+    clOverlay.style.transition='';
+    clOverlay.style.opacity='';
+    clOverlay.style.pointerEvents='';
+    clRowWrap.style.transition='';
+    clRowWrap.style.transform='';
+    clMenu.style.transition='';
+    clMenu.style.transform='';
+    clMenu.style.opacity='';
 
     const clone=el.cloneNode(true);
     clone.style.cssText='display:flex;align-items:center;gap:12px;background:#1A1A1A;border-radius:999px;padding:12px 16px;width:100%;box-sizing:border-box;';
@@ -2579,6 +2587,8 @@
     closeChatListCtxClean();
   }
   function closeChatListCtxClean(){
+    if(clCloseTimer){clearTimeout(clCloseTimer);clCloseTimer=null;}
+    const closingEl=currentChatListEl;
     clOverlay.style.pointerEvents='none';
     clOverlay.style.transition='opacity 0.30s ease';
     clOverlay.style.opacity='0';
@@ -2588,11 +2598,13 @@
     clMenu.style.transform='scale(0.86)';
     clMenu.style.opacity='0';
     clCloseTimer=setTimeout(()=>{
+      if(currentChatListEl!==closingEl&&clOverlay.classList.contains('open')) return;
       clOverlay.classList.remove('open');
       clOverlay.style.transition='';clOverlay.style.opacity='';clOverlay.style.pointerEvents='';
       clRowWrap.style.transition='';clRowWrap.style.transform='';
       clMenu.style.transition='';clMenu.style.transform='';clMenu.style.opacity='';
-      setTimeout(()=>{clRowWrap.innerHTML='';clCloseTimer=null;},100);
+      clRowWrap.innerHTML='';
+      clCloseTimer=null;
     },310);
   }
 
