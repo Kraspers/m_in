@@ -749,3 +749,11 @@ body.chat-theme-default .custom-chat-preview .bubble-out{background:#0078FF;}
 .msg-fwd .group-sender-name{margin:6px 10px 8px 10px;max-width:calc(100% - 20px);}
 .msg-bubble .group-sender-name:first-child + .msg-media-grid,
 .msg-bubble .group-sender-name:first-child + div .msg-media-grid{border-top-left-radius:0!important;border-top-right-radius:0!important;}
+
+#chat-list{position:relative;}
+.chat-list-loader{position:sticky;top:76px;align-self:center;z-index:6;width:56px;height:56px;margin:8px auto -64px;border-radius:18px;background:rgba(44,44,46,.58);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:center;color:#fff;opacity:0;transform:translateY(-6px) scale(.96);pointer-events:none;transition:opacity .18s ease,transform .18s ease;}
+.chat-list-loader.show{opacity:1;transform:translateY(0) scale(1);}
+.chat-list-loader svg{width:25px;height:25px;fill:currentColor;animation:chatLoaderSpin .75s linear infinite;}
+@keyframes chatLoaderSpin{to{transform:rotate(360deg);}}
+#chat-list-empty{transition:opacity .16s ease;}
+#chat-list.loading-empty #chat-list-empty{opacity:.58;}

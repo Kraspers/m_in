@@ -57,8 +57,18 @@ function writeDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
 }
 
+function securityHeaders(extra = {}) {
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'camera=(), geolocation=(), payment=()',
+    ...extra
+  };
+}
+
 function sendJson(res, status, data) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.writeHead(status, securityHeaders({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }));
   res.end(JSON.stringify(data));
 }
 
@@ -165,11 +175,11 @@ function plainTextFromBody(text, e2ee, fromUserId, toUserId) {
 }
 function secureMessageForStorage(msg) {
   if (!msg || msg.isSystem) return msg;
-  if (msg.e2ee && !messageText(msg)) {
-    const e2eeText = decryptLegacyE2eeText(msg.e2ee, msg.fromUserId, msg.toUserId);
-    if (e2eeText) { msg.textEnc = encryptString(e2eeText.slice(0, 4000)); msg.text = ''; }
+  if (msg.e2ee && msg.e2ee.ciphertext) {
+    msg.text = '';
+    msg.textEnc = '';
+    return msg;
   }
-  if (msg.e2ee && messageText(msg)) msg.e2ee = null;
   if (msg.text && !msg.textEnc) { msg.textEnc = encryptString(msg.text); msg.text = ''; }
   if (Array.isArray(msg.media) && msg.media.length && !Array.isArray(msg.mediaEnc)) { msg.mediaEnc = msg.media.map(encryptString); msg.media = []; }
   return msg;
@@ -512,7 +522,8 @@ function broadcastSessionsUpdate(userId) {
 }
 
 function normalizeMessage(msg) {
-  const plainText = msg.isSystem ? (msg.text || '') : messageText(msg);
+  const isClientEncrypted = !!(msg.e2ee && msg.e2ee.ciphertext);
+  const plainText = isClientEncrypted ? '' : (msg.isSystem ? (msg.text || '') : messageText(msg));
   const plainMedia = msg.isSystem ? (Array.isArray(msg.media) ? msg.media : []) : messageMedia(msg);
   return {
     id: msg.id,
@@ -928,7 +939,7 @@ function handleApi(req, res, urlObj) {
     const groupIds = new Set((db.groups || []).map(g => g.id).filter(Boolean));
     const dialogUserIds = new Set(
       messages
-        .filter(m => !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id))
+        .filter(m => !m.favoriteOwnerId && !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id))
         .map(m => (m.fromUserId === user.id ? m.toUserId : m.fromUserId))
         .filter(id => id && !String(id).startsWith('group_') && !groupIds.has(id))
     );
@@ -946,7 +957,7 @@ function handleApi(req, res, urlObj) {
         const lastText = last ? (last.isSystem ? String(last.systemText || '').trim() : messageText(last).trim()) : '';
         const lastMedia = last ? messageMedia(last) : [];
         const preview = last
-          ? (lastText || (last.e2ee ? '' : (lastMedia.length
+          ? (lastText || (last.e2ee ? '🔒 Зашифрованное сообщение' : (lastMedia.length
             ? (String(lastMedia[0] || '').startsWith('data:audio') ? '🎤 Голосовое сообщение' : '📷 Медиа')
             : '')))
           : (username ? `@${username}` : '');
@@ -1127,7 +1138,7 @@ function handleApi(req, res, urlObj) {
     const user = getUserByToken(req, db);
     if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
     const q = String(searchParams.get('q') || '').toLowerCase();
-    const ids = new Set((db.messages || []).filter(m => !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id)).map(m => m.fromUserId === user.id ? m.toUserId : m.fromUserId));
+    const ids = new Set((db.messages || []).filter(m => !m.favoriteOwnerId && !m.groupId && (m.fromUserId === user.id || m.toUserId === user.id)).map(m => m.fromUserId === user.id ? m.toUserId : m.fromUserId));
     const items = [...ids].map(id => db.users.find(u => u.id === id)).filter(Boolean).filter(u => !q || [u.name,u.username].join(' ').toLowerCase().includes(q)).map(u => ({ ...publicUserWithPresence(u), avatar: (u.name || u.username || 'U').charAt(0).toUpperCase(), color: colorForId(u.id) }));
     return sendJson(res, 200, { items });
   }
@@ -1279,6 +1290,31 @@ function handleApi(req, res, urlObj) {
   }
 
 
+
+  if (pathname === '/api/favorites' && method === 'GET') {
+    const db = readDb();
+    const user = getUserByToken(req, db);
+    if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+    const items = (db.messages || []).filter(m => m.favoriteOwnerId === user.id);
+    return sendJson(res, 200, { items: items.map(normalizeMessage) });
+  }
+
+  if (pathname === '/api/favorites' && method === 'POST') {
+    return readBody(req).then(body => {
+      const db = readDb();
+      const user = getUserByToken(req, db);
+      if (!user) return sendJson(res, 401, { error: 'Unauthorized' });
+      const text = String(body.text || '').trim().slice(0, 4000);
+      const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
+      if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+      const msg = { id: crypto.randomUUID(), favoriteOwnerId: user.id, fromUserId: user.id, toUserId: user.id, groupId: '', text: '', textEnc: encryptString(text), e2ee: null, media: [], mediaEnc: media.map(encryptString), voiceDurationMs: Number(body.voiceDurationMs) || 0, voiceWaveform: Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0,80) : [], listenedBy: [user.id], replyToMessageId: '', forwardedFromName: String(body.forwardedFromName || '').slice(0, 200), reactions: {}, pinnedBy: [], createdAt: new Date().toISOString() };
+      if (!Array.isArray(db.messages)) db.messages = [];
+      db.messages.push(msg);
+      writeDb(db);
+      return sendJson(res, 201, { message: normalizeMessage(msg) });
+    }).catch(err => sendJson(res, 400, { error: err.message }));
+  }
+
   if (pathname === '/api/typing' && method === 'POST') {
     return readBody(req)
       .then(body => {
@@ -1328,11 +1364,11 @@ function handleApi(req, res, urlObj) {
         const toUserId = String(body.toUserId || '');
         const rawText = String(body.text || '').trim();
         const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
-        const text = plainTextFromBody(rawText, e2ee, user.id, toUserId);
+        const text = e2ee ? '' : plainTextFromBody(rawText, null, user.id, toUserId);
         const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : [];
         const voiceDurationMs = Number.isFinite(Number(body.voiceDurationMs)) ? Math.max(0, Math.min(60*60*1000, Number(body.voiceDurationMs))) : 0;
         const voiceWaveform = Array.isArray(body.voiceWaveform) ? body.voiceWaveform.slice(0, 80).map(v=>Math.max(0,Math.min(32,Number(v)||0))) : [];
-        if (!text && !media.length) return sendJson(res, 400, { error: 'Пустое сообщение' });
+        if (!text && !media.length && !(e2ee && e2ee.ciphertext && e2ee.iv)) return sendJson(res, 400, { error: 'Пустое сообщение' });
         const group = (db.groups || []).find(g => g.id === toUserId);
         const peer = group ? null : db.users.find(u => u.id === toUserId);
         if (group) {
@@ -1349,8 +1385,8 @@ function handleApi(req, res, urlObj) {
           toUserId,
           groupId: group ? group.id : '',
           text: '',
-          textEnc: encryptString(text),
-          e2ee: null,
+          textEnc: e2ee ? '' : encryptString(text),
+          e2ee: e2ee || null,
           media: [],
           mediaEnc: media.map(encryptString),
           voiceDurationMs,
@@ -1410,13 +1446,13 @@ function handleApi(req, res, urlObj) {
           if (msg.fromUserId !== user.id) return sendJson(res, 403, { error: 'Можно редактировать только своё сообщение' });
           const rawText = String(body.text || '').trim();
           const e2ee = body.e2ee && typeof body.e2ee === 'object' ? { v: 1, alg: 'AES-GCM', ciphertext: String(body.e2ee.ciphertext || ''), iv: String(body.e2ee.iv || '') } : null;
-          const text = plainTextFromBody(rawText, e2ee, msg.fromUserId, msg.toUserId);
+          const text = e2ee ? '' : plainTextFromBody(rawText, null, msg.fromUserId, msg.toUserId);
           const media = Array.isArray(body.media) ? body.media.filter(Boolean).slice(0, 10) : null;
           const hasMedia = Array.isArray(media) ? media.length > 0 : Array.isArray(msg.media) && msg.media.length > 0;
-          if (!text && !hasMedia) return sendJson(res, 400, { error: 'Пустое сообщение' });
+          if (!text && !hasMedia && !(e2ee && e2ee.ciphertext && e2ee.iv)) return sendJson(res, 400, { error: 'Пустое сообщение' });
           msg.text = '';
-          msg.textEnc = encryptString(text);
-          msg.e2ee = null;
+          msg.textEnc = e2ee ? '' : encryptString(text);
+          msg.e2ee = e2ee || null;
           if (Array.isArray(media)) { msg.media = []; msg.mediaEnc = media.map(encryptString); }
           msg.editedAt = new Date().toISOString();
         } else if (action === 'listen') {
@@ -1486,7 +1522,7 @@ function handleApi(req, res, urlObj) {
 function sendFile(res, filePath) {
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(err.code === 'ENOENT' ? 404 : 500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.writeHead(err.code === 'ENOENT' ? 404 : 500, securityHeaders({ 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }));
       res.end(err.code === 'ENOENT' ? 'Not Found' : 'Internal Server Error');
       return;
     }
@@ -1496,11 +1532,11 @@ function sendFile(res, filePath) {
     if (path.basename(filePath) === 'app.js') {
       const encoded = Buffer.from(String(data), 'utf8').toString('base64');
       const wrapped = `(()=>{const __c="${encoded}";const __b=atob(__c);const __u=Uint8Array.from(__b,c=>c.charCodeAt(0));const __s=new TextDecoder('utf-8').decode(__u);(0,eval)(__s);})();`;
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, securityHeaders({ 'Content-Type': contentType, 'Cache-Control': 'no-store' }));
       res.end(wrapped);
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, securityHeaders({ 'Content-Type': contentType, 'Cache-Control': /\.(?:html|js|css)$/i.test(filePath) ? 'no-store' : 'public, max-age=86400' }));
     res.end(data);
   });
 }
@@ -1517,7 +1553,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (requestUrl.pathname === '/index.html') {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(404, securityHeaders({ 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }));
     res.end('Not Found');
     return;
   }
@@ -1531,7 +1567,7 @@ const server = http.createServer((req, res) => {
   const filePath = path.join(ROOT, safePath);
 
   if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(403, securityHeaders({ 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }));
     res.end('Forbidden');
     return;
   }
@@ -1541,5 +1577,5 @@ const server = http.createServer((req, res) => {
 
 ensureDb();
 server.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+  if (process.env.NODE_ENV !== 'production') console.log(`Server started on port ${PORT}`);
 });
