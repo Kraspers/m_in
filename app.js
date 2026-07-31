@@ -197,7 +197,43 @@
   }
 
   /* ── Избранное ── */
-  function openFavorites(){ showScreen('screen-favorites'); }
+  function openFavorites(){ showScreen('screen-favorites'); loadFavorites().catch(()=>{}); }
+  function renderFavoriteItems(items){
+    const msgs=document.getElementById('fav-messages');
+    const anchor=document.getElementById('fav-bottom');
+    if(!msgs||!anchor) return;
+    msgs.querySelectorAll(':scope > div').forEach(node=>{ if(node.id!=='fav-bottom'&&!node.classList.contains('fav-intro-wrap')) node.remove(); });
+    (items||[]).forEach(m=>{
+      const w=document.createElement('div');
+      w.style.cssText='align-self:flex-end;max-width:78%;';
+      const t=m.createdAt?new Date(m.createdAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
+      const tick=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1,5 4,8 9,2" stroke="rgba(255,255,255,.5)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      const media=(Array.isArray(m.media)?m.media:[]).map(src=>({src:String(src||''),type:String(src||'').startsWith('data:video')?'video':(String(src||'').startsWith('data:audio')?'audio':'image'),durationMs:m.voiceDurationMs||0,waveform:m.voiceWaveform||[]}));
+      if(media.length===1&&media[0].type==='audio'){
+        w.style.cssText='align-self:flex-end;max-width:276px;';
+        w.innerHTML=renderVoiceBubbleHtml({mine:true,src:media[0].src,durationMs:media[0].durationMs,timeText:t,waveform:media[0].waveform,showUnreadDot:false,text:m.text||''}).replace('class="','data-mid="'+esc(m.id)+'" class="');
+      }else if(media.length){
+        const textPart=m.text?`<p class="msg-text-out" style="padding:4px 8px 0;margin:0;">${renderRichText(m.text)}</p>`:'';
+        const gridHtml=buildMediaGrid(media,m.id,'calc(1.4rem - 3px) calc(1.4rem - 3px) 0 0',false);
+        w.innerHTML=`<div data-mid="${esc(m.id)}" class="bubble-out msg-bubble" style="padding:3px 4px 6px 4px;"><div style="overflow:hidden;margin-bottom:${m.text?'4px':'0'};">${gridHtml}</div>${textPart}<div class="msg-meta" style="padding-right:4px;"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
+      }else{
+        w.innerHTML=`<div data-mid="${esc(m.id)}" class="bubble-out msg-bubble"><p class="msg-text-out">${renderRichText(m.text||'')}</p><div class="msg-meta"><span class="msg-time-out">${t}</span>${tick}</div></div>`;
+      }
+      msgs.insertBefore(w,anchor);
+      const b=w.querySelector('.msg-bubble');
+      if(b) bindBubble(b);
+      bindMsgRow(w);
+      bindRichTextInteractions(w);
+      initVoicePlayers(w);
+    });
+    enrichLinkPreviews(msgs);
+    anchor.scrollIntoView({behavior:'auto'});
+  }
+  async function loadFavorites(){
+    if(!authToken) return;
+    const data=await api('/favorites');
+    renderFavoriteItems(data.items||[]);
+  }
   function closeProfileSidebar(){
     showScreen('screen-list');
   }
@@ -300,6 +336,7 @@
     msgs.insertBefore(w,anchor);
     inp.value='';
     dismissFavReply();
+    const favMediaToSave=hasMedia?attachedFavMedia.slice():[];
     clearFavMedia();
     updateFavBtn();
     anchor.scrollIntoView({behavior:'smooth'});
@@ -313,6 +350,9 @@
     setTimeout(()=>{
       newFavBubble.querySelectorAll('.mi-upload-anim').forEach(el=>el.remove());
     },220);
+    if(authToken){
+      Promise.all(favMediaToSave.map(m=>m&&m.src?blobUrlToDataUrl(m.src):m)).then(media=>api('/favorites',{method:'POST',body:JSON.stringify({text:txt,media})})).catch(()=>{});
+    }
   }
   function sendFavVoiceMessage(blob,durationMs,waveform=[]){
     const msgs=document.getElementById('fav-messages');
@@ -340,6 +380,11 @@
     initVoicePlayers(w);
     dismissFavReply();
     anchor.scrollIntoView({behavior:'smooth'});
+    if(authToken){
+      const r=new FileReader();
+      r.onload=()=>api('/favorites',{method:'POST',body:JSON.stringify({text:'',media:[String(r.result||'')],voiceDurationMs:durationMs,voiceWaveform:waveform})}).catch(()=>{});
+      r.readAsDataURL(blob);
+    }
   }
 
   /* ── Кнопка отправки ── */
